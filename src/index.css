@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+
+/* Inter self-hosted (variable). No dependemos de Google Fonts en runtime:
+   la fuente entra al precache del service worker y la PWA funciona offline. */
+@import './styles/fonts.css';
+
+/* ---------------------------------------------------------------------------
+   Design tokens de LeadEra.
+   Fuente única de verdad del sistema visual. Todo componente consume estos
+   tokens vía utilidades (bg-primary, text-ink-muted, ...), nunca hex sueltos.
+   Espejados en src/lib/theme.ts para cuando se necesitan desde TS.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Marca — teal heredado del LeadEra actual (Angular) */
+  --color-primary: #0f6e5c;
+  --color-primary-hover: #0c5a4b;
+  --color-primary-active: #094639;
+  --color-primary-soft: #e6f2ef;
+  --color-primary-contrast: #ffffff;
+
+  /* Sidebar — teal oscuro derivado del primario. Es la única superficie
+     oscura de la app, así que lleva su propia escala de texto. */
+  --color-sidebar: #0a4438;
+  --color-sidebar-hover: #0f5a4a;
+  --color-sidebar-active: #14705c;
+  --color-sidebar-ink: #a9c9c1;
+  --color-sidebar-ink-strong: #ffffff;
+  --color-sidebar-border: #0d5245;
+
+  /* Superficies */
+  --color-background: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f0f2f5;
+  --color-border: #e3e6ea;
+
+  /* Texto */
+  --color-ink: #1a1f24;
+  --color-ink-muted: #5b6570;
+  --color-ink-subtle: #8b949e;
+
+  /* ---------------------------------------------------------------------
+     Tokens portados del LeadEra Angular (src/styles.css :root).
+     Valores exactos del original: esta pantalla tiene que verse igual.
+     --------------------------------------------------------------------- */
+
+  /* Temperatura del lead */
+  --color-caliente: #d85a30;
+  --color-tibio: #ef9f27;
+  --color-frio: #378add;
+  --color-inactivo: #64748b;
+
+  /* Marca — variante oscura del original (distinta de --color-primary-hover) */
+  --color-primary-dark: #0b5246;
+
+  /* Tintas de texto */
+  --color-ink-2: #334155;
+  --color-ink-3: #5a6779;
+  --color-ink-4: #9ca3af;
+
+  /* Superficies suaves */
+  --color-surface-2: #f3f4f6;
+  --color-brand-soft: #e3efeb;
+  --color-brand-softer: #f0f7f5;
+  --color-hot-soft: #fdeee8;
+  --color-warm-soft: #fef5e0;
+  --color-cool-soft: #e8f1fc;
+
+  /* Badges de estado — el original escribe estos hexes literales en
+     .badge-estado, que no coinciden exactamente con los *-soft de arriba.
+     Los conservamos tal cual para no alterar el color. */
+  --color-badge-caliente-bg: #fde8e0;
+  --color-badge-tibio-bg: #fef3c7;
+  --color-badge-tibio-ink: #92400e;
+  --color-badge-frio-bg: #dbeafe;
+  --color-badge-ganado-bg: #d1fae5;
+
+  /* Eliminar — rojo de alerta, distinto del naranja de "caliente" */
+  --color-peligro: #ef4444;
+  --color-peligro-hover: #dc2626;
+  --color-peligro-ink: #b91c1c;
+  --color-peligro-borde: #fecaca;
+  --color-peligro-soft: #fee2e2;
+
+  /* Verde del ícono de Excel */
+  --color-excel: #16a34a;
+
+  /* Semánticos */
+  --color-success: #2e7d5b;
+  --color-warning: #b7791f;
+  --color-danger: #c0392b;
+  --color-info: #2c6fb5;
+
+  /* Tipografía */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Radios — escala del original (--r-sm / --r-md / --r-lg) */
+  --radius-card: 0.75rem;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Sombras — dos capas: un borde óptico al ras y una difusa para elevar.
+     `shadow-card` es la única elevación de la app; no hay una escala completa
+     porque no hay nada que la use todavía. */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -8px rgba(16, 24, 40, 0.1);
+
+  /* Escala de sombras del original */
+  --shadow-sm: 0 1px 0 rgba(22, 33, 59, 0.04), 0 1px 2px rgba(22, 33, 59, 0.04);
+  --shadow-md: 0 1px 0 rgba(22, 33, 59, 0.04), 0 6px 24px -8px rgba(22, 33, 59, 0.08);
+  --shadow-modal: 0 8px 40px -8px rgba(22, 33, 59, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(15, 110, 92, 0.12);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-background);
+  }
+
+  body {
+    @apply bg-background text-ink font-sans antialiased;
+    margin: 0;
+    min-height: 100dvh;
+  }
+
+  *:focus-visible {
+    @apply outline-primary outline-2 outline-offset-2;
+  }
+}

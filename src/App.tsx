@@ -27,6 +27,7 @@ const NuevaOperacion = lazy(() => import('./pages/NuevaOperacion'))
 const DetalleOperacion = lazy(() => import('./pages/DetalleOperacion'))
 const Estadisticas = lazy(() => import('./pages/Estadisticas'))
 const Perfil = lazy(() => import('./pages/Perfil'))
+const Suscripcion = lazy(() => import('./pages/Suscripcion'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -94,6 +95,7 @@ export default function App() {
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/equipo" element={<Equipo />} />
                 <Route path="/tareas" element={<Tareas />} />
+                <Route path="/suscripcion" element={<Suscripcion />} />
               </Route>
 
               {/* /dashboard era el nombre de "Mi día" hasta esta versión: se deja

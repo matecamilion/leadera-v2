@@ -16,6 +16,12 @@ export type ErrorCode =
   | 'INVITACION_YA_USADA'
   | 'INVITACION_VENCIDA'
   | 'EMAIL_YA_REGISTRADO'
+  | 'COTIZACION_NO_DISPONIBLE'
+  | 'CONFIG_FALTANTE'
+  | 'SUSCRIPCION_YA_ACTIVA'
+  | 'PRECIO_NO_DISPONIBLE'
+  | 'MP_NO_DISPONIBLE'
+  | 'MP_RECHAZO'
   | 'ERROR_INTERNO'
 
 export function jsonResponse(req: Request, body: unknown, status = 200): Response {

@@ -419,3 +419,17 @@ verify_jwt = false
 [functions.crear-invitacion]
 enabled = true
 verify_jwt = true
+
+# actualizar-precios-planes es una tarea de backoffice (recalcula precios y
+# reajusta las suscripciones en Mercado Pago). verify_jwt frena a los anónimos;
+# la función además exige el service role key, así que ningún usuario logueado
+# la puede disparar.
+[functions.actualizar-precios-planes]
+enabled = true
+verify_jwt = true
+
+# crear-suscripcion la llama el DUENO logueado desde /suscripcion. Exige JWT y
+# adentro verifica el rol: el plan es de la inmobiliaria entera.
+[functions.crear-suscripcion]
+enabled = true
+verify_jwt = true

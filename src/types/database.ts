@@ -2,6 +2,15 @@
  * Tipos generados desde el esquema de Supabase. NO editar a mano.
  * Regenerar con:
  *   supabase gen types typescript --project-id gnnowyphlxebdxbfsmss > src/types/database.ts
+ *
+ * Después de regenerar hay que reponer dos cosas que el CLI no puede saber, o
+ * el build rompe:
+ *   1. Los alias del final del archivo (EstadoTarea, Tarea, Visita, ...), que
+ *      se pierden porque el generador escribe el archivo entero.
+ *   2. El tipado angosto de tres columnas `text` que en realidad son uniones
+ *      cerradas: tareas.estado -> EstadoTarea, tareas_series.recurrencia ->
+ *      Recurrencia y visitas.estado -> EstadoVisita. El CLI las emite como
+ *      `string` porque no son enums de Postgres.
  */
 export type Json =
   | string
@@ -15,7 +24,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -101,24 +110,116 @@ export type Database = {
           },
         ]
       }
-      inmobiliarias: {
+      eventos_facturacion: {
         Row: {
           created_at: string
+          detalle: string | null
           id: string
-          limite_usuarios: number
-          nombre: string
+          inmobiliaria_id: string
+          moneda: string | null
+          monto: number | null
+          mp_payment_id: string | null
+          raw_payload: Json | null
+          tipo: string
         }
         Insert: {
           created_at?: string
+          detalle?: string | null
           id?: string
-          limite_usuarios?: number
-          nombre: string
+          inmobiliaria_id: string
+          moneda?: string | null
+          monto?: number | null
+          mp_payment_id?: string | null
+          raw_payload?: Json | null
+          tipo: string
         }
         Update: {
           created_at?: string
+          detalle?: string | null
+          id?: string
+          inmobiliaria_id?: string
+          moneda?: string | null
+          monto?: number | null
+          mp_payment_id?: string | null
+          raw_payload?: Json | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_facturacion_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historial_precios_planes: {
+        Row: {
+          cotizacion_usada: number
+          created_at: string
+          id: string
+          plan: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars: number
+          precio_usd: number
+        }
+        Insert: {
+          cotizacion_usada: number
+          created_at?: string
+          id?: string
+          plan: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars: number
+          precio_usd: number
+        }
+        Update: {
+          cotizacion_usada?: number
+          created_at?: string
+          id?: string
+          plan?: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars?: number
+          precio_usd?: number
+        }
+        Relationships: []
+      }
+      inmobiliarias: {
+        Row: {
+          created_at: string
+          estado_suscripcion: Database["public"]["Enums"]["estado_suscripcion"]
+          fecha_fin_trial: string
+          fecha_inicio_trial: string
+          fecha_proximo_cobro: string | null
+          fecha_ultimo_pago_fallido: string | null
+          id: string
+          limite_usuarios: number
+          mp_preapproval_id: string | null
+          nombre: string
+          plan: Database["public"]["Enums"]["plan_leadera"] | null
+        }
+        Insert: {
+          created_at?: string
+          estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
+          fecha_fin_trial?: string
+          fecha_inicio_trial?: string
+          fecha_proximo_cobro?: string | null
+          fecha_ultimo_pago_fallido?: string | null
           id?: string
           limite_usuarios?: number
+          mp_preapproval_id?: string | null
+          nombre: string
+          plan?: Database["public"]["Enums"]["plan_leadera"] | null
+        }
+        Update: {
+          created_at?: string
+          estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
+          fecha_fin_trial?: string
+          fecha_inicio_trial?: string
+          fecha_proximo_cobro?: string | null
+          fecha_ultimo_pago_fallido?: string | null
+          id?: string
+          limite_usuarios?: number
+          mp_preapproval_id?: string | null
           nombre?: string
+          plan?: Database["public"]["Enums"]["plan_leadera"] | null
         }
         Relationships: []
       }
@@ -166,6 +267,20 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interacciones_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interacciones_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones_ordenadas"
             referencedColumns: ["id"]
           },
         ]
@@ -312,7 +427,7 @@ export type Database = {
       }
       operaciones: {
         Row: {
-          agente_id: string | null
+          agente_id: string
           busqueda_id: string | null
           created_at: string
           estado: Database["public"]["Enums"]["estado_operacion"]
@@ -330,7 +445,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          agente_id?: string | null
+          agente_id: string
           busqueda_id?: string | null
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_operacion"]
@@ -348,7 +463,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          agente_id?: string | null
+          agente_id?: string
           busqueda_id?: string | null
           created_at?: string
           estado?: Database["public"]["Enums"]["estado_operacion"]
@@ -402,6 +517,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      planes_precio: {
+        Row: {
+          actualizado_at: string | null
+          cotizacion_usada: number | null
+          plan: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars_actual: number | null
+          precio_usd: number
+        }
+        Insert: {
+          actualizado_at?: string | null
+          cotizacion_usada?: number | null
+          plan: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars_actual?: number | null
+          precio_usd: number
+        }
+        Update: {
+          actualizado_at?: string | null
+          cotizacion_usada?: number | null
+          plan?: Database["public"]["Enums"]["plan_leadera"]
+          precio_ars_actual?: number | null
+          precio_usd?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -457,151 +596,6 @@ export type Database = {
           },
         ]
       }
-      tareas: {
-        Row: {
-          asignado_a: string
-          completada_en: string | null
-          created_at: string
-          creado_por: string
-          descripcion: string | null
-          estado: EstadoTarea
-          fecha: string
-          hora: string | null
-          id: string
-          inmobiliaria_id: string
-          lead_id: string | null
-          operacion_id: string | null
-          propiedad_id: string | null
-          serie_id: string | null
-          titulo: string
-        }
-        Insert: {
-          asignado_a: string
-          completada_en?: string | null
-          created_at?: string
-          creado_por: string
-          descripcion?: string | null
-          estado?: EstadoTarea
-          fecha: string
-          hora?: string | null
-          id?: string
-          inmobiliaria_id: string
-          lead_id?: string | null
-          operacion_id?: string | null
-          propiedad_id?: string | null
-          serie_id?: string | null
-          titulo: string
-        }
-        Update: {
-          asignado_a?: string
-          completada_en?: string | null
-          created_at?: string
-          creado_por?: string
-          descripcion?: string | null
-          estado?: EstadoTarea
-          fecha?: string
-          hora?: string | null
-          id?: string
-          inmobiliaria_id?: string
-          lead_id?: string | null
-          operacion_id?: string | null
-          propiedad_id?: string | null
-          serie_id?: string | null
-          titulo?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tareas_asignado_a_fkey"
-            columns: ["asignado_a"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tareas_creado_por_fkey"
-            columns: ["creado_por"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tareas_serie_id_fkey"
-            columns: ["serie_id"]
-            isOneToOne: false
-            referencedRelation: "tareas_series"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tareas_series: {
-        Row: {
-          created_at: string
-          hasta: string
-          id: string
-          inmobiliaria_id: string
-          recurrencia: Recurrencia
-        }
-        Insert: {
-          created_at?: string
-          hasta: string
-          id?: string
-          inmobiliaria_id: string
-          recurrencia: Recurrencia
-        }
-        Update: {
-          created_at?: string
-          hasta?: string
-          id?: string
-          inmobiliaria_id?: string
-          recurrencia?: Recurrencia
-        }
-        Relationships: []
-      }
-      visitas: {
-        Row: {
-          asignado_a: string
-          created_at: string
-          creado_por: string
-          estado: EstadoVisita
-          fecha: string
-          hora: string | null
-          id: string
-          inmobiliaria_id: string
-          lead_id: string | null
-          notas: string | null
-          operacion_id: string | null
-          propiedad_id: string
-        }
-        Insert: {
-          asignado_a: string
-          created_at?: string
-          creado_por: string
-          estado?: EstadoVisita
-          fecha: string
-          hora?: string | null
-          id?: string
-          inmobiliaria_id: string
-          lead_id?: string | null
-          notas?: string | null
-          operacion_id?: string | null
-          propiedad_id: string
-        }
-        Update: {
-          asignado_a?: string
-          created_at?: string
-          creado_por?: string
-          estado?: EstadoVisita
-          fecha?: string
-          hora?: string | null
-          id?: string
-          inmobiliaria_id?: string
-          lead_id?: string | null
-          notas?: string | null
-          operacion_id?: string | null
-          propiedad_id?: string
-        }
-        Relationships: []
-      }
       propiedades: {
         Row: {
           agente_id: string | null
@@ -611,9 +605,12 @@ export type Database = {
           created_at: string
           descripcion: string | null
           direccion: string
-          disposicion: Database["public"]["Enums"]["disposicion_propiedad"] | null
+          disposicion:
+            | Database["public"]["Enums"]["disposicion_propiedad"]
+            | null
           estado: Database["public"]["Enums"]["estado_propiedad"]
           expensas: number | null
+          finalidad: Database["public"]["Enums"]["finalidad_propiedad"] | null
           fotos_urls: string[]
           id: string
           inmobiliaria_id: string
@@ -635,9 +632,12 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           direccion: string
-          disposicion?: Database["public"]["Enums"]["disposicion_propiedad"] | null
+          disposicion?:
+            | Database["public"]["Enums"]["disposicion_propiedad"]
+            | null
           estado?: Database["public"]["Enums"]["estado_propiedad"]
           expensas?: number | null
+          finalidad?: Database["public"]["Enums"]["finalidad_propiedad"] | null
           fotos_urls?: string[]
           id?: string
           inmobiliaria_id: string
@@ -659,9 +659,12 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           direccion?: string
-          disposicion?: Database["public"]["Enums"]["disposicion_propiedad"] | null
+          disposicion?:
+            | Database["public"]["Enums"]["disposicion_propiedad"]
+            | null
           estado?: Database["public"]["Enums"]["estado_propiedad"]
           expensas?: number | null
+          finalidad?: Database["public"]["Enums"]["finalidad_propiedad"] | null
           fotos_urls?: string[]
           id?: string
           inmobiliaria_id?: string
@@ -699,6 +702,244 @@ export type Database = {
           },
         ]
       }
+      tareas: {
+        Row: {
+          asignado_a: string
+          completada_en: string | null
+          creado_por: string
+          created_at: string | null
+          descripcion: string | null
+          estado: EstadoTarea
+          fecha: string
+          hora: string | null
+          id: string
+          inmobiliaria_id: string
+          lead_id: string | null
+          operacion_id: string | null
+          propiedad_id: string | null
+          serie_id: string | null
+          titulo: string
+        }
+        Insert: {
+          asignado_a: string
+          completada_en?: string | null
+          creado_por: string
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: EstadoTarea
+          fecha: string
+          hora?: string | null
+          id?: string
+          inmobiliaria_id: string
+          lead_id?: string | null
+          operacion_id?: string | null
+          propiedad_id?: string | null
+          serie_id?: string | null
+          titulo: string
+        }
+        Update: {
+          asignado_a?: string
+          completada_en?: string | null
+          creado_por?: string
+          created_at?: string | null
+          descripcion?: string | null
+          estado?: EstadoTarea
+          fecha?: string
+          hora?: string | null
+          id?: string
+          inmobiliaria_id?: string
+          lead_id?: string | null
+          operacion_id?: string | null
+          propiedad_id?: string | null
+          serie_id?: string | null
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_asignado_a_fkey"
+            columns: ["asignado_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones_ordenadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_propiedad_id_fkey"
+            columns: ["propiedad_id"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_serie_id_fkey"
+            columns: ["serie_id"]
+            isOneToOne: false
+            referencedRelation: "tareas_series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tareas_series: {
+        Row: {
+          created_at: string | null
+          hasta: string
+          id: string
+          inmobiliaria_id: string
+          recurrencia: Recurrencia
+        }
+        Insert: {
+          created_at?: string | null
+          hasta: string
+          id?: string
+          inmobiliaria_id: string
+          recurrencia: Recurrencia
+        }
+        Update: {
+          created_at?: string | null
+          hasta?: string
+          id?: string
+          inmobiliaria_id?: string
+          recurrencia?: Recurrencia
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tareas_series_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitas: {
+        Row: {
+          asignado_a: string
+          creado_por: string
+          created_at: string | null
+          estado: EstadoVisita
+          fecha: string
+          hora: string | null
+          id: string
+          inmobiliaria_id: string
+          lead_id: string | null
+          notas: string | null
+          operacion_id: string | null
+          propiedad_id: string
+        }
+        Insert: {
+          asignado_a: string
+          creado_por: string
+          created_at?: string | null
+          estado?: EstadoVisita
+          fecha: string
+          hora?: string | null
+          id?: string
+          inmobiliaria_id: string
+          lead_id?: string | null
+          notas?: string | null
+          operacion_id?: string | null
+          propiedad_id: string
+        }
+        Update: {
+          asignado_a?: string
+          creado_por?: string
+          created_at?: string | null
+          estado?: EstadoVisita
+          fecha?: string
+          hora?: string | null
+          id?: string
+          inmobiliaria_id?: string
+          lead_id?: string | null
+          notas?: string | null
+          operacion_id?: string | null
+          propiedad_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitas_asignado_a_fkey"
+            columns: ["asignado_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_creado_por_fkey"
+            columns: ["creado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones_ordenadas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_propiedad_id_fkey"
+            columns: ["propiedad_id"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       operaciones_ordenadas: {
@@ -711,50 +952,16 @@ export type Database = {
           id: string | null
           inmobiliaria_id: string | null
           lead_id: string | null
+          lead_nombre_completo: string | null
           moneda: string | null
           monto: number | null
           notas: string | null
+          propiedad_direccion: string | null
           propiedad_id: string | null
           rango_estado: number | null
           tipo: Database["public"]["Enums"]["tipo_operacion"] | null
           titulo: string | null
           updated_at: string | null
-        }
-        Insert: {
-          agente_id?: string | null
-          busqueda_id?: string | null
-          created_at?: string | null
-          estado?: Database["public"]["Enums"]["estado_operacion"] | null
-          fecha_cierre?: string | null
-          id?: string | null
-          inmobiliaria_id?: string | null
-          lead_id?: string | null
-          moneda?: string | null
-          monto?: number | null
-          notas?: string | null
-          propiedad_id?: string | null
-          rango_estado?: never
-          tipo?: Database["public"]["Enums"]["tipo_operacion"] | null
-          titulo?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          agente_id?: string | null
-          busqueda_id?: string | null
-          created_at?: string | null
-          estado?: Database["public"]["Enums"]["estado_operacion"] | null
-          fecha_cierre?: string | null
-          id?: string | null
-          inmobiliaria_id?: string | null
-          lead_id?: string | null
-          moneda?: string | null
-          monto?: number | null
-          notas?: string | null
-          propiedad_id?: string | null
-          rango_estado?: never
-          tipo?: Database["public"]["Enums"]["tipo_operacion"] | null
-          titulo?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {
@@ -796,87 +1003,38 @@ export type Database = {
       }
     }
     Functions: {
-      /**
-       * SECURITY DEFINER: valida que la búsqueda sea de tu inmobiliaria y, si
-       * no, lanza excepción. Puntúa sólo las propiedades DISPONIBLE de la
-       * agencia; `tipo_propiedad` filtra pero no puntúa. `criterios_evaluados`
-       * varía por fila: `expensas_max` sólo cuenta si la propiedad tiene
-       * expensas cargadas.
-       */
       buscar_coincidencias_busqueda: {
         Args: { p_busqueda_id: string }
         Returns: {
+          criterios_cumplidos: number
+          criterios_evaluados: number
           propiedad_id: string
           score_pct: number
-          criterios_evaluados: number
-          criterios_cumplidos: number
         }[]
       }
-      /**
-       * SECURITY DEFINER: devuelve sólo agregados, nunca filas de `visitas`.
-       * Valida que la propiedad sea de la inmobiliaria del usuario y, si no,
-       * lanza excepción.
-       */
-      estadisticas_visitas_propiedad: {
-        Args: { p_propiedad_id: string }
-        Returns: {
-          visitas_realizadas: number
-          visitas_agendadas: number
-          interesados_unicos: number
-        }[]
-      }
-      /** Ídem, para un lead. `bigint` de Postgres, JSON number del lado del cliente. */
-      contar_visitas_lead: {
-        Args: { p_lead_id: string }
-        Returns: number
-      }
-      obtener_evolucion_agente: {
-        Args: { dias: number }
-        Returns: {
-          fecha: string
-          nuevos: number
-          ganados: number
-          perdidos: number
-        }[]
-      }
-      /**
-       * SIN SECURITY DEFINER: corre con el RLS del que la llama, así que no
-       * puede devolver interacciones de otra inmobiliaria.
-       *
-       * Devuelve una fila por cada lead del array QUE TENGA interacciones: los
-       * leads sin ninguna no aparecen en el resultado. Se apoya en el índice
-       * `idx_interacciones_lead_fecha (lead_id, fecha DESC)`.
-       *
-       * `total_interacciones` es un `bigint` de Postgres; para los volúmenes
-       * de una página del listado llega como JSON number.
-       */
-      /**
-       * SIN SECURITY DEFINER: corre con el RLS del que la llama, así que sólo
-       * cuenta las operaciones de la inmobiliaria del usuario.
-       *
-       * `total` es un `bigint` de Postgres; llega como JSON number. Un estado
-       * sin operaciones puede no aparecer en el resultado.
-       */
-      /**
-       * SIN SECURITY DEFINER: corre con el RLS del que la llama.
-       *
-       * Suma sobre TODAS las operaciones del estado, no sólo las que el tablero
-       * carga. Una combinación estado/moneda sin ninguna operación con `monto`
-       * cargado no aparece en el resultado.
-       */
-      suma_montos_por_estado: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          estado: Database["public"]["Enums"]["estado_operacion"]
-          moneda: string
-          total_monto: number
-        }[]
-      }
+      contar_visitas_lead: { Args: { p_lead_id: string }; Returns: number }
       conteo_operaciones_por_estado: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           estado: Database["public"]["Enums"]["estado_operacion"]
           total: number
+        }[]
+      }
+      estadisticas_visitas_propiedad: {
+        Args: { p_propiedad_id: string }
+        Returns: {
+          interesados_unicos: number
+          visitas_agendadas: number
+          visitas_realizadas: number
+        }[]
+      }
+      obtener_evolucion_agente: {
+        Args: { dias?: number }
+        Returns: {
+          fecha: string
+          ganados: number
+          nuevos: number
+          perdidos: number
         }[]
       }
       resumen_interacciones_por_lead: {
@@ -885,8 +1043,16 @@ export type Database = {
           lead_id: string
           total_interacciones: number
           ultima_fecha: string
+          ultimo_detalle: string
           ultimo_tipo: Database["public"]["Enums"]["tipo_interaccion"]
-          ultimo_detalle: string | null
+        }[]
+      }
+      suma_montos_por_estado: {
+        Args: never
+        Returns: {
+          estado: Database["public"]["Enums"]["estado_operacion"]
+          moneda: string
+          total_monto: number
         }[]
       }
     }
@@ -905,6 +1071,13 @@ export type Database = {
         | "VENDIDA"
         | "ALQUILADA"
         | "PAUSADA"
+      estado_suscripcion:
+        | "TRIAL"
+        | "ACTIVA"
+        | "GRACIA"
+        | "VENCIDA"
+        | "CANCELADA"
+      finalidad_propiedad: "VENTA" | "ALQUILER" | "AMBAS"
       origen_lead:
         | "FORMULARIO_WEB"
         | "META_ADS"
@@ -915,6 +1088,7 @@ export type Database = {
         | "MANUAL"
         | "INSTAGRAM"
         | "FACEBOOK"
+      plan_leadera: "SOLO" | "AGENCIA_CHICA" | "AGENCIA_GRANDE"
       rol_agente: "DUENO" | "AGENTE" | "ASISTENTE"
       tipo_interaccion:
         | "LLAMADA"
@@ -950,12 +1124,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -979,11 +1153,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1004,11 +1178,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1029,11 +1203,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1046,11 +1220,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1078,6 +1252,8 @@ export const Constants = {
         "ALQUILADA",
         "PAUSADA",
       ],
+      estado_suscripcion: ["TRIAL", "ACTIVA", "GRACIA", "VENCIDA", "CANCELADA"],
+      finalidad_propiedad: ["VENTA", "ALQUILER", "AMBAS"],
       origen_lead: [
         "FORMULARIO_WEB",
         "META_ADS",
@@ -1089,6 +1265,7 @@ export const Constants = {
         "INSTAGRAM",
         "FACEBOOK",
       ],
+      plan_leadera: ["SOLO", "AGENCIA_CHICA", "AGENCIA_GRANDE"],
       rol_agente: ["DUENO", "AGENTE", "ASISTENTE"],
       tipo_interaccion: [
         "LLAMADA",

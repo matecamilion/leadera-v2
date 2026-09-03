@@ -1,0 +1,277 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { BotonError, EstadoError } from '../components/comunes/EstadoError'
+import { Spinner } from '../components/Spinner'
+import { useAuth } from '../contexts/AuthContext'
+import {
+  useCrearSuscripcion,
+  useEstadoSuscripcion,
+  usePreciosPlanes,
+} from '../hooks/useSuscripcion'
+import { formatearFecha } from '../lib/formatoFecha'
+import { mensajeDeListado } from '../lib/mensajesDeError'
+import {
+  DETALLE_PLAN,
+  interpretarVuelta,
+  type EstadoDeMiSuscripcion,
+  type Plan,
+  type PrecioPlan,
+  type TonoVuelta,
+} from '../lib/api/suscripcion'
+
+const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
+
+/**
+ * Estados en los que todavía hay que elegir un plan.
+ *
+ * CANCELADA entra igual que TRIAL y VENCIDA: quien dio de baja tiene que poder
+ * volver a contratar sin pasar por soporte.
+ */
+const ESTADOS_SIN_SUSCRIPCION = ['TRIAL', 'VENCIDA', 'CANCELADA']
+
+const TONOS: Record<TonoVuelta, string> = {
+  exito: 'border-primary/30 bg-brand-soft text-ink',
+  espera: 'border-tibio/40 bg-warm-soft text-ink',
+  error: 'border-peligro-borde bg-peligro-soft text-peligro-ink',
+}
+
+export default function Suscripcion() {
+  const { profile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const precios = usePreciosPlanes()
+  const estado = useEstadoSuscripcion()
+  const crear = useCrearSuscripcion()
+
+  const [error, setError] = useState<string | null>(null)
+
+  // Se lee una sola vez, al montar: después los parámetros se limpian de la URL
+  // y no queremos que el cartel desaparezca por eso.
+  const [vuelta] = useState(() => interpretarVuelta(searchParams))
+
+  // Sacar los parámetros de Mercado Pago de la barra de direcciones: si el
+  // usuario refresca o comparte el link, no tiene por qué arrastrar el
+  // resultado de un pago viejo.
+  useEffect(() => {
+    if (!vuelta) return
+    setSearchParams(new URLSearchParams(), { replace: true })
+  }, [vuelta, setSearchParams])
+
+  const esDueno = profile?.rol === 'DUENO'
+
+  function elegir(plan: Plan) {
+    setError(null)
+    crear.mutate(plan, {
+      // El flujo termina fuera de la app: no se apaga el estado de carga a
+      // propósito, así el botón queda ocupado mientras el navegador se va.
+      onSuccess: (data) => {
+        window.location.href = data.init_point
+      },
+      onError: (e) => setError(e.message),
+    })
+  }
+
+  if (precios.isPending || estado.isPending) {
+    return (
+      <div className="grid min-h-[50vh] place-items-center">
+        <Spinner label="Cargando los planes" />
+      </div>
+    )
+  }
+
+  if (precios.isError) {
+    return (
+      <div className="mx-auto max-w-[1120px]">
+        <EstadoError
+          mensaje={mensajeDeListado(precios.error)}
+          titulo="No pudimos mostrar los planes"
+          accion={<BotonError onClick={() => precios.refetch()}>Reintentar</BotonError>}
+        />
+      </div>
+    )
+  }
+
+  // El estado es null cuando la RLS de `inmobiliarias` no deja leer la fila.
+  // Con el estado desconocido se muestran los planes: es la salida útil, y quien
+  // decide de verdad es `crear-suscripcion`, que sí ve la fila.
+  const miEstado = estado.data ?? null
+  const alDia =
+    miEstado !== null &&
+    miEstado.tieneSuscripcionEnMp &&
+    !ESTADOS_SIN_SUSCRIPCION.includes(miEstado.estado)
+
+  return (
+    <div className="mx-auto max-w-[1120px]">
+      <header className="mb-6">
+        <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
+          Mi inmobiliaria
+        </p>
+        <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-ink">Suscripción</h1>
+        <p className="mt-1 text-[0.9rem] text-ink-3">
+          {alDia
+            ? 'El estado de tu plan y cuándo es el próximo cobro.'
+            : 'Elegí el plan que le sirve a tu inmobiliaria. Se cobra por mes y lo cancelás cuando quieras.'}
+        </p>
+      </header>
+
+      {vuelta && (
+        <div
+          role="status"
+          className={`mb-6 rounded-[16px] border px-5 py-4 ${TONOS[vuelta.tono]}`}
+        >
+          <p className="m-0 text-[0.95rem] font-bold">{vuelta.titulo}</p>
+          <p className="mt-1 text-[0.9rem]">{vuelta.mensaje}</p>
+        </div>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          className="mb-6 rounded-[16px] border border-peligro-borde bg-peligro-soft px-5 py-4 text-[0.9rem] text-peligro-ink"
+        >
+          {error}
+        </p>
+      )}
+
+      {alDia && miEstado ? (
+        <ResumenAlDia estado={miEstado} />
+      ) : (
+        <>
+          {!esDueno && (
+            <p className="mb-5 rounded-[16px] border border-border bg-surface-2 px-5 py-4 text-[0.9rem] text-ink-3">
+              Estos son los planes de LeadEra. Sólo el dueño de la inmobiliaria puede contratarlos
+              o cambiarlos.
+            </p>
+          )}
+
+          <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-3">
+            {precios.data.map((precio) => (
+              <TarjetaPlan
+                key={precio.plan}
+                precio={precio}
+                deshabilitado={!esDueno || crear.isPending}
+                cargando={crear.isPending && crear.variables === precio.plan}
+                onElegir={() => elegir(precio.plan)}
+              />
+            ))}
+          </ul>
+
+          <p className="mt-5 text-[0.8rem] text-ink-3">
+            Los precios están fijados en dólares y se convierten a pesos con la cotización del
+            dólar MEP, que se actualiza una vez por semana.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
+  const detalle = estado.plan ? DETALLE_PLAN[estado.plan] : null
+  const enGracia = estado.estado === 'GRACIA'
+
+  return (
+    <div className="rounded-[16px] border border-border bg-surface px-6 py-6 shadow-md">
+      <p
+        className={`m-0 inline-flex items-center rounded-full px-3 py-1 text-[0.75rem] font-bold uppercase ${
+          enGracia ? 'bg-warm-soft text-badge-tibio-ink' : 'bg-brand-soft text-primary'
+        }`}
+      >
+        {enGracia ? 'Pago pendiente' : 'Al día'}
+      </p>
+
+      <h2 className="mt-3 mb-0 text-[1.25rem] font-bold text-ink">
+        {detalle ? `Plan ${detalle.nombre}` : 'Tu plan'}
+      </h2>
+
+      <p className="mt-1 text-[0.9rem] text-ink-3">
+        {enGracia
+          ? 'No pudimos cobrar el último mes. Mercado Pago va a reintentar; revisá que tu medio de pago tenga fondos.'
+          : 'Tu suscripción está activa. No tenés que hacer nada.'}
+      </p>
+
+      {estado.fecha_proximo_cobro && (
+        <p className="mt-4 text-[0.9rem] text-ink-2">
+          Próximo cobro:{' '}
+          <strong className="font-semibold text-ink">
+            {formatearFecha(estado.fecha_proximo_cobro)}
+          </strong>
+        </p>
+      )}
+    </div>
+  )
+}
+
+interface TarjetaPlanProps {
+  precio: PrecioPlan
+  deshabilitado: boolean
+  cargando: boolean
+  onElegir: () => void
+}
+
+function TarjetaPlan({ precio, deshabilitado, cargando, onElegir }: TarjetaPlanProps) {
+  const detalle = DETALLE_PLAN[precio.plan]
+  // Sin precio en pesos no se puede contratar: `crear-suscripcion` rechazaría el
+  // pedido igual, así que el botón no promete algo que no va a pasar.
+  const sinPrecio = precio.precio_ars === null
+
+  return (
+    <li className="flex flex-col rounded-[16px] border border-border bg-surface px-5 py-5 shadow-md">
+      <h2 className="m-0 text-[1.05rem] font-bold text-ink">{detalle.nombre}</h2>
+      <p className="mt-1 mb-0 text-[0.85rem] text-ink-3">{detalle.bajada}</p>
+
+      <p className="mt-4 mb-0 flex items-baseline gap-1.5">
+        {sinPrecio ? (
+          <span className="text-[1.1rem] font-bold text-ink-3">Precio no disponible</span>
+        ) : (
+          <>
+            <span className="text-[1.75rem] leading-none font-bold tabular-nums text-ink">
+              ${MONTOS.format(precio.precio_ars!)}
+            </span>
+            <span className="text-[0.85rem] text-ink-3">por mes</span>
+          </>
+        )}
+      </p>
+      <p className="mt-1 mb-0 text-[0.75rem] text-ink-4">
+        Equivale a US$ {MONTOS.format(precio.precio_usd)} por mes
+      </p>
+
+      <ul className="mt-4 mb-0 flex list-none flex-col gap-2 p-0">
+        {detalle.incluye.map((item) => (
+          <li key={item} className="flex items-start gap-2 text-[0.85rem] text-ink-2">
+            <span
+              aria-hidden
+              className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-brand-soft text-primary"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={onElegir}
+        disabled={deshabilitado || sinPrecio}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
+      >
+        {cargando && (
+          <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />
+        )}
+        {cargando ? 'Abriendo Mercado Pago' : 'Elegir este plan'}
+      </button>
+    </li>
+  )
+}

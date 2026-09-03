@@ -272,10 +272,12 @@ export default function DetallePropiedad() {
         <SeccionOperacionesVinculadas propiedadId={propiedad.id} />
       </Seccion>
 
-      {/* Sólo tiene sentido buscar compradores para algo que está a la venta. */}
+      {/* Sólo tiene sentido buscar interesados para algo que está disponible.
+          "Interesados" y no "Compradores": desde que las propiedades tienen
+          finalidad, quien matchea puede ser un inquilino y no un comprador. */}
       {propiedad.estado === 'DISPONIBLE' && (
         <Seccion
-          titulo="Compradores potenciales"
+          titulo="Interesados"
           contador={coincidencias.data?.length}
           nota="De tu inmobiliaria"
         >

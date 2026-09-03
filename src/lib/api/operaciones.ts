@@ -68,6 +68,28 @@ export function etiquetaTipoOperacion(tipo: TipoOperacion): string {
   return TIPOS_OPERACION.find((t) => t.valor === tipo)?.label ?? tipo
 }
 
+/**
+ * ¿Este tipo de operación describe lo que el lead está buscando?
+ *
+ * COMPRA y ALQUILER sí: en las dos el lead busca algo y la operación se apoya
+ * en una búsqueda —un perfil de criterios— que después puntúa propiedades.
+ * VENTA no: ahí la inmobiliaria pone una propiedad concreta y no hay nada que
+ * buscar.
+ *
+ * El filtro por finalidad lo hace el RPC `buscar_coincidencias_busqueda`, que
+ * mira el tipo de la operación: una búsqueda de COMPRA sólo ve propiedades con
+ * `finalidad` VENTA o AMBAS, y una de ALQUILER sólo ALQUILER o AMBAS. Por eso
+ * alcanza con mostrar el formulario: el lado de los candidatos ya está resuelto
+ * en la base.
+ *
+ * OJO: esto NO es lo mismo que `esCompra`, que sigue gobernando con qué se
+ * vincula la operación (COMPRA elige una búsqueda; VENTA y ALQUILER, una
+ * propiedad). Una operación de ALQUILER puede tener las dos cosas.
+ */
+export function llevaCriteriosDeBusqueda(tipo: TipoOperacion): boolean {
+  return tipo === 'COMPRA' || tipo === 'ALQUILER'
+}
+
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
 export function formatearMonto(monto: number | null, moneda: string): string {

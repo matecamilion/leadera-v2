@@ -14,6 +14,7 @@ import {
   type CriteriosBusqueda,
 } from '../../lib/api/busquedas'
 import {
+  llevaCriteriosDeBusqueda,
   TIPOS_OPERACION,
   type CamposEditablesOperacion,
   type OperacionDetalle,
@@ -78,7 +79,11 @@ export function ModalEditarOperacion({
   const [tocado, setTocado] = useState(false)
   const [criterios, setCriterios] = useState<CriteriosBusqueda>(CRITERIOS_VACIOS)
 
+  // Ver `NuevaOperacion`: `esCompra` es el vínculo, `llevaCriterios` es el
+  // formulario de criterios. ALQUILER entra en el segundo y no en el primero.
   const esCompra = tipo === 'COMPRA'
+  const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
+
   const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
     esCompra ? leadId : null,
   )
@@ -86,7 +91,7 @@ export function ModalEditarOperacion({
   // Los criterios de la búsqueda vinculada. Se precargan una sola vez por
   // búsqueda: después manda lo que el usuario esté tipeando.
   const { data: criteriosGuardados } = useCriteriosBusqueda(
-    esCompra ? busquedaId : null,
+    llevaCriterios ? busquedaId : null,
   )
   /** Qué búsqueda refleja el borrador actual. `null` = formulario vacío. */
   const [busquedaEnBorrador, setBusquedaEnBorrador] = useState<string | null>(null)
@@ -171,7 +176,7 @@ export function ModalEditarOperacion({
       },
       // Sin lead no se puede guardar una búsqueda (`lead_id` es NOT NULL), y
       // con el formulario vacío no hay nada que guardar.
-      esCompra && leadId && hayAlgunCriterio(criterios) ? criterios : null,
+      llevaCriterios && leadId && hayAlgunCriterio(criterios) ? criterios : null,
     )
   }
 
@@ -306,7 +311,7 @@ export function ModalEditarOperacion({
           </Campo>
         </div>
 
-        {esCompra && (
+        {llevaCriterios && (
           <FormularioBusqueda
             criterios={criterios}
             onCambiar={setCriterios}

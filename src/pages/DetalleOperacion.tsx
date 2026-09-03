@@ -33,6 +33,7 @@ import {
   etiquetaEstadoOperacion,
   etiquetaTipoOperacion,
   formatearMonto,
+  llevaCriteriosDeBusqueda,
 } from '../lib/api/operaciones'
 import { formatearFecha } from '../lib/formatoFecha'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
@@ -59,10 +60,10 @@ export default function DetalleOperacion() {
   const guardarCriterios = useGuardarBusqueda()
   const eventos = useEventosOperacion(id)
 
-  // Sólo las COMPRA con búsqueda cargada puntúan propiedades. El hook queda
-  // apagado en el resto: `enabled` mira el id, que acá es null.
+  // COMPRA y ALQUILER con búsqueda cargada puntúan propiedades; VENTA no. El
+  // hook queda apagado en el resto: `enabled` mira el id, que acá es null.
   const coincidencias = useCoincidenciasBusqueda(
-    operacion?.tipo === 'COMPRA' ? operacion.busqueda_id : null,
+    operacion && llevaCriteriosDeBusqueda(operacion.tipo) ? operacion.busqueda_id : null,
   )
 
   if (isPending) return <Skeleton />
@@ -88,6 +89,9 @@ export default function DetalleOperacion() {
   }
 
   const esCompra = operacion.tipo === 'COMPRA'
+  // El vínculo con una propiedad lo decide `esCompra`; la búsqueda y sus
+  // coincidencias, esto. Una operación de ALQUILER puede tener las dos.
+  const llevaCriterios = llevaCriteriosDeBusqueda(operacion.tipo)
 
   // La base congela las cerradas y las canceladas (trigger
   // `operaciones_proteger_cerrada` + policy `operaciones_delete`). Acá apagamos
@@ -140,7 +144,7 @@ export default function DetalleOperacion() {
                 {operacion.propiedad.zona ? ` · ${operacion.propiedad.zona}` : ''}
               </span>
             )}
-            {esCompra && operacion.busqueda && (
+            {llevaCriterios && operacion.busqueda && (
               <span className="flex items-center gap-1.5">
                 <IconoLupa className="size-4 shrink-0" />
                 Búsqueda
@@ -241,7 +245,7 @@ export default function DetalleOperacion() {
         </Seccion>
       )}
 
-      {esCompra && operacion.busqueda && (
+      {llevaCriterios && operacion.busqueda && (
         <Seccion titulo="Búsqueda asociada">
           <ChipBusquedaVinculada busqueda={operacion.busqueda} />
         </Seccion>
@@ -251,9 +255,9 @@ export default function DetalleOperacion() {
         <ChipLeadOperacion lead={operacion.lead} />
       </Seccion>
 
-      {/* Sólo COMPRA y sólo con búsqueda: sin criterios cargados no hay nada
-          que puntuar, y la sección vacía sería ruido en VENTA y ALQUILER. */}
-      {esCompra && operacion.busqueda_id && (
+      {/* COMPRA y ALQUILER, y sólo con búsqueda: sin criterios cargados no hay
+          nada que puntuar, y la sección vacía sería ruido en VENTA. */}
+      {llevaCriterios && operacion.busqueda_id && (
         <Seccion
           titulo="Propiedades que coinciden"
           contador={coincidencias.data?.length}

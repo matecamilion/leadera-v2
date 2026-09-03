@@ -19,7 +19,10 @@ interface Props {
 }
 
 /**
- * Compradores potenciales de la propia inmobiliaria.
+ * Interesados de la propia inmobiliaria: leads cuya búsqueda matchea.
+ *
+ * "Interesados" y no "compradores" porque una búsqueda puede ser de compra o de
+ * alquiler; el RPC ya filtra los candidatos por la finalidad de la propiedad.
  *
  * A diferencia del original no hay distinción "mío" / "ajeno": la consulta ya
  * viene acotada a la inmobiliaria del usuario, así que todo lo que se ve acá
@@ -45,7 +48,7 @@ export function SeccionCoincidenciasInternas({ coincidencias, cargando, error }:
     return (
       <div className="rounded-[16px] border border-dashed border-border bg-background px-5 py-8 text-center">
         <p className="text-[0.9rem] text-ink-3">
-          No hay compradores de tu inmobiliaria que coincidan con esta propiedad por ahora.
+          No hay interesados de tu inmobiliaria que coincidan con esta propiedad por ahora.
         </p>
       </div>
     )

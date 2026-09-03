@@ -13,7 +13,7 @@ function rangoPrecio(min: number | null, max: number | null): string | null {
   return null
 }
 
-/** Flecha de doble sentido entre la propiedad y el comprador. */
+/** Flecha de doble sentido entre la propiedad y el interesado. */
 function IconoCruce({ className = '' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
@@ -33,7 +33,12 @@ interface Props {
 }
 
 /**
- * Compradores de la cartera propia que encajan con propiedades disponibles.
+ * Interesados de la cartera propia que encajan con propiedades disponibles.
+ *
+ * "Interesados" y no "compradores": una búsqueda puede ser de compra o de
+ * alquiler. Los identificadores (`compradores`, `CompradorCompatible`) siguen
+ * con el nombre viejo porque vienen de la capa de API; sólo se generalizó el
+ * texto que ve el usuario.
  *
  * A diferencia del original no existe la distinción "mío" / "vía agente": todo
  * lo que se ve acá es de la misma inmobiliaria, porque el cruce ya viene
@@ -57,7 +62,7 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
           </span>
         </div>
         <p className="mt-1 text-[0.8rem] text-ink-3">
-          Compradores de tu cartera que buscan propiedades como las tuyas
+          Interesados de tu cartera que buscan propiedades como las tuyas
         </p>
       </header>
 
@@ -98,7 +103,7 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
                   className="hidden size-5 shrink-0 self-center text-ink-4 md:block"
                 />
 
-                {/* Comprador */}
+                {/* El interesado */}
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[0.9rem] font-semibold text-ink">

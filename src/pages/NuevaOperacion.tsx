@@ -11,7 +11,11 @@ import { useCriteriosBusqueda, useGuardarBusqueda } from '../hooks/useBusqueda'
 import { mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 import { cantidadInvalida, MINIMO_CANTIDAD } from '../lib/validaciones'
-import { TIPOS_OPERACION, type TipoOperacion } from '../lib/api/operaciones'
+import {
+  llevaCriteriosDeBusqueda,
+  TIPOS_OPERACION,
+  type TipoOperacion,
+} from '../lib/api/operaciones'
 import {
   CRITERIOS_VACIOS,
   hayAlgunCriterio,
@@ -50,7 +54,12 @@ export default function NuevaOperacion() {
   const [tocado, setTocado] = useState(false)
   const [criterios, setCriterios] = useState<CriteriosBusqueda>(CRITERIOS_VACIOS)
 
+  // Dos banderas distintas a propósito: `esCompra` decide CON QUÉ se vincula la
+  // operación (búsqueda o propiedad) y `llevaCriterios` decide si se cargan
+  // criterios. ALQUILER cae de un lado en una y del otro en la otra.
   const esCompra = tipo === 'COMPRA'
+  const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
+
   const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
     esCompra ? leadId : null,
   )
@@ -60,7 +69,7 @@ export default function NuevaOperacion() {
   // criterios: guardar la actualiza en vez de crear una nueva, y sin precargar
   // los campos vacíos le borrarían lo que el lead ya tenía cargado.
   const { data: criteriosGuardados } = useCriteriosBusqueda(
-    esCompra ? busquedaId : null,
+    llevaCriterios ? busquedaId : null,
   )
   const busquedaPrecargada = useRef<string | null>(null)
   /** Id de la operación ya creada, si el alta quedó a medias. Ver `manejarSubmit`. */
@@ -124,7 +133,7 @@ export default function NuevaOperacion() {
       // creada. Sólo si es COMPRA, hay lead —`busquedas.lead_id` es NOT NULL—
       // y cargó algo; un formulario vacío no crea una búsqueda en blanco.
       const guardoCriterios =
-        esCompra && leadId !== null && hayAlgunCriterio(criterios)
+        llevaCriterios && leadId !== null && hayAlgunCriterio(criterios)
 
       if (guardoCriterios) {
         await guardarCriterios.mutateAsync({
@@ -297,10 +306,11 @@ export default function NuevaOperacion() {
           </Campo>
         </div>
 
-        {/* Los criterios de búsqueda sólo aplican a COMPRA: en VENTA y ALQUILER
-            la operación se apoya en una propiedad concreta, no en un perfil de
-            lo que el lead busca. */}
-        {esCompra && (
+        {/* Criterios en COMPRA y en ALQUILER: en las dos el lead está buscando
+            algo. En VENTA no, porque ahí la propiedad la pone la inmobiliaria.
+            El RPC filtra los candidatos por finalidad según el tipo, así que
+            una búsqueda de alquiler no propone propiedades sólo en venta. */}
+        {llevaCriterios && (
           <FormularioBusqueda
             criterios={criterios}
             onCambiar={setCriterios}

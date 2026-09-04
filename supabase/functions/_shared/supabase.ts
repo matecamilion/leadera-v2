@@ -50,11 +50,20 @@ export interface PerfilBasico {
 /**
  * Cupo de la inmobiliaria: ¿entra un usuario más?
  * Cuenta profiles y lo compara contra inmobiliarias.limite_usuarios.
+ *
+ * El conteo NO filtra por `activo`: un miembro desactivado sigue ocupando un
+ * lugar del plan, y eso es a propósito, no un filtro que se olvidó. Desactivar
+ * no borra a nadie —`toggle-activo-miembro` banea en Auth y baja la bandera,
+ * pero el profile y toda su cartera siguen ahí— así que el lugar sigue tomado.
+ * Si no contaran, una inmobiliaria podría desactivar y sumar gente sin techo,
+ * reactivando a los viejos cuando le conviene, y el límite del plan no
+ * limitaría nada. Para liberar el lugar hay que borrar al miembro, no
+ * desactivarlo.
  */
 export async function hayCupo(
   admin: SupabaseClient,
   inmobiliariaId: string,
-): Promise<{ ok: boolean; usados: number; limite: number }> {
+): Promise<{ ok: boolean; usados: number; limite: number | null }> {
   const [{ data: inmobiliaria, error: errInmo }, { count, error: errCount }] =
     await Promise.all([
       admin
@@ -72,6 +81,13 @@ export async function hayCupo(
   if (errCount) throw new Error('No se pudo contar los usuarios de la inmobiliaria')
 
   const usados = count ?? 0
-  const limite = inmobiliaria.limite_usuarios as number
+  const limite = inmobiliaria.limite_usuarios as number | null
+
+  // NULL es "sin tope", el mismo significado que tiene en `planes_cupo` y que
+  // el webhook copia tal cual al activar una suscripción. No se compara contra
+  // nada: `usados < null` daría false y le cerraría la puerta justo al plan que
+  // no tiene límite.
+  if (limite === null) return { ok: true, usados, limite: null }
+
   return { ok: usados < limite, usados, limite }
 }

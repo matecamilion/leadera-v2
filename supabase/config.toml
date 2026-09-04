@@ -433,3 +433,11 @@ verify_jwt = true
 [functions.crear-suscripcion]
 enabled = true
 verify_jwt = true
+
+# webhook-mercadopago lo llama el servidor de Mercado Pago, que no tiene ni
+# puede tener un JWT de Supabase: verify_jwt = false o el gateway lo rechaza
+# antes de que la funcion corra. Quien autoriza es la firma HMAC del header
+# x-signature, validada adentro contra MP_WEBHOOK_SECRET.
+[functions.webhook-mercadopago]
+enabled = true
+verify_jwt = false

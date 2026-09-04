@@ -306,17 +306,27 @@ export async function listarLeadsDelEquipo(
 export interface CupoEquipo {
   usados: number
   /**
-   * Lugares del plan, o `null` si no se pudo leer.
+   * Lugares del plan, o `null` si no hay un número que mostrar.
    *
-   * Hoy `inmobiliarias` no tiene policy de SELECT para usuarios autenticados,
-   * así que la fila vuelve vacía y el límite queda desconocido. Se modela como
-   * `null` a propósito: tratarlo como 0 haría que la UI dijera "sin cupo" y
-   * bloqueara el botón de invitar cuando en realidad hay lugar de sobra.
+   * `null` tapa dos situaciones distintas y `sinTope` es la que las separa, así
+   * que las dos se leen juntas o se dice una mentira:
+   *
+   *  - `limite: null, sinTope: true`  → el plan no tiene tope. Es el valor real
+   *    de la columna, que ahora admite NULL igual que `planes_cupo`.
+   *  - `limite: null, sinTope: false` → no se pudo leer la fila. Hoy
+   *    `inmobiliarias` no tiene policy de SELECT para usuarios autenticados, así
+   *    que vuelve vacía y el límite queda desconocido.
+   *
+   * Se modela como `null` y no como 0 a propósito: tratarlo como 0 haría que la
+   * UI dijera "sin cupo" y bloqueara el botón de invitar cuando en realidad hay
+   * lugar de sobra.
    *
    * Quien decide de verdad es la Edge Function `crear-invitacion`, que lo
    * calcula con el cliente admin. Esto es sólo el cartelito informativo.
    */
   limite: number | null
+  /** true sólo si la fila se pudo leer y el plan es explícitamente ilimitado. */
+  sinTope: boolean
 }
 
 /** Cuántos lugares del plan están ocupados. */
@@ -328,9 +338,17 @@ export async function obtenerCupo(): Promise<CupoEquipo> {
 
   if (conteo.error) throw new Error(`No se pudo leer el cupo: ${conteo.error.message}`)
 
+  // `data` null es "no se pudo leer la fila"; `limite_usuarios` null adentro de
+  // una fila que sí vino es "sin tope". Sin esta distinción los dos casos se
+  // ven iguales, y el indicador terminaría anunciando "sin límite" a un plan
+  // que tiene uno.
+  const fila = inmobiliaria.data
+  const limite = fila ? fila.limite_usuarios : null
+
   return {
     usados: conteo.count ?? 0,
-    limite: inmobiliaria.data?.limite_usuarios ?? null,
+    limite,
+    sinTope: fila != null && limite === null,
   }
 }
 

@@ -100,6 +100,8 @@ export default function Suscripcion() {
     miEstado.tieneSuscripcionEnMp &&
     !ESTADOS_SIN_SUSCRIPCION.includes(miEstado.estado)
 
+  const comparacionConChica = compararConAgenciaChica(precios.data)
+
   return (
     <div className="mx-auto max-w-[1120px]">
       <header className="mb-6">
@@ -144,11 +146,14 @@ export default function Suscripcion() {
             </p>
           )}
 
-          <ul className="grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-3">
+          {/* El `pt` deja aire arriba para el badge de la tarjeta destacada,
+              que sobresale por encima de su borde. */}
+          <ul className="grid list-none grid-cols-1 items-stretch gap-4 p-0 pt-3 md:grid-cols-3 md:pt-5">
             {precios.data.map((precio) => (
               <TarjetaPlan
                 key={precio.plan}
                 precio={precio}
+                comparacion={precio.plan === 'AGENCIA_GRANDE' ? comparacionConChica : null}
                 deshabilitado={!esDueno || crear.isPending}
                 cargando={crear.isPending && crear.variables === precio.plan}
                 onElegir={() => elegir(precio.plan)}
@@ -202,21 +207,62 @@ function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
   )
 }
 
+/**
+ * Cuánto más por mes cuesta Agencia Grande que Agencia Chica.
+ *
+ * Se calcula con los precios que ya se están mostrando, así que la frase no
+ * puede quedar desactualizada cuando el dólar mueva los números. Devuelve null
+ * si falta algún precio o si la diferencia no da un salto hacia arriba: en ese
+ * caso la comparación no diría nada útil y es mejor no mostrarla.
+ */
+function compararConAgenciaChica(precios: PrecioPlan[]): string | null {
+  const chica = precios.find((p) => p.plan === 'AGENCIA_CHICA')?.precio_ars
+  const grande = precios.find((p) => p.plan === 'AGENCIA_GRANDE')?.precio_ars
+
+  if (chica == null || grande == null || grande <= chica) return null
+
+  return `Son $${MONTOS.format(grande - chica)} más por mes que Agencia Chica, no el doble.`
+}
+
 interface TarjetaPlanProps {
   precio: PrecioPlan
+  /** La línea que compara este plan con el anterior, si aplica. */
+  comparacion: string | null
   deshabilitado: boolean
   cargando: boolean
   onElegir: () => void
 }
 
-function TarjetaPlan({ precio, deshabilitado, cargando, onElegir }: TarjetaPlanProps) {
+function TarjetaPlan({
+  precio,
+  comparacion,
+  deshabilitado,
+  cargando,
+  onElegir,
+}: TarjetaPlanProps) {
   const detalle = DETALLE_PLAN[precio.plan]
   // Sin precio en pesos no se puede contratar: `crear-suscripcion` rechazaría el
   // pedido igual, así que el botón no promete algo que no va a pasar.
   const sinPrecio = precio.precio_ars === null
+  const destacado = detalle.destacado === true
 
   return (
-    <li className="flex flex-col rounded-[16px] border border-border bg-surface px-5 py-5 shadow-md">
+    <li
+      className={[
+        'relative flex flex-col rounded-[16px] bg-surface px-5 py-5',
+        // El destaque es estructural, no decorativo: la tarjeta arranca más
+        // arriba que las otras dos y termina a la misma altura, así que además
+        // de resaltar es más grande. En una sola columna eso no aplica.
+        destacado
+          ? 'border-2 border-primary shadow-modal md:-mt-4'
+          : 'border border-border shadow-md',
+      ].join(' ')}
+    >
+      {destacado && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[0.75rem] leading-none font-semibold whitespace-nowrap text-white">
+          Más elegido
+        </span>
+      )}
       <h2 className="m-0 text-[1.05rem] font-bold text-ink">{detalle.nombre}</h2>
       <p className="mt-1 mb-0 text-[0.85rem] text-ink-3">{detalle.bajada}</p>
 
@@ -236,7 +282,11 @@ function TarjetaPlan({ precio, deshabilitado, cargando, onElegir }: TarjetaPlanP
         Equivale a US$ {MONTOS.format(precio.precio_usd)} por mes
       </p>
 
-      <ul className="mt-4 mb-0 flex list-none flex-col gap-2 p-0">
+      {comparacion && !sinPrecio && (
+        <p className="mt-2 mb-0 text-[0.8rem] font-medium text-primary">{comparacion}</p>
+      )}
+
+      <ul className="mt-4 mb-0 flex grow list-none flex-col gap-2 p-0">
         {detalle.incluye.map((item) => (
           <li key={item} className="flex items-start gap-2 text-[0.85rem] text-ink-2">
             <span
@@ -261,14 +311,30 @@ function TarjetaPlan({ precio, deshabilitado, cargando, onElegir }: TarjetaPlanP
         ))}
       </ul>
 
+      {/* La lista de arriba crece y empuja el botón al piso de la tarjeta, así
+          los tres quedan alineados aunque la destacada sea más alta. */}
       <button
         type="button"
         onClick={onElegir}
         disabled={deshabilitado || sinPrecio}
-        className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
+        className={[
+          'mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5',
+          'text-[0.9rem] font-semibold transition-colors',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+          'disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none',
+          // Sólo el plan destacado lleva el botón relleno. Tres botones sólidos
+          // iguales no le dicen al ojo por dónde empezar.
+          destacado
+            ? 'bg-primary text-white hover:bg-primary-dark'
+            : 'border border-primary bg-surface text-primary hover:bg-brand-soft',
+        ].join(' ')}
       >
         {cargando && (
-          <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />
+          <span
+            className={`size-4 animate-spin rounded-full border-2 motion-reduce:animate-none ${
+              destacado ? 'border-white/40 border-t-white' : 'border-primary/30 border-t-primary'
+            }`}
+          />
         )}
         {cargando ? 'Abriendo Mercado Pago' : 'Elegir este plan'}
       </button>

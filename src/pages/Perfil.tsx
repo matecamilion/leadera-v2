@@ -1,10 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
 import {
   actualizarDatosCuenta,
   cambiarPassword,
   LARGO_MINIMO_PASSWORD,
 } from '../lib/api/perfil'
+import { DETALLE_PLAN, type EstadoSuscripcion } from '../lib/api/suscripcion'
 
 function iniciales(nombre: string, apellido: string): string {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase() || 'A'
@@ -22,6 +25,12 @@ export default function Perfil() {
   const nombre = profile?.nombre ?? ''
   const apellido = profile?.apellido ?? ''
   const rol = profile ? (ETIQUETA_ROL[profile.rol] ?? profile.rol) : ''
+
+  // El plan es de la inmobiliaria entera y sólo el dueño lo contrata o lo
+  // cambia, así que a un agente o a un asistente esta sección no le sirve de
+  // nada. Mientras `profile` carga es null y el chequeo da false: la sección
+  // aparece recién cuando sabemos el rol, nunca antes.
+  const esDueno = profile?.rol === 'DUENO'
 
   return (
     <div className="mx-auto max-w-[720px]">
@@ -54,9 +63,74 @@ export default function Perfil() {
           alGuardar={refrescarPerfil}
         />
 
+        {esDueno && <PlanYFacturacion />}
+
         <CambiarPassword />
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Plan y facturación — sólo para el dueño
+// ---------------------------------------------------------------------------
+
+/** Cómo se nombra cada estado de suscripción en pantalla. */
+const ETIQUETA_ESTADO: Record<EstadoSuscripcion, string> = {
+  TRIAL: 'Período de prueba',
+  ACTIVA: 'Al día',
+  GRACIA: 'Pago pendiente',
+  VENCIDA: 'Vencida',
+  CANCELADA: 'Cancelada',
+}
+
+/** Paleta del badge según qué tan urgente es el estado. */
+const TONO_ESTADO: Record<EstadoSuscripcion, string> = {
+  TRIAL: 'bg-surface-2 text-ink-2',
+  ACTIVA: 'bg-brand-soft text-primary',
+  GRACIA: 'bg-warm-soft text-badge-tibio-ink',
+  VENCIDA: 'bg-peligro-soft text-peligro-ink',
+  CANCELADA: 'bg-peligro-soft text-peligro-ink',
+}
+
+/**
+ * El acceso del dueño a /suscripcion desde su perfil.
+ *
+ * El plan y el estado se muestran sólo si se pueden leer: hoy `inmobiliarias`
+ * no tiene policy de SELECT para usuarios autenticados, así que la fila vuelve
+ * vacía y queda nada más el link, que es lo que esta iteración necesita.
+ * Cuando se agregue la policy, el resumen aparece solo.
+ */
+function PlanYFacturacion() {
+  const estado = useEstadoSuscripcion()
+  const datos = estado.data ?? null
+  const detalle = datos?.plan ? DETALLE_PLAN[datos.plan] : null
+
+  return (
+    <Tarjeta
+      titulo="Plan y facturación"
+      descripcion="El plan de tu inmobiliaria y cómo se cobra."
+    >
+      {datos && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[0.95rem] font-semibold text-ink">
+            {detalle ? `Plan ${detalle.nombre}` : 'Sin plan contratado'}
+          </span>
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.75rem] font-semibold ${TONO_ESTADO[datos.estado]}`}
+          >
+            {ETIQUETA_ESTADO[datos.estado]}
+          </span>
+        </div>
+      )}
+
+      <Link
+        to="/suscripcion"
+        className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+      >
+        Ver planes y facturación
+      </Link>
+    </Tarjeta>
   )
 }
 

@@ -13,6 +13,14 @@ interface DetallePlan {
   bajada: string
   /** Lo que incluye, en viñetas. */
   incluye: string[]
+  /**
+   * El plan que se muestra destacado.
+   *
+   * Vive acá y no en la pantalla porque es una decisión comercial, del mismo
+   * orden que la bajada o las viñetas: cambia cuando cambia lo que queremos
+   * empujar, no cuando cambia el diseño.
+   */
+  destacado?: boolean
 }
 
 /**
@@ -20,6 +28,11 @@ interface DetallePlan {
  *
  * Vive en el front y no en la base porque `planes_precio` guarda plata, no
  * copy: cambiar una viñeta no debería ser un update en producción.
+ *
+ * Los números de usuarios de acá tienen que coincidir con el
+ * `inmobiliarias.limite_usuarios` que hace cumplir `hayCupo`: si la tarjeta
+ * promete más de lo que el backend deja invitar, el dueño paga y después choca
+ * contra el tope.
  */
 export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
   SOLO: {
@@ -31,11 +44,16 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     nombre: 'Agencia Chica',
     bajada: 'Para el equipo que recién arranca.',
     incluye: ['Hasta 5 usuarios', 'Todo lo del plan Solo', 'Estadísticas del equipo'],
+    destacado: true,
   },
   AGENCIA_GRANDE: {
     nombre: 'Agencia Grande',
     bajada: 'Para la inmobiliaria con varios agentes.',
-    incluye: ['Hasta 15 usuarios', 'Todo lo del plan Agencia Chica', 'Soporte prioritario'],
+    incluye: [
+      'Usuarios ilimitados',
+      'Todo lo del plan Agencia Chica',
+      'Soporte prioritario',
+    ],
   },
 }
 

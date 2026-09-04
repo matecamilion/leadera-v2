@@ -11,6 +11,19 @@ interface ModalConfirmarEliminarProps {
   error?: string | null
   onCancelar: () => void
   onConfirmar: () => void
+  /**
+   * Texto del botón que confirma. Por defecto "Sí, eliminar".
+   *
+   * Se puede cambiar porque no todo lo que se confirma acá es un borrado: dar
+   * de baja una suscripción con un botón que dice "Sí, eliminar" y otro que
+   * dice "Cancelar" es ambiguo justo donde no puede serlo —"Cancelar" tendría
+   * dos significados opuestos en el mismo diálogo—.
+   */
+  textoConfirmar?: string
+  /** Texto del botón mientras se procesa. Por defecto "Eliminando…". */
+  textoConfirmando?: string
+  /** Texto del botón que cierra sin hacer nada. Por defecto "Cancelar". */
+  textoCancelar?: string
 }
 
 /**
@@ -30,6 +43,9 @@ export function ModalConfirmarEliminar({
   error,
   onCancelar,
   onConfirmar,
+  textoConfirmar = 'Sí, eliminar',
+  textoConfirmando = 'Eliminando…',
+  textoCancelar = 'Cancelar',
 }: ModalConfirmarEliminarProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
@@ -76,7 +92,7 @@ export function ModalConfirmarEliminar({
             disabled={eliminando}
             className="flex-1 rounded-lg border border-caliente bg-transparent px-4 py-2 font-semibold text-caliente transition-colors hover:bg-hot-soft disabled:opacity-60 motion-reduce:transition-none"
           >
-            Cancelar
+            {textoCancelar}
           </button>
           <button
             type="button"
@@ -84,7 +100,7 @@ export function ModalConfirmarEliminar({
             disabled={eliminando}
             className="flex-1 rounded-lg border-none bg-peligro px-4 py-2.5 text-[0.92rem] font-bold text-white transition-colors hover:bg-peligro-hover disabled:opacity-60 motion-reduce:transition-none"
           >
-            {eliminando ? 'Eliminando…' : 'Sí, eliminar'}
+            {eliminando ? textoConfirmando : textoConfirmar}
           </button>
         </div>
       </div>

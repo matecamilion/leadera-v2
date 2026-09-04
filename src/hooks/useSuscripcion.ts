@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  cancelarSuscripcion,
   crearSuscripcion,
   listarPreciosPlanes,
   obtenerEstadoSuscripcion,
+  type CancelacionConfirmada,
   type EstadoDeMiSuscripcion,
   type Plan,
   type PrecioPlan,
@@ -52,6 +54,24 @@ export function useCrearSuscripcion() {
     onError: () => {
       // El intento pudo haber dejado el mp_preapproval_id guardado aunque el
       // usuario no llegue a pagar: el estado en pantalla ya no es confiable.
+      qc.invalidateQueries({ queryKey: [...CLAVE_SUSCRIPCION, 'estado'] })
+    },
+  })
+}
+
+/**
+ * Da de baja la suscripción.
+ *
+ * Se invalida el estado pase lo que pase: si salió bien hay que releer
+ * `cancelacion_solicitada`, y si falló no sabemos en qué punto quedó (Mercado
+ * Pago pudo haber cancelado y haber fallado el registro).
+ */
+export function useCancelarSuscripcion() {
+  const qc = useQueryClient()
+
+  return useMutation<CancelacionConfirmada, Error, void>({
+    mutationFn: cancelarSuscripcion,
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: [...CLAVE_SUSCRIPCION, 'estado'] })
     },
   })

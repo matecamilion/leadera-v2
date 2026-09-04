@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
+import { ModalConfirmarEliminar } from '../components/comunes/ModalConfirmarEliminar'
 import { Spinner } from '../components/Spinner'
 import { useAuth } from '../contexts/AuthContext'
 import {
+  useCancelarSuscripcion,
   useCrearSuscripcion,
   useEstadoSuscripcion,
   usePreciosPlanes,
@@ -110,9 +112,11 @@ export default function Suscripcion() {
         </p>
         <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-ink">Suscripción</h1>
         <p className="mt-1 text-[0.9rem] text-ink-3">
-          {alDia
-            ? 'El estado de tu plan y cuándo es el próximo cobro.'
-            : 'Elegí el plan que le sirve a tu inmobiliaria. Se cobra por mes y lo cancelás cuando quieras.'}
+          {!alDia
+            ? 'Elegí el plan que le sirve a tu inmobiliaria. Se cobra por mes y lo cancelás cuando quieras.'
+            : miEstado?.cancelacionSolicitada
+              ? 'Tu plan y hasta cuándo seguís teniendo acceso.'
+              : 'El estado de tu plan y cuándo es el próximo cobro.'}
         </p>
       </header>
 
@@ -174,15 +178,36 @@ export default function Suscripcion() {
 function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
   const detalle = estado.plan ? DETALLE_PLAN[estado.plan] : null
   const enGracia = estado.estado === 'GRACIA'
+  const cancelada = estado.cancelacionSolicitada
+
+  const [modalAbierto, setModalAbierto] = useState(false)
+  const cancelar = useCancelarSuscripcion()
+
+  // Sólo se ofrece la baja sobre una suscripción que se está cobrando. En
+  // GRACIA el cobro ya falló y el camino es arreglar el medio de pago, no
+  // cancelar; el backend además la rechazaría por no estar ACTIVA.
+  const puedeCancelar = !cancelada && estado.estado === 'ACTIVA'
+
+  const accesoHasta = estado.fecha_proximo_cobro
+    ? formatearFecha(estado.fecha_proximo_cobro)
+    : null
+
+  function confirmarBaja() {
+    cancelar.mutate(undefined, { onSuccess: () => setModalAbierto(false) })
+  }
 
   return (
     <div className="rounded-[16px] border border-border bg-surface px-6 py-6 shadow-md">
       <p
         className={`m-0 inline-flex items-center rounded-full px-3 py-1 text-[0.75rem] font-bold uppercase ${
-          enGracia ? 'bg-warm-soft text-badge-tibio-ink' : 'bg-brand-soft text-primary'
+          cancelada
+            ? 'bg-surface-2 text-ink-2'
+            : enGracia
+              ? 'bg-warm-soft text-badge-tibio-ink'
+              : 'bg-brand-soft text-primary'
         }`}
       >
-        {enGracia ? 'Pago pendiente' : 'Al día'}
+        {cancelada ? 'Cancelada' : enGracia ? 'Pago pendiente' : 'Al día'}
       </p>
 
       <h2 className="mt-3 mb-0 text-[1.25rem] font-bold text-ink">
@@ -190,18 +215,67 @@ function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
       </h2>
 
       <p className="mt-1 text-[0.9rem] text-ink-3">
-        {enGracia
-          ? 'No pudimos cobrar el último mes. Mercado Pago va a reintentar; revisá que tu medio de pago tenga fondos.'
-          : 'Tu suscripción está activa. No tenés que hacer nada.'}
+        {cancelada
+          ? 'Cancelaste la suscripción. No se te va a cobrar de nuevo.'
+          : enGracia
+            ? 'No pudimos cobrar el último mes. Mercado Pago va a reintentar; revisá que tu medio de pago tenga fondos.'
+            : 'Tu suscripción está activa. No tenés que hacer nada.'}
       </p>
 
-      {estado.fecha_proximo_cobro && (
-        <p className="mt-4 text-[0.9rem] text-ink-2">
-          Próximo cobro:{' '}
-          <strong className="font-semibold text-ink">
-            {formatearFecha(estado.fecha_proximo_cobro)}
-          </strong>
-        </p>
+      {/* Cancelada: lo que importa no es cuándo se cobra —no se cobra más—
+          sino hasta cuándo se puede seguir usando. */}
+      {cancelada ? (
+        accesoHasta && (
+          <p className="mt-4 text-[0.9rem] text-ink-2">
+            Tenés acceso hasta el{' '}
+            <strong className="font-semibold text-ink">{accesoHasta}</strong>.
+          </p>
+        )
+      ) : (
+        estado.fecha_proximo_cobro && (
+          <p className="mt-4 text-[0.9rem] text-ink-2">
+            Próximo cobro:{' '}
+            <strong className="font-semibold text-ink">{accesoHasta}</strong>
+          </p>
+        )
+      )}
+
+      {puedeCancelar && (
+        <>
+          {/* Acción destructiva y poco frecuente: va discreta, abajo y separada
+              del resto, para que no compita con la información del plan. */}
+          <div className="mt-6 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={() => setModalAbierto(true)}
+              className="rounded-lg border border-border bg-surface px-4 py-2 text-[0.85rem] font-semibold text-ink-3 transition-colors hover:border-peligro-borde hover:bg-peligro-soft hover:text-peligro-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-peligro-ink motion-reduce:transition-none"
+            >
+              Cancelar suscripción
+            </button>
+          </div>
+
+          <ModalConfirmarEliminar
+            abierto={modalAbierto}
+            titulo="¿Cancelar la suscripción?"
+            descripcion={
+              accesoHasta
+                ? `Vas a mantener acceso hasta el ${accesoHasta}. Después no se te va a cobrar más.`
+                : 'Vas a mantener acceso hasta el final del período que ya pagaste. Después no se te va a cobrar más.'
+            }
+            nombre={detalle ? `Plan ${detalle.nombre}` : undefined}
+            eliminando={cancelar.isPending}
+            error={cancelar.isError ? cancelar.error.message : null}
+            onCancelar={() => {
+              if (cancelar.isPending) return
+              cancelar.reset()
+              setModalAbierto(false)
+            }}
+            onConfirmar={confirmarBaja}
+            textoConfirmar="Sí, cancelar"
+            textoConfirmando="Cancelando…"
+            textoCancelar="No, seguir"
+          />
+        </>
       )}
     </div>
   )

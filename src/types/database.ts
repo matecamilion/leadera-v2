@@ -154,6 +154,24 @@ export type Database = {
           },
         ]
       }
+      eventos_mp_procesados: {
+        Row: {
+          mp_data_id: string
+          procesado_at: string
+          tipo: string
+        }
+        Insert: {
+          mp_data_id: string
+          procesado_at?: string
+          tipo: string
+        }
+        Update: {
+          mp_data_id?: string
+          procesado_at?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       historial_precios_planes: {
         Row: {
           cotizacion_usada: number
@@ -183,6 +201,7 @@ export type Database = {
       }
       inmobiliarias: {
         Row: {
+          cancelacion_solicitada: boolean
           created_at: string
           estado_suscripcion: Database["public"]["Enums"]["estado_suscripcion"]
           fecha_fin_trial: string
@@ -190,12 +209,13 @@ export type Database = {
           fecha_proximo_cobro: string | null
           fecha_ultimo_pago_fallido: string | null
           id: string
-          limite_usuarios: number
+          limite_usuarios: number | null
           mp_preapproval_id: string | null
           nombre: string
           plan: Database["public"]["Enums"]["plan_leadera"] | null
         }
         Insert: {
+          cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
           fecha_fin_trial?: string
@@ -203,12 +223,13 @@ export type Database = {
           fecha_proximo_cobro?: string | null
           fecha_ultimo_pago_fallido?: string | null
           id?: string
-          limite_usuarios?: number
+          limite_usuarios?: number | null
           mp_preapproval_id?: string | null
           nombre: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
         }
         Update: {
+          cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
           fecha_fin_trial?: string
@@ -216,7 +237,7 @@ export type Database = {
           fecha_proximo_cobro?: string | null
           fecha_ultimo_pago_fallido?: string | null
           id?: string
-          limite_usuarios?: number
+          limite_usuarios?: number | null
           mp_preapproval_id?: string | null
           nombre?: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
@@ -517,6 +538,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      planes_cupo: {
+        Row: {
+          limite_usuarios: number | null
+          plan: Database["public"]["Enums"]["plan_leadera"]
+        }
+        Insert: {
+          limite_usuarios?: number | null
+          plan: Database["public"]["Enums"]["plan_leadera"]
+        }
+        Update: {
+          limite_usuarios?: number | null
+          plan?: Database["public"]["Enums"]["plan_leadera"]
+        }
+        Relationships: []
       }
       planes_precio: {
         Row: {
@@ -1037,6 +1073,7 @@ export type Database = {
           perdidos: number
         }[]
       }
+      procesar_transiciones_suscripcion: { Args: never; Returns: undefined }
       resumen_interacciones_por_lead: {
         Args: { p_lead_ids: string[] }
         Returns: {

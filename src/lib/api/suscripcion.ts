@@ -103,6 +103,13 @@ export interface EstadoDeMiSuscripcion {
   tieneSuscripcionEnMp: boolean
   fecha_fin_trial: string | null
   fecha_proximo_cobro: string | null
+  /**
+   * El dueño pidió la baja y todavía no llegó la fecha de corte.
+   *
+   * No es un estado: la inmobiliaria sigue ACTIVA y con acceso normal hasta
+   * `fecha_proximo_cobro`. Recién ahí el cron la pasa a CANCELADA.
+   */
+  cancelacionSolicitada: boolean
 }
 
 /**
@@ -117,7 +124,9 @@ export interface EstadoDeMiSuscripcion {
 export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion | null> {
   const { data, error } = await supabase
     .from('inmobiliarias')
-    .select('plan, estado_suscripcion, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro')
+    .select(
+      'plan, estado_suscripcion, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
+    )
     .maybeSingle()
 
   if (error) {
@@ -132,7 +141,36 @@ export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion 
     tieneSuscripcionEnMp: data.mp_preapproval_id !== null,
     fecha_fin_trial: data.fecha_fin_trial,
     fecha_proximo_cobro: data.fecha_proximo_cobro,
+    cancelacionSolicitada: data.cancelacion_solicitada === true,
   }
+}
+
+export interface CancelacionConfirmada {
+  cancelacion_solicitada: true
+  /** Hasta cuándo sigue teniendo acceso. null si no había fecha de cobro cargada. */
+  acceso_hasta: string | null
+  /** true si ya estaba cancelada de antes: la acción fue idempotente. */
+  ya_estaba_cancelada?: boolean
+}
+
+/**
+ * Da de baja la suscripción en Mercado Pago.
+ *
+ * No corta el acceso: la Edge Function cancela el cobro recurrente y marca la
+ * baja, pero el estado sigue ACTIVA hasta la fecha de corte.
+ */
+export async function cancelarSuscripcion(): Promise<CancelacionConfirmada> {
+  const { data, error } = await supabase.functions.invoke<CancelacionConfirmada>(
+    'cancelar-suscripcion',
+    { body: {} },
+  )
+
+  if (error) {
+    throw new Error(await mensajeDeFuncion(error, 'No se pudo cancelar la suscripción.'))
+  }
+  if (!data) throw new Error('La cancelación no devolvió datos.')
+
+  return data
 }
 
 export interface SuscripcionCreada {

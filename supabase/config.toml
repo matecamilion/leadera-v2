@@ -441,3 +441,9 @@ verify_jwt = true
 [functions.webhook-mercadopago]
 enabled = true
 verify_jwt = false
+
+# cancelar-suscripcion la llama el DUENO logueado desde /suscripcion, igual que
+# crear-suscripcion: exige JWT y adentro verifica el rol.
+[functions.cancelar-suscripcion]
+enabled = true
+verify_jwt = true

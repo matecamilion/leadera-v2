@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   cancelarSuscripcion,
   crearSuscripcion,
+  listarPagos,
   listarPreciosPlanes,
   obtenerEstadoSuscripcion,
   type CancelacionConfirmada,
   type EstadoDeMiSuscripcion,
+  type PagoDelHistorial,
   type Plan,
   type PrecioPlan,
   type SuscripcionCreada,
@@ -74,5 +76,19 @@ export function useCancelarSuscripcion() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: [...CLAVE_SUSCRIPCION, 'estado'] })
     },
+  })
+}
+
+/**
+ * El historial de cobros de mi inmobiliaria.
+ *
+ * Queda deshabilitado hasta tener el id: sale del profile, que carga aparte de
+ * la sesión, y sin él la query traería el historial de nadie.
+ */
+export function usePagos(inmobiliariaId: string | undefined) {
+  return useQuery<PagoDelHistorial[]>({
+    queryKey: [...CLAVE_SUSCRIPCION, 'pagos', inmobiliariaId],
+    queryFn: () => listarPagos(inmobiliariaId!),
+    enabled: inmobiliariaId != null,
   })
 }

@@ -25,6 +25,11 @@ interface DatosPersonales {
   apellido: string
 }
 
+/** Mismos valores que el enum `plan_leadera` de la base. */
+type Plan = 'SOLO' | 'AGENCIA_CHICA' | 'AGENCIA_GRANDE'
+
+const PLANES: Plan[] = ['SOLO', 'AGENCIA_CHICA', 'AGENCIA_GRANDE']
+
 interface InvitacionRow {
   id: string
   inmobiliaria_id: string
@@ -87,11 +92,31 @@ async function signupIndependiente(
     return errorResponse(req, 'Falta el nombre de la inmobiliaria', 400, 'INPUT_INVALIDO')
   }
 
+  // El plan que eligió en el alta. Es opcional —sin él la inmobiliaria queda
+  // sin plan, como antes de que el signup lo preguntara—, pero si viene algo
+  // que no es un plan se rechaza en vez de guardarlo o ignorarlo en silencio.
+  //
+  // No cambia nada de la suscripción: el trial, sus fechas y el estado TRIAL
+  // los siguen poniendo los defaults de la tabla. Esto sólo deja registrado
+  // contra qué límites se mide la inmobiliaria desde el primer día.
+  let plan: Plan | null = null
+  if (body.plan !== undefined && body.plan !== null) {
+    if (typeof body.plan !== 'string' || !PLANES.includes(body.plan as Plan)) {
+      return errorResponse(
+        req,
+        `El plan tiene que ser uno de: ${PLANES.join(', ')}`,
+        400,
+        'INPUT_INVALIDO',
+      )
+    }
+    plan = body.plan as Plan
+  }
+
   const admin = adminClient()
 
   const { data: inmobiliaria, error: inmoError } = await admin
     .from('inmobiliarias')
-    .insert({ nombre: nombreInmobiliaria })
+    .insert({ nombre: nombreInmobiliaria, plan })
     .select('id')
     .single<{ id: string }>()
 

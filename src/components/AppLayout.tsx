@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
 import { AvisoFlash } from './AvisoFlash'
+import { BannerSuscripcion } from './BannerSuscripcion'
 import { Marca } from './Marca'
 import { Spinner } from './Spinner'
 
@@ -219,6 +220,12 @@ export function AppLayout() {
             Cerrar sesión
           </button>
         </header>
+
+        {/* Debajo del header y fuera del <main>: se ve en todas las pantallas
+            sin que cada página tenga que acordarse de pedirlo. El `key` lo
+            remonta al navegar, que es lo que hace reaparecer el aviso después
+            de que el dueño lo cierra. */}
+        <BannerSuscripcion key={location.pathname} />
 
         <main className="px-4 py-8 sm:px-6 lg:px-8">
           {/* Las páginas se cargan por chunk (React.lazy en App.tsx). El

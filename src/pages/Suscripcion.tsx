@@ -3,19 +3,23 @@ import { useSearchParams } from 'react-router-dom'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ModalConfirmarEliminar } from '../components/comunes/ModalConfirmarEliminar'
 import { Spinner } from '../components/Spinner'
+import { IndicadorUso } from '../components/suscripcion/IndicadorUso'
 import { useAuth } from '../contexts/AuthContext'
 import {
   useCancelarSuscripcion,
   useCrearSuscripcion,
   useEstadoSuscripcion,
+  usePagos,
   usePreciosPlanes,
 } from '../hooks/useSuscripcion'
+import { useUsoRecursos } from '../hooks/useUsoRecursos'
 import { formatearFecha } from '../lib/formatoFecha'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import {
   DETALLE_PLAN,
   interpretarVuelta,
   type EstadoDeMiSuscripcion,
+  type PagoDelHistorial,
   type Plan,
   type PrecioPlan,
   type TonoVuelta,
@@ -171,7 +175,99 @@ export default function Suscripcion() {
           </p>
         </>
       )}
+
+      {/* Alcanza con que haya un plan asociado, sin mirar el estado: durante el
+          trial los topes ya rigen, y saber contra qué se está midiendo es
+          justamente lo que ayuda a decidir si ese plan alcanza. Sin plan no hay
+          nada contra qué comparar. */}
+      {miEstado?.plan && <UsoDelPlan plan={miEstado.plan} />}
+
+      {/* En TRIAL no hubo ningún cobro todavía: una sección vacía sólo haría
+          dudar de si falta algo. En VENCIDA o CANCELADA sí se muestra —arriba
+          se ven los planes en vez del resumen, pero los cobros viejos siguen
+          siendo lo que explica por qué la cuenta está donde está—. */}
+      {miEstado && miEstado.estado !== 'TRIAL' && <HistorialDePagos />}
     </div>
+  )
+}
+
+function UsoDelPlan({ plan }: { plan: Plan }) {
+  const uso = useUsoRecursos(plan)
+
+  // Ni skeleton ni cartel de error: es información de apoyo, y que aparezca
+  // cuando está lista molesta menos que un hueco anunciándose en una pantalla
+  // que se entra a mirar por otra cosa.
+  if (uso.isPending || uso.isError) return null
+
+  return (
+    <section className="mt-8">
+      <h2 className="m-0 text-[1.05rem] font-bold text-ink">Uso de tu plan</h2>
+      <p className="mt-1 mb-4 text-[0.85rem] text-ink-3">
+        Cuánto llevás cargado de lo que incluye el plan {DETALLE_PLAN[plan].nombre}.
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 rounded-[16px] border border-border bg-surface px-6 py-5 shadow-md sm:grid-cols-3">
+        <IndicadorUso etiqueta="Leads" unidad="leads" uso={uso.data.leads} />
+        <IndicadorUso etiqueta="Propiedades" unidad="propiedades" uso={uso.data.propiedades} />
+        <IndicadorUso
+          etiqueta="Operaciones activas"
+          unidad="operaciones activas"
+          uso={uso.data.operacionesActivas}
+        />
+      </div>
+    </section>
+  )
+}
+
+function HistorialDePagos() {
+  const { profile } = useAuth()
+  const pagos = usePagos(profile?.inmobiliaria_id)
+
+  // Sin cobros no se dibuja la sección: el encabezado de una tabla vacía no
+  // agrega nada que el resumen de arriba no diga mejor.
+  if (pagos.isPending || pagos.isError || pagos.data.length === 0) return null
+
+  return (
+    <section className="mt-8">
+      <h2 className="m-0 text-[1.05rem] font-bold text-ink">Historial de pagos</h2>
+      <p className="mt-1 mb-4 text-[0.85rem] text-ink-3">
+        Los cobros de tu suscripción, del más reciente al más antiguo.
+      </p>
+
+      <ul className="list-none divide-y divide-border overflow-hidden rounded-[16px] border border-border bg-surface p-0 shadow-md">
+        {pagos.data.map((pago) => (
+          <FilaDePago key={pago.id} pago={pago} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function FilaDePago({ pago }: { pago: PagoDelHistorial }) {
+  const aprobado = pago.resultado === 'aprobado'
+
+  return (
+    <li className="flex items-center gap-4 px-5 py-3.5">
+      <span className="text-[0.9rem] text-ink-2 tabular-nums">
+        {formatearFecha(pago.fecha)}
+      </span>
+
+      <span
+        className={`ml-auto text-[0.9rem] font-semibold tabular-nums ${
+          aprobado ? 'text-ink' : 'text-ink-4 line-through'
+        }`}
+      >
+        {pago.monto === null ? '—' : `$${MONTOS.format(pago.monto)}`}
+      </span>
+
+      <span
+        className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold uppercase ${
+          aprobado ? 'bg-brand-soft text-primary' : 'bg-peligro-soft text-peligro-ink'
+        }`}
+      >
+        {aprobado ? 'Aprobado' : 'Rechazado'}
+      </span>
+    </li>
   )
 }
 

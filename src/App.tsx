@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Spinner } from './components/Spinner'
+import { SuscripcionGuard } from './components/SuscripcionGuard'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { esPaginaFueraDeRango } from './lib/mensajesDeError'
 
@@ -71,31 +72,36 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
 
-              {/* Protegidas: sesión + shell con sidebar */}
+              {/* Protegidas: sesión + suscripción vigente + shell con sidebar.
+                  El guard va por fuera del AppLayout porque la pantalla de
+                  cuenta vencida se muestra sin sidebar; el layout queda adentro
+                  y es uno solo para todas las rutas, /suscripcion incluida. */}
               <Route
                 element={
                   <ProtectedRoute>
-                    <AppLayout />
+                    <SuscripcionGuard />
                   </ProtectedRoute>
                 }
               >
-                <Route path="/mi-dia" element={<MiDia />} />
-                <Route path="/mi-dia/contactados" element={<ContactadosHoy />} />
-                <Route path="/leads" element={<Leads />} />
-                <Route path="/leads/nuevo" element={<NuevoLead />} />
-                <Route path="/leads/:id" element={<DetalleLead />} />
-                <Route path="/propiedades" element={<Propiedades />} />
-                <Route path="/propiedades/nueva" element={<NuevaPropiedad />} />
-                <Route path="/propiedades/:id" element={<DetallePropiedad />} />
-                <Route path="/operaciones" element={<Operaciones />} />
-                <Route path="/operaciones/tablero" element={<KanbanOperaciones />} />
-                <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
-                <Route path="/operaciones/:id" element={<DetalleOperacion />} />
-                <Route path="/estadisticas" element={<Estadisticas />} />
-                <Route path="/perfil" element={<Perfil />} />
-                <Route path="/equipo" element={<Equipo />} />
-                <Route path="/tareas" element={<Tareas />} />
-                <Route path="/suscripcion" element={<Suscripcion />} />
+                <Route element={<AppLayout />}>
+                  <Route path="/mi-dia" element={<MiDia />} />
+                  <Route path="/mi-dia/contactados" element={<ContactadosHoy />} />
+                  <Route path="/leads" element={<Leads />} />
+                  <Route path="/leads/nuevo" element={<NuevoLead />} />
+                  <Route path="/leads/:id" element={<DetalleLead />} />
+                  <Route path="/propiedades" element={<Propiedades />} />
+                  <Route path="/propiedades/nueva" element={<NuevaPropiedad />} />
+                  <Route path="/propiedades/:id" element={<DetallePropiedad />} />
+                  <Route path="/operaciones" element={<Operaciones />} />
+                  <Route path="/operaciones/tablero" element={<KanbanOperaciones />} />
+                  <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
+                  <Route path="/operaciones/:id" element={<DetalleOperacion />} />
+                  <Route path="/estadisticas" element={<Estadisticas />} />
+                  <Route path="/perfil" element={<Perfil />} />
+                  <Route path="/equipo" element={<Equipo />} />
+                  <Route path="/tareas" element={<Tareas />} />
+                  <Route path="/suscripcion" element={<Suscripcion />} />
+                </Route>
               </Route>
 
               {/* /dashboard era el nombre de "Mi día" hasta esta versión: se deja

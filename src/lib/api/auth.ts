@@ -11,6 +11,7 @@ import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 
 export type RolAgente = Database['public']['Enums']['rol_agente']
+export type Plan = Database['public']['Enums']['plan_leadera']
 
 /** Roles que se pueden invitar. DUENO sale sólo del alta independiente. */
 export type RolInvitable = Extract<RolAgente, 'AGENTE' | 'ASISTENTE'>
@@ -60,6 +61,15 @@ export interface SignupIndependienteInput {
   nombre: string
   apellido: string
   nombre_inmobiliaria: string
+  /**
+   * El plan que la inmobiliaria arranca evaluando.
+   *
+   * No cobra nada ni acorta el trial: queda guardado para saber contra qué
+   * límites medirse desde el primer día. Es opcional para no romper a un
+   * cliente que no lo mande; en ese caso la inmobiliaria queda sin plan, que es
+   * como se comportaba el alta antes de existir este campo.
+   */
+  plan?: Plan
 }
 
 export interface SignupInvitadoInput {

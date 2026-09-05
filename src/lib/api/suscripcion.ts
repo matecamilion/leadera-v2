@@ -115,11 +115,11 @@ export interface EstadoDeMiSuscripcion {
 /**
  * El estado de suscripción de mi inmobiliaria, o null si no se puede leer.
  *
- * Mismo caso que `obtenerCupo`: hoy `inmobiliarias` no tiene policy de SELECT
- * para usuarios autenticados, así que la fila vuelve vacía y esto devuelve
- * null. Se modela como "no sé" y no como "no tiene nada" a propósito —la
- * pantalla, ante la duda, muestra los planes, que es la salida útil—. Cuando se
- * agregue la policy, esta función empieza a devolver datos sin tocar el código.
+ * La policy de SELECT sobre `inmobiliarias` ya existe, así que el caso normal
+ * devuelve datos. El null se mantiene como "no sé" y no como "no tiene nada":
+ * si la fila no vuelve —RLS, error de red—, quien decide de verdad es
+ * `crear-suscripcion`, que sí la ve. Ante la duda la app deja pasar y muestra
+ * los planes, que es la salida útil; ver `estaBloqueada`.
  */
 export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion | null> {
   const { data, error } = await supabase
@@ -278,4 +278,139 @@ export function interpretarVuelta(params: URLSearchParams): VueltaDeMercadoPago 
     mensaje:
       'Volviste de Mercado Pago. Apenas nos confirme el resultado, vas a ver tu plan activo acá.',
   }
+}
+
+// ---------------------------------------------------------------------------
+// Reglas de acceso
+// ---------------------------------------------------------------------------
+
+/**
+ * Estados en los que la inmobiliaria pierde el acceso a la app.
+ *
+ * Es la lista que mira `SuscripcionGuard`. GRACIA queda deliberadamente afuera:
+ * ahí el cobro falló pero Mercado Pago todavía reintenta, y cortarle el acceso a
+ * quien probablemente termine pagando es peor negocio que avisarle. El aviso lo
+ * da el banner.
+ */
+const ESTADOS_BLOQUEANTES: EstadoSuscripcion[] = ['VENCIDA', 'CANCELADA']
+
+/**
+ * Si la cuenta perdió el acceso.
+ *
+ * `null` es "no sé" —no se pudo leer la fila— y no bloquea: preferimos dejar
+ * entrar a alguien que debería estar bloqueado antes que trabar a un cliente al
+ * día por un error de lectura. El acceso real a los datos lo gobierna la RLS.
+ */
+export function estaBloqueada(estado: EstadoDeMiSuscripcion | null | undefined): boolean {
+  if (!estado) return false
+  return ESTADOS_BLOQUEANTES.includes(estado.estado)
+}
+
+/** Umbral a partir del cual se avisa que el trial se termina. */
+const DIAS_DE_AVISO_TRIAL = 3
+
+const UN_DIA_EN_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Días que faltan para que termine el trial, redondeados hacia arriba.
+ *
+ * Nunca devuelve menos de 1: un trial que vence hoy o que ya venció —el cron
+ * todavía no lo pasó a VENCIDA— se cuenta como "te queda 1 día". Decir "te
+ * quedan 0 días" no le sirve a nadie, y es justo el momento más urgente.
+ * Devuelve null si no hay fecha cargada.
+ */
+export function diasDeTrialRestantes(fechaFinTrial: string | null): number | null {
+  if (!fechaFinTrial) return null
+
+  const fin = new Date(fechaFinTrial)
+  if (Number.isNaN(fin.getTime())) return null
+
+  return Math.max(1, Math.ceil((fin.getTime() - Date.now()) / UN_DIA_EN_MS))
+}
+
+/** El aviso que corresponde mostrar, o null si no hay nada que avisar. */
+export type AvisoSuscripcion =
+  | { tipo: 'trial_por_terminar'; dias: number }
+  | { tipo: 'gracia' }
+
+/**
+ * Qué avisarle al dueño sobre su suscripción.
+ *
+ * Sólo avisa, nunca bloquea: los estados que cortan el acceso los resuelve
+ * `estaBloqueada` antes de que se llegue a pintar un banner.
+ */
+export function avisoDeSuscripcion(
+  estado: EstadoDeMiSuscripcion | null | undefined,
+): AvisoSuscripcion | null {
+  if (!estado) return null
+
+  if (estado.estado === 'GRACIA') return { tipo: 'gracia' }
+
+  if (estado.estado === 'TRIAL') {
+    const dias = diasDeTrialRestantes(estado.fecha_fin_trial)
+    if (dias !== null && dias <= DIAS_DE_AVISO_TRIAL) {
+      return { tipo: 'trial_por_terminar', dias }
+    }
+  }
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Historial de pagos
+// ---------------------------------------------------------------------------
+
+export type ResultadoPago = 'aprobado' | 'rechazado'
+
+/**
+ * Los tipos de `eventos_facturacion` que son el resultado de un cobro.
+ *
+ * Los escribe `webhook-mercadopago`. La tabla guarda además eventos que no son
+ * pagos —`suscripcion_cancelada`, `cancelacion_solicitada`— y que no van al
+ * historial: acá se lista plata que se cobró o se intentó cobrar.
+ */
+const RESULTADO_POR_TIPO: Record<string, ResultadoPago> = {
+  pago_aprobado: 'aprobado',
+  pago_rechazado: 'rechazado',
+}
+
+export interface PagoDelHistorial {
+  id: string
+  fecha: string
+  /** En la moneda de `moneda`. null si el evento no registró importe. */
+  monto: number | null
+  moneda: string
+  resultado: ResultadoPago
+}
+
+/** Cuántos cobros se muestran. Un año de mensualidades y sobra. */
+const TOPE_HISTORIAL = 24
+
+/**
+ * Los cobros de la inmobiliaria, del más reciente al más viejo.
+ *
+ * Se filtra por `inmobiliaria_id` explícitamente en vez de confiar sólo en la
+ * RLS: es plata de un tercero, y si la policy de esta tabla llegara a faltar o
+ * aflojarse, el filtro evita que la pantalla muestre los cobros de otro.
+ */
+export async function listarPagos(inmobiliariaId: string): Promise<PagoDelHistorial[]> {
+  const { data, error } = await supabase
+    .from('eventos_facturacion')
+    .select('id, created_at, monto, moneda, tipo')
+    .eq('inmobiliaria_id', inmobiliariaId)
+    .in('tipo', Object.keys(RESULTADO_POR_TIPO))
+    .order('created_at', { ascending: false })
+    .limit(TOPE_HISTORIAL)
+
+  if (error) {
+    throw new Error(`No se pudo cargar el historial de pagos: ${error.message}`)
+  }
+
+  return (data ?? []).map((fila) => ({
+    id: fila.id,
+    fecha: fila.created_at,
+    monto: fila.monto === null ? null : Number(fila.monto),
+    moneda: fila.moneda ?? 'ARS',
+    resultado: RESULTADO_POR_TIPO[fila.tipo],
+  }))
 }

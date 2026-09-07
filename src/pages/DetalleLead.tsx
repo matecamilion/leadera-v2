@@ -195,6 +195,18 @@ export default function DetalleLead() {
         </div>
       </div>
 
+{lead.descripcion_inicial?.trim() && (
+  <div className="mb-7 rounded-[16px] border border-border bg-surface p-5">
+    <p className="mb-2 text-xs font-bold tracking-[0.05em] text-primary uppercase">
+      Sobre el lead
+    </p>
+
+    <p className="m-0 whitespace-pre-wrap text-[0.9rem] leading-relaxed text-ink-2">
+      {lead.descripcion_inicial}
+    </p>
+  </div>
+)}
+
       {/* El botón de la tab de Interacciones abre este mismo modal: uno solo
           por pantalla, montado acá. */}
       <TabsDetalleLead

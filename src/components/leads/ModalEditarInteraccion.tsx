@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
+import { esMomentoFuturo } from '../../lib/calendario'
+import { DETALLE_MINIMO } from '../../lib/validaciones'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
 import {
   etiquetaTipoInteraccion,
@@ -42,10 +44,16 @@ interface ModalEditarInteraccionProps {
  * datetime-local tiene precisión de minuto, así que reenviar una `fecha` que el
  * usuario ni tocó le comería los segundos y podría reordenar el timeline.
  *
- * El detalle se pide no vacío, pero sin el mínimo de 10 caracteres del alta:
- * acá hay filas viejas —y las que cargó automáticamente el timeline de una
- * operación— que no lo cumplen, y no queremos bloquear la corrección de un tipo
- * mal elegido por un detalle que ya estaba corto.
+ * El detalle exige los mismos 10 caracteres que el alta. Antes acá sólo se
+ * pedía no vacío, para no trabar la corrección de un tipo mal elegido en una
+ * fila vieja o autogenerada cuyo detalle ya venía corto; el costo era que la
+ * edición quedaba como la puerta de atrás para dejar en un carácter algo que el
+ * alta nunca hubiera aceptado. Si aparecen filas cortas que haya que corregir,
+ * lo que corresponde es completarles el detalle, no bajar el piso.
+ *
+ * La fecha no puede quedar adelante del reloj: una interacción es algo que ya
+ * pasó, y fecharla en el futuro corre el "último contacto" del lead a un
+ * momento que no ocurrió.
  */
 export function ModalEditarInteraccion({
   abierto,
@@ -77,9 +85,30 @@ export function ModalEditarInteraccion({
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, interaccion])
 
-  const errorDetalle = tocado && !detalle.trim() ? 'El detalle es obligatorio' : null
-  const errorFecha = tocado && !aIso(fecha) ? 'Poné una fecha válida' : null
-  const valido = Boolean(detalle.trim()) && Boolean(aIso(fecha))
+  // Mismo piso que el alta, y desde la misma constante: bajarlo por acá dejaba
+  // el historial con detalles de un carácter que el alta nunca hubiera aceptado.
+  const errorDetalle = !tocado
+    ? null
+    : !detalle.trim()
+      ? 'El detalle es obligatorio'
+      : detalle.trim().length < DETALLE_MINIMO
+        ? `Mínimo ${DETALLE_MINIMO} caracteres`
+        : null
+
+  // Una interacción es algo que ya pasó. Fecharla adelante empuja el "último
+  // contacto" del lead a un futuro que no ocurrió, y ese es el número con el
+  // que se prioriza el listado.
+  const fechaFutura = esMomentoFuturo(fecha)
+  const errorFecha = !tocado
+    ? null
+    : !aIso(fecha)
+      ? 'Poné una fecha válida'
+      : fechaFutura
+        ? 'La fecha de la interacción no puede ser futura.'
+        : null
+
+  const valido =
+    detalle.trim().length >= DETALLE_MINIMO && Boolean(aIso(fecha)) && !fechaFutura
 
   function manejarSubmit(e: FormEvent) {
     e.preventDefault()
@@ -164,6 +193,9 @@ export function ModalEditarInteraccion({
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
               onBlur={() => setTocado(true)}
+              // El tope lo aplica igual la validación de arriba; esto es para
+              // que el propio control no ofrezca un futuro que va a rechazarse.
+              max={aLocal(new Date().toISOString())}
               aria-invalid={Boolean(errorFecha) || undefined}
               className={`${CLASES_CONTROL} ${errorFecha ? 'border-peligro-ink' : ''}`}
             />

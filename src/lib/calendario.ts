@@ -92,3 +92,24 @@ export function esMomentoPasado(valor: string): boolean {
   if (Number.isNaN(fecha.getTime())) return false
   return fecha.getTime() < Date.now()
 }
+
+/**
+ * true si el valor de un <input type="datetime-local"> todavía no llegó.
+ *
+ * Hermana de `esMomentoPasado`, para lo que se registra en vez de agendarse:
+ * una interacción es algo que ya ocurrió, y fecharla adelante corre el "último
+ * contacto" del lead a un futuro que no pasó, que es justo el número por el que
+ * se ordena el listado.
+ *
+ * No es el complemento exacto de `esMomentoPasado`: el instante justo no es ni
+ * una cosa ni la otra, y ninguna de las dos lo rechaza.
+ *
+ * Un valor que no parsea devuelve false, igual que su hermana: lo rechaza el
+ * input, y bloquear por un texto ilegible dejaría el formulario trabado sin
+ * explicación.
+ */
+export function esMomentoFuturo(valor: string): boolean {
+  const fecha = new Date(valor)
+  if (Number.isNaN(fecha.getTime())) return false
+  return fecha.getTime() > Date.now()
+}

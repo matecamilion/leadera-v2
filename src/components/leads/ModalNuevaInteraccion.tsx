@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useCrearInteraccion } from '../../hooks/useInteracciones'
 import { TIPOS_INTERACCION, type TipoInteraccion } from '../../lib/api/interacciones'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../../lib/calendario'
+import { DETALLE_MINIMO } from '../../lib/validaciones'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
 import { IconoCalendario } from './Iconos'
 
 /** Lo mismo que pide la página: un detalle de una palabra no sirve de historial. */
-const DETALLE_MINIMO = 10
 
 /** Atajos de agenda: hoy + N días, respetando la hora actual. */
 const ATAJOS = [

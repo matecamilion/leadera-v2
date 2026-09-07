@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   closestCorners,
   DndContext,
@@ -12,8 +12,19 @@ import {
 import { Link } from 'react-router-dom'
 import { AlternadorVista } from '../components/operaciones/AlternadorVista'
 import { ColumnaKanban } from '../components/operaciones/ColumnaKanban'
-import { useKanbanOperaciones, useMoverOperacion } from '../hooks/useKanbanOperaciones'
-import { ESTADOS_OPERACION, type EstadoOperacion } from '../lib/api/operaciones'
+import {
+  useKanbanOperaciones,
+  useMoverOperacion,
+  useMovimientoOptimista,
+} from '../hooks/useKanbanOperaciones'
+import { ModalConfirmarCierre } from '../components/operaciones/ModalConfirmarCierre'
+import {
+  esBloqueada,
+  ESTADOS_OPERACION,
+  type EstadoOperacion,
+  type EstadoTerminal,
+  type TableroKanban,
+} from '../lib/api/operaciones'
 
 /** Las 5 columnas del tablero, en orden fijo. */
 const COLUMNAS: EstadoOperacion[] = ESTADOS_OPERACION.map((e) => e.valor)
@@ -36,6 +47,19 @@ const detectarColision: CollisionDetection = (args) => {
 export default function KanbanOperaciones() {
   const { data, isPending, isError, error } = useKanbanOperaciones()
   const mover = useMoverOperacion()
+  const movimiento = useMovimientoOptimista()
+
+  /**
+   * La card que ya llegó a una columna terminal y espera el sí.
+   *
+   * Guarda el tablero de antes: si la respuesta es que no, se vuelve a ese
+   * tablero y la card regresa sola a su columna, sin haber tocado la base.
+   */
+  const [aConfirmar, setAConfirmar] = useState<{
+    id: string
+    destino: EstadoTerminal
+    snapshot: TableroKanban | undefined
+  } | null>(null)
 
   // 8px de umbral: sin esto, un click en "Ver detalle" se interpreta como
   // el arranque de un drag y el link nunca navega.
@@ -75,8 +99,33 @@ export default function KanbanOperaciones() {
 
     if (!destino || destino === operacion.estado) return
 
+    // Cerrar y cancelar se preguntan, pero recién después de que la card llegó:
+    // frenarla en el aire se siente como que el arrastre falló, y además tapa
+    // el destino sobre el que hay que decidir. Si la respuesta es que no, el
+    // snapshot la devuelve a su columna.
+    if (esBloqueada(destino)) {
+      const snapshot = movimiento.aplicar(operacion.id, destino)
+      setAConfirmar({ id: operacion.id, destino, snapshot })
+      return
+    }
+
     // Sin restricción de transiciones: cualquier estado a cualquier estado.
     mover.mutate({ id: operacion.id, estado: destino })
+  }
+
+  function confirmarCierre() {
+    if (!aConfirmar) return
+    const { id, destino, snapshot } = aConfirmar
+    setAConfirmar(null)
+    // El snapshot viaja con la mutación: sin él, un fallo del server revertiría
+    // al tablero que ya tiene la card movida y la dejaría en la columna nueva.
+    mover.mutate({ id, estado: destino, snapshotPrevio: snapshot })
+  }
+
+  function descartarCierre() {
+    if (!aConfirmar) return
+    movimiento.revertir(aConfirmar.snapshot)
+    setAConfirmar(null)
   }
 
   return (
@@ -142,6 +191,13 @@ export default function KanbanOperaciones() {
           </div>
         </DndContext>
       )}
+
+      <ModalConfirmarCierre
+        estado={aConfirmar?.destino ?? null}
+        procesando={mover.isPending}
+        onCancelar={descartarCierre}
+        onConfirmar={confirmarCierre}
+      />
     </div>
   )
 }

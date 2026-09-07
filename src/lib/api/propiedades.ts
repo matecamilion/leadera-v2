@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 
@@ -5,6 +6,15 @@ export type Propiedad = Database['public']['Tables']['propiedades']['Row']
 export type EstadoPropiedad = Database['public']['Enums']['estado_propiedad']
 export type TipoPropiedad = Database['public']['Enums']['tipo_propiedad']
 export type Disposicion = Database['public']['Enums']['disposicion_propiedad']
+
+/**
+ * El tipo de la operación que puede nacer junto con una propiedad.
+ *
+ * Se declara desde el enum y no importando de `operaciones.ts` para no cruzar
+ * los dos módulos de API por un alias. En la práctica el alta sólo ofrece VENTA
+ * y ALQUILER; quien decide qué es válido es el RPC.
+ */
+export type TipoOperacionDePropiedad = Database['public']['Enums']['tipo_operacion']
 
 /** Propiedad con el propietario resuelto por el join. */
 export interface PropiedadConPropietario extends Propiedad {
@@ -287,6 +297,78 @@ export async function crearPropiedad(
 
   if (error) throw new Error(`No se pudo crear la propiedad: ${error.message}`)
   return data
+}
+
+/** Lo que devuelve el alta transaccional. */
+export interface PropiedadConOperacionCreada {
+  propiedad_id: string
+  /** null cuando no se pidió operación. */
+  operacion_id: string | null
+}
+
+/**
+ * Alta de propiedad y, opcionalmente, de su operación, en una sola transacción.
+ *
+ * Reemplaza al par `crearPropiedad` + `crearOperacion`, que eran dos escrituras
+ * sin transacción: si la segunda fallaba, la propiedad ya existía y el
+ * formulario tenía que acordarse de su id para no duplicarla al reintentar. Con
+ * el RPC las dos entran juntas o no entra ninguna, así que un fallo no deja
+ * nada a medias y reintentar es volver a mandar el formulario entero.
+ *
+ * El `titulo` y el `monto` de la operación no viajan desde acá: los arma el RPC
+ * a partir de la dirección y del precio de la propiedad, que es lo mismo que
+ * hacía el formulario. `inmobiliaria_id` y `agente_id` tampoco: los deriva de
+ * `auth.uid()`, que es lo que hace que no se puedan falsear desde el cliente.
+ */
+export async function crearPropiedadConOperacion(
+  input: CrearPropiedadInput,
+  /** El tipo de operación a crear junto a la propiedad, o null para ninguna. */
+  tipoOperacion: TipoOperacionDePropiedad | null,
+): Promise<PropiedadConOperacionCreada> {
+  // El RPC todavía no está en `src/types/database.ts`; los tipos se regeneran
+  // con `npx supabase gen types`. Hasta entonces la llamada va por el cliente
+  // sin tipar, con la forma declarada arriba.
+  const { data, error } = await (supabase as SupabaseClient).rpc(
+    'crear_propiedad_con_operacion',
+    {
+      p_propiedad: {
+        // Las mismas normalizaciones que hacía el insert directo: lo que el
+        // formulario deja vacío entra como null y no como cadena vacía.
+        direccion: input.direccion.trim(),
+        tipo: input.tipo,
+        lead_propietario_id: input.lead_propietario_id || null,
+        zona: input.zona?.trim() || null,
+        precio: input.precio ?? null,
+        moneda: input.moneda || null,
+        ambientes: input.ambientes ?? null,
+        metros_cuadrados: input.metros_cuadrados ?? null,
+        metros_cubiertos: input.metros_cubiertos ?? null,
+        banos: input.banos ?? null,
+        cocheras: input.cocheras ?? null,
+        disposicion: input.disposicion ?? null,
+        expensas: input.expensas ?? null,
+        descripcion: input.descripcion?.trim() || null,
+        link_portal: input.link_portal?.trim() || null,
+      },
+      p_crear_operacion: tipoOperacion !== null,
+      p_tipo_operacion: tipoOperacion,
+    },
+  )
+
+  if (error) throw new Error(`No se pudo crear la propiedad: ${error.message}`)
+
+  // Un RPC que declara `RETURNS TABLE` devuelve un array de una fila; uno que
+  // devuelve un compuesto o jsonb, el objeto pelado. Se aceptan las dos formas
+  // para no depender de cuál se eligió del lado de la base.
+  const fila = (Array.isArray(data) ? data[0] : data) as
+    | PropiedadConOperacionCreada
+    | undefined
+
+  if (!fila?.propiedad_id) {
+    throw new Error('El alta no devolvió la propiedad creada.')
+  }
+
+  return { propiedad_id: fila.propiedad_id, operacion_id: fila.operacion_id ?? null }
 }
 
 // ---------------------------------------------------------------------------

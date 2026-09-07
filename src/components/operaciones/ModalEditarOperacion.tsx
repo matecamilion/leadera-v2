@@ -7,7 +7,13 @@ import { FormularioBusqueda } from './FormularioBusqueda'
 import { useBusquedasDeLead } from '../../hooks/useOperaciones'
 import { useCriteriosBusqueda } from '../../hooks/useBusqueda'
 import { etiquetaTipo } from '../../lib/api/propiedades'
-import { menorACero, MINIMO_DESDE_CERO } from '../../lib/validaciones'
+import {
+  cantidadInvalida,
+  excedeTope,
+  MENSAJE_VALOR_ALTO,
+  MINIMO_CANTIDAD,
+  TOPE_PRECIO,
+} from '../../lib/validaciones'
 import {
   CRITERIOS_VACIOS,
   hayAlgunCriterio,
@@ -19,6 +25,7 @@ import {
   type CamposEditablesOperacion,
   type OperacionDetalle,
   type TipoOperacion,
+  seVinculaConBusqueda,
 } from '../../lib/api/operaciones'
 
 const MONEDAS = ['USD', 'ARS']
@@ -55,8 +62,11 @@ interface ModalEditarOperacionProps {
  * Como efecto lateral queda con controles más grandes que
  * `ModalEditarPropiedad`, que sí tiene sus propias copias.
  *
- * El piso del monto es 0 y no 1 —al revés que el alta— porque es lo que dice
- * el constraint `operaciones_monto_no_negativo` que la base aplica de verdad.
+ * El piso del monto es 1, el mismo que el alta. La base acepta el 0 —su
+ * constraint sólo rechaza negativos—, pero eso convertía a esta pantalla en la
+ * puerta de atrás para dejar en cero un monto que el alta no deja cargar así:
+ * una operación cerrada en 0 pasa por las métricas de plata sin sumar nada y
+ * sin avisar que le falta el dato. Vacío sigue siendo válido: es "a definir".
  */
 export function ModalEditarOperacion({
   abierto,
@@ -79,13 +89,13 @@ export function ModalEditarOperacion({
   const [tocado, setTocado] = useState(false)
   const [criterios, setCriterios] = useState<CriteriosBusqueda>(CRITERIOS_VACIOS)
 
-  // Ver `NuevaOperacion`: `esCompra` es el vínculo, `llevaCriterios` es el
-  // formulario de criterios. ALQUILER entra en el segundo y no en el primero.
-  const esCompra = tipo === 'COMPRA'
+  // Ver `NuevaOperacion`: `vinculaBusqueda` es el vínculo, `llevaCriterios` es el
+  // formulario de criterios. Ver `seVinculaConBusqueda` en la capa de API.
+  const vinculaBusqueda = seVinculaConBusqueda(tipo)
   const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
 
   const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
-    esCompra ? leadId : null,
+    vinculaBusqueda ? leadId : null,
   )
 
   // Los criterios de la búsqueda vinculada. Se precargan una sola vez por
@@ -147,8 +157,9 @@ export function ModalEditarOperacion({
   }, [abierto, operacion])
 
   const errorTitulo = tocado && !titulo.trim() ? 'El título es obligatorio' : null
-  const montoInvalido = menorACero(monto)
-  const valido = Boolean(titulo.trim()) && !montoInvalido
+  const montoInvalido = cantidadInvalida(monto)
+  const montoAlto = excedeTope(monto, TOPE_PRECIO)
+  const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
 
   function cambiarTipo(nuevo: TipoOperacion) {
     setTipo(nuevo)
@@ -168,8 +179,8 @@ export function ModalEditarOperacion({
         tipo,
         titulo: titulo.trim(),
         lead_id: leadId,
-        propiedad_id: esCompra ? null : propiedadId,
-        busqueda_id: esCompra ? busquedaId : null,
+        propiedad_id: vinculaBusqueda ? null : propiedadId,
+        busqueda_id: vinculaBusqueda ? busquedaId : null,
         monto: aNumero(monto),
         moneda,
         notas: notas.trim() || null,
@@ -231,9 +242,10 @@ export function ModalEditarOperacion({
             <ComboboxLead value={leadId} onChange={setLeadId} />
           </Campo>
 
-          {/* VENTA y ALQUILER se apoyan en una propiedad; COMPRA en una
+          {/* Quien ofrece (VENTA, ALQUILER) se apoya en una propiedad; quien
+              busca (COMPRA, BUSQUEDA_ALQUILER), en una
               búsqueda del lead. Ninguno es obligatorio. */}
-          {!esCompra ? (
+          {!vinculaBusqueda ? (
             <Campo label="Propiedad (opcional)" full>
               <ComboboxPropiedad value={propiedadId} onChange={setPropiedadId} />
             </Campo>
@@ -289,14 +301,15 @@ export function ModalEditarOperacion({
               </select>
               <Input
                 type="number"
-                min={MINIMO_DESDE_CERO}
+                min={MINIMO_CANTIDAD}
                 value={monto}
                 onChange={setMonto}
                 placeholder="120000"
-                invalido={montoInvalido}
+                invalido={montoInvalido || montoAlto}
               />
             </div>
-            {montoInvalido && <ErrorCampo>El monto no puede ser negativo.</ErrorCampo>}
+            {montoInvalido && <ErrorCampo>El monto tiene que ser 1 o más.</ErrorCampo>}
+            {montoAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
           </Campo>
 
           <Campo label="Notas" full>

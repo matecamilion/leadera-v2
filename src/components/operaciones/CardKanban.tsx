@@ -10,6 +10,7 @@ const BARRA: Record<TipoOperacion, string> = {
   VENTA: 'bg-primary',
   COMPRA: 'bg-frio',
   ALQUILER: 'bg-tibio',
+  BUSQUEDA_ALQUILER: 'bg-info',
 }
 
 export function CardKanban({ operacion }: { operacion: OperacionKanban }) {

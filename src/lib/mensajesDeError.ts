@@ -37,6 +37,53 @@ const POR_TEXTO: Record<string, string> = {
 }
 
 /**
+ * Con esto abren los triggers de cuota de `planes_limites_recursos`.
+ *
+ * Se busca el texto y no el código P0001 porque la capa de API envuelve el
+ * error de Supabase en un `Error` pelado: el `code` queda por el camino y a la
+ * UI le llega sólo el mensaje. Mismo criterio que `esPaginaFueraDeRango`.
+ */
+const INICIO_LIMITE_DE_PLAN = 'Llegaste al límite de'
+
+/** Qué hacer al respecto. El trigger dice qué pasó; esto, cómo salir. */
+const SALIDA_LIMITE_DE_PLAN = 'Para seguir cargando, cambiá a un plan con más capacidad.'
+
+/**
+ * Con esto abre `proteger_operacion_cerrada` cuando falta el monto.
+ *
+ * Otro P0001 con el texto ya redactado para leerse. Se busca por el fragmento y
+ * no por la frase entera para no depender de cómo termine la oración.
+ */
+const INICIO_CIERRE_SIN_MONTO = 'No se puede cerrar como ganada'
+
+/** Con esto abre `crear_propiedad_con_operacion` cuando falta el propietario. */
+const INICIO_OPERACION_SIN_PROPIETARIO = 'No se puede crear la operación sin'
+
+/**
+ * Los mensajes que la base ya redacta para leerse en pantalla.
+ *
+ * De todos se recorta el prefijo que antepone la capa de API ("No se pudo crear
+ * la propiedad: ") y se muestra el resto tal cual: encabezar con un "no se
+ * pudo" antes del motivo lo hace sonar a falla del sistema en vez de a una
+ * condición que el usuario puede resolver.
+ */
+const MENSAJES_YA_REDACTADOS = [
+  INICIO_CIERRE_SIN_MONTO,
+  INICIO_OPERACION_SIN_PROPIETARIO,
+]
+
+/**
+ * ¿El alta la rechazó una cuota del plan?
+ *
+ * Lo usan los formularios para acompañar el mensaje con el link a los planes:
+ * es el único error de guardado que no se arregla corrigiendo el formulario.
+ */
+export function esLimiteDePlan(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return error.message.includes(INICIO_LIMITE_DE_PLAN)
+}
+
+/**
  * Mensaje para mostrar cuando algo falla contra la base, al guardar o al leer.
  *
  * `respaldo` es lo que se muestra cuando el error no es uno de los conocidos:
@@ -45,6 +92,21 @@ const POR_TEXTO: Record<string, string> = {
 export function mensajeDeError(error: unknown, respaldo: string): string {
   if (!(error instanceof Error)) return respaldo
   const texto = error.message
+
+  // El trigger ya redacta el motivo con el número exacto del plan, así que se
+  // deja tal cual y sólo se le agrega la salida. Se recorta desde el fragmento
+  // para descartar el prefijo que le antepone la capa de API ("No se pudo crear
+  // el lead: "): encabezar con un "no se pudo" antes del motivo lo hace sonar a
+  // falla del sistema y no a un tope que el usuario puede levantar.
+  const desdeLimite = texto.indexOf(INICIO_LIMITE_DE_PLAN)
+  if (desdeLimite !== -1) {
+    return `${texto.slice(desdeLimite).trim()} ${SALIDA_LIMITE_DE_PLAN}`
+  }
+
+  for (const inicio of MENSAJES_YA_REDACTADOS) {
+    const desde = texto.indexOf(inicio)
+    if (desde !== -1) return texto.slice(desde).trim()
+  }
 
   for (const [fragmento, mensaje] of Object.entries(POR_TEXTO)) {
     if (texto.includes(fragmento)) return mensaje

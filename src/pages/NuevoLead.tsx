@@ -1,11 +1,18 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { InputTelefono } from '../components/comunes/InputTelefono'
 import { IconoPersonaMas } from '../components/leads/Iconos'
 import { useCrearLead } from '../hooks/useLead'
-import { ORIGENES_LEAD, type OrigenLead } from '../lib/api/leads'
+import {
+  buscarLeadPorTelefono,
+  ORIGENES_LEAD,
+  type LeadResumido,
+  type OrigenLead,
+} from '../lib/api/leads'
+import { telefonoInvalido } from '../lib/telefono'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
-import { mensajeDeGuardado } from '../lib/mensajesDeError'
+import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -23,16 +30,34 @@ export default function NuevoLead() {
   const [seguimiento, setSeguimiento] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [errorEmail, setErrorEmail] = useState<string | null>(null)
-  // Separado del de email: un fallo del guardado no es culpa de ese campo.
-  const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  /**
+   * El lead que ya tiene este teléfono, si apareció uno.
+   *
+   * Es un aviso y no un bloqueo: dos personas con el mismo número es raro pero
+   * pasa —una pareja, un teléfono de la oficina—, así que con el aviso a la
+   * vista el segundo submit crea el lead igual.
+   */
+  const [duplicado, setDuplicado] = useState<LeadResumido | null>(null)
+  // Separado del de email: un fallo del guardado no es culpa de ese campo. Se
+  // guarda el error crudo y no su texto: al pintarlo hay que saber además si
+  // fue una cuota del plan, que es el único caso con una salida que ofrecer.
+  const [errorGeneral, setErrorGeneral] = useState<unknown>(null)
 
   // Contra el reloj y no contra el día: el agente elige la hora a mano, así que
   // dejar pasar "hoy a las 9" cuando son las 15 sería agendar para atrás. Misma
   // regla que el próximo contacto del modal de interacción, que escribe esta
   // misma columna del lead.
   const seguimientoPasado = !!seguimiento && esMomentoPasado(seguimiento)
+  // El teléfono es el canal principal de contacto: uno mal tipeado se descubre
+  // el día que hay que llamar. No se exige un formato exacto —la base tiene
+  // años de números cargados de todas las formas— sino que parezca un teléfono.
+  const telefonoMalFormado = !!telefono.trim() && telefonoInvalido(telefono)
   const completo =
-    nombre.trim() && apellido.trim() && telefono.trim() && !seguimientoPasado
+    nombre.trim() &&
+    apellido.trim() &&
+    telefono.trim() &&
+    !telefonoMalFormado &&
+    !seguimientoPasado
 
   async function manejarSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,6 +71,16 @@ export default function NuevoLead() {
     }
 
     try {
+      // Sólo se chequea la primera vez: con el aviso ya en pantalla, volver a
+      // enviar es la forma de decir "sí, crealo igual".
+      if (!duplicado) {
+        const existente = await buscarLeadPorTelefono(telefono)
+        if (existente) {
+          setDuplicado(existente)
+          return
+        }
+      }
+
       // `estado` no se manda: todo lead nace en NULL ("nuevo").
       const lead = await crear.mutateAsync({
         nombre,
@@ -61,7 +96,7 @@ export default function NuevoLead() {
       mostrarAviso('Lead creado.')
       navigate(`/leads/${lead.id}`, { replace: true })
     } catch (err) {
-      setErrorGeneral(mensajeDeGuardado(err, 'No se pudo crear el lead.'))
+      setErrorGeneral(err)
     }
   }
 
@@ -81,13 +116,39 @@ export default function NuevoLead() {
         </div>
       </header>
 
-      {errorGeneral && (
-        <p
+      {errorGeneral != null && (
+        <div
           role="alert"
           className="mb-5 rounded-lg border border-peligro-borde bg-peligro-soft px-4 py-3 text-[0.9rem] text-peligro-ink"
         >
-          {errorGeneral}
-        </p>
+          <p className="m-0">{mensajeDeGuardado(errorGeneral, 'No se pudo crear el lead.')}</p>
+          {esLimiteDePlan(errorGeneral) && <EnlaceAPlanes />}
+        </div>
+      )}
+
+      {duplicado && (
+        <div
+          role="alert"
+          className="mb-5 rounded-lg border border-tibio/40 bg-warm-soft px-4 py-3 text-[0.9rem] text-badge-tibio-ink"
+        >
+          <p className="m-0">
+            Ya existe un lead con este teléfono:{' '}
+            <strong className="font-semibold">
+              {[duplicado.nombre, duplicado.apellido].filter(Boolean).join(' ')}
+            </strong>
+            .
+          </p>
+          <p className="mt-1 mb-0">
+            <Link
+              to={`/leads/${duplicado.id}`}
+              className="font-semibold underline underline-offset-2 hover:no-underline"
+            >
+              Ver ese lead
+            </Link>
+            {' · '}
+            Si es otra persona, volvé a tocar el botón para crearlo igual.
+          </p>
+        </div>
       )}
 
       <form onSubmit={manejarSubmit} noValidate>
@@ -106,15 +167,25 @@ export default function NuevoLead() {
           </Campo>
 
           <Campo label="Teléfono / WhatsApp *">
-            {/* El agrupado es cosmético: el submit sigue mirando sólo que no
-                esté vacío, igual que antes. */}
+            {/* El agrupado es cosmético; quien valida el largo es el submit. */}
             <InputTelefono
               value={telefono}
-              onChange={setTelefono}
+              onChange={(v) => {
+                setTelefono(v)
+                // Cambió el número: el aviso de duplicado ya no habla de éste.
+                setDuplicado(null)
+              }}
               placeholder="223 123-4567"
               required
-              className={CLASES_TELEFONO}
+              className={`${CLASES_TELEFONO} ${
+                telefonoMalFormado ? 'border-peligro-ink' : ''
+              }`}
             />
+            {telefonoMalFormado && (
+              <span role="alert" className="mt-1 block text-xs text-peligro-ink">
+                Ingresá un teléfono válido.
+              </span>
+            )}
           </Campo>
 
           <Campo label="Email">
@@ -192,7 +263,11 @@ export default function NuevoLead() {
             disabled={!completo || crear.isPending}
             className="rounded-md border-none bg-primary px-8 py-3 font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
           >
-            {crear.isPending ? 'Creando…' : 'Crear y Continuar'}
+            {crear.isPending
+              ? 'Creando…'
+              : duplicado
+                ? 'Crear igual'
+                : 'Crear y Continuar'}
           </button>
         </div>
       </form>

@@ -54,9 +54,82 @@ export function useKanbanOperaciones() {
   })
 }
 
+/**
+ * El tablero con la operación ya movida de columna.
+ *
+ * Vive suelta y no dentro de `onMutate` porque el movimiento se aplica en dos
+ * momentos distintos: al soltar la card, cuando el destino todavía tiene que
+ * confirmarse, y dentro de la mutación en el resto de los casos.
+ */
+function conOperacionMovida(
+  actual: TableroKanban | undefined,
+  id: string,
+  estado: EstadoOperacion,
+): TableroKanban | undefined {
+  if (!actual) return actual
+
+  const movida = actual.operaciones.find((op) => op.id === id)
+  const anterior = movida?.estado
+  if (!movida || !anterior || anterior === estado) return actual
+
+  // Los contadores y los montos del header salen de los RPC y no de las filas,
+  // así que hay que moverlos a mano: si no, la card cambia de columna pero los
+  // números quedan viejos hasta que responda el refetch, que es justo el
+  // parpadeo que el update optimista evita.
+  const totales = { ...actual.totales }
+  totales[anterior] = Math.max(0, (totales[anterior] ?? 0) - 1)
+  totales[estado] = (totales[estado] ?? 0) + 1
+
+  const montos = { ...actual.montos }
+  // Sin monto cargado la card no mueve ninguna moneda.
+  if (movida.monto != null) {
+    montos[anterior] = conMontoRestado(montos[anterior], movida.moneda, movida.monto)
+    montos[estado] = conMontoSumado(montos[estado], movida.moneda, movida.monto)
+  }
+
+  return {
+    operaciones: actual.operaciones.map((op) => (op.id === id ? { ...op, estado } : op)),
+    totales,
+    montos,
+  }
+}
+
+/**
+ * Mover la card en el cache sin escribir en la base.
+ *
+ * Lo usa el tablero para los destinos que hay que confirmar: la card llega a
+ * donde se la soltó y recién ahí se pregunta, porque cortar el gesto a mitad se
+ * siente como que el arrastre falló. `aplicar` devuelve el tablero de antes,
+ * que es lo que hay que guardar para poder volver si la respuesta es que no.
+ */
+export function useMovimientoOptimista() {
+  const queryClient = useQueryClient()
+
+  return {
+    aplicar: (id: string, estado: EstadoOperacion): TableroKanban | undefined => {
+      const previo = queryClient.getQueryData<TableroKanban>(CLAVE_KANBAN)
+      queryClient.setQueryData<TableroKanban>(CLAVE_KANBAN, (actual) =>
+        conOperacionMovida(actual, id, estado),
+      )
+      return previo
+    },
+    revertir: (snapshot: TableroKanban | undefined) => {
+      if (snapshot) queryClient.setQueryData(CLAVE_KANBAN, snapshot)
+    },
+  }
+}
+
 interface MoverInput {
   id: string
   estado: EstadoOperacion
+  /**
+   * El tablero de antes, cuando la card ya se movió con `useMovimientoOptimista`.
+   *
+   * Sin esto el rollback de `onError` volvería al tablero que hay al arrancar la
+   * mutación —que ya tiene la card en su destino—, y un fallo del server la
+   * dejaría en la columna a la que nunca llegó a moverse de verdad.
+   */
+  snapshotPrevio?: TableroKanban
 }
 
 interface ContextoMovimiento {
@@ -77,47 +150,20 @@ export function useMoverOperacion() {
   return useMutation<unknown, Error, MoverInput, ContextoMovimiento>({
     mutationFn: ({ id, estado }) => actualizarEstadoOperacion(id, estado),
 
-    onMutate: async ({ id, estado }) => {
+    onMutate: async ({ id, estado, snapshotPrevio }) => {
       // Si hay un refetch en vuelo podría pisar el cambio optimista con datos
       // viejos justo después de aplicarlo.
       await queryClient.cancelQueries({ queryKey: CLAVE_KANBAN })
 
+      // Con la card ya movida a mano, el tablero al que hay que poder volver es
+      // el que vino, no el de ahora.
+      if (snapshotPrevio) return { snapshotAnterior: snapshotPrevio }
+
       const snapshotAnterior = queryClient.getQueryData<TableroKanban>(CLAVE_KANBAN)
 
-      queryClient.setQueryData<TableroKanban>(CLAVE_KANBAN, (actual) => {
-        if (!actual) return actual
-
-        const movida = actual.operaciones.find((op) => op.id === id)
-        const anterior = movida?.estado
-        if (!movida || !anterior || anterior === estado) return actual
-
-        // Los contadores y los montos del header salen de los RPC y no de las
-        // filas, así que hay que moverlos a mano: si no, la card cambia de
-        // columna pero los números quedan viejos hasta que responda el
-        // refetch, que es justo el parpadeo que el update optimista evita.
-        const totales = { ...actual.totales }
-        totales[anterior] = Math.max(0, (totales[anterior] ?? 0) - 1)
-        totales[estado] = (totales[estado] ?? 0) + 1
-
-        const montos = { ...actual.montos }
-        // Sin monto cargado la card no mueve ninguna moneda.
-        if (movida.monto != null) {
-          montos[anterior] = conMontoRestado(
-            montos[anterior],
-            movida.moneda,
-            movida.monto,
-          )
-          montos[estado] = conMontoSumado(montos[estado], movida.moneda, movida.monto)
-        }
-
-        return {
-          operaciones: actual.operaciones.map((op) =>
-            op.id === id ? { ...op, estado } : op,
-          ),
-          totales,
-          montos,
-        }
-      })
+      queryClient.setQueryData<TableroKanban>(CLAVE_KANBAN, (actual) =>
+        conOperacionMovida(actual, id, estado),
+      )
 
       return { snapshotAnterior }
     },

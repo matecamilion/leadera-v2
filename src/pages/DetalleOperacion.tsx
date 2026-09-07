@@ -34,6 +34,7 @@ import {
   etiquetaTipoOperacion,
   formatearMonto,
   llevaCriteriosDeBusqueda,
+  seVinculaConBusqueda,
 } from '../lib/api/operaciones'
 import { formatearFecha } from '../lib/formatoFecha'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
@@ -60,8 +61,9 @@ export default function DetalleOperacion() {
   const guardarCriterios = useGuardarBusqueda()
   const eventos = useEventosOperacion(id)
 
-  // COMPRA y ALQUILER con búsqueda cargada puntúan propiedades; VENTA no. El
-  // hook queda apagado en el resto: `enabled` mira el id, que acá es null.
+  // Los tipos del lado del que busca —COMPRA y BUSQUEDA_ALQUILER— puntúan
+  // propiedades cuando tienen búsqueda cargada; VENTA y ALQUILER no. El hook
+  // queda apagado en el resto: `enabled` mira el id, que acá es null.
   const coincidencias = useCoincidenciasBusqueda(
     operacion && llevaCriteriosDeBusqueda(operacion.tipo) ? operacion.busqueda_id : null,
   )
@@ -88,9 +90,9 @@ export default function DetalleOperacion() {
     )
   }
 
-  const esCompra = operacion.tipo === 'COMPRA'
-  // El vínculo con una propiedad lo decide `esCompra`; la búsqueda y sus
-  // coincidencias, esto. Una operación de ALQUILER puede tener las dos.
+  const vinculaBusqueda = seVinculaConBusqueda(operacion.tipo)
+  // Con qué se engancha la operación lo decide `vinculaBusqueda`; si además se
+  // le cargan criterios, esto. Hoy van juntas, pero son dos preguntas.
   const llevaCriterios = llevaCriteriosDeBusqueda(operacion.tipo)
 
   // La base congela las cerradas y las canceladas (trigger
@@ -135,9 +137,9 @@ export default function DetalleOperacion() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-[0.82rem] text-ink-3">
-            {/* El vínculo del hero sigue al tipo: propiedad para VENTA y
-                ALQUILER, búsqueda para COMPRA. */}
-            {!esCompra && operacion.propiedad && (
+            {/* El vínculo del hero sigue al tipo: propiedad para quien
+                ofrece (VENTA, ALQUILER), búsqueda para quien busca. */}
+            {!vinculaBusqueda && operacion.propiedad && (
               <span className="flex items-center gap-1.5">
                 <IconoCasa className="size-4 shrink-0" />
                 {operacion.propiedad.direccion}
@@ -168,7 +170,9 @@ export default function DetalleOperacion() {
             actual={operacion.estado}
             guardando={cambioEstado.isPending}
             error={
-              cambioEstado.error instanceof Error ? cambioEstado.error.message : null
+              cambioEstado.error
+                ? mensajeDeGuardado(cambioEstado.error, 'No se pudo cambiar el estado.')
+                : null
             }
             onCambiar={(estado) =>
               cambioEstado.mutate(estado, {
@@ -177,7 +181,11 @@ export default function DetalleOperacion() {
                 // en el propio grupo de chips, así que el aviso sólo tiene que
                 // confirmar que la escritura llegó.
                 onSuccess: () => mostrarAviso('Estado actualizado.'),
-                onError: (e) => setErrorGeneral(e.message),
+                // Sin `onError`: el fallo ya viaja por la prop `error` de acá
+                // arriba, que lo muestra en el diálogo de confirmación —donde
+                // está mirando quien acaba de confirmar— o debajo de los chips
+                // cuando no hubo diálogo. Mandarlo además al banner de la ficha
+                // repetía el mismo texto en dos lugares a la vez.
               })
             }
           />
@@ -239,7 +247,7 @@ export default function DetalleOperacion() {
         )}
       </div>
 
-      {!esCompra && operacion.propiedad && (
+      {!vinculaBusqueda && operacion.propiedad && (
         <Seccion titulo="Propiedad vinculada">
           <ChipPropiedadVinculada propiedad={operacion.propiedad} />
         </Seccion>
@@ -255,7 +263,7 @@ export default function DetalleOperacion() {
         <ChipLeadOperacion lead={operacion.lead} />
       </Seccion>
 
-      {/* COMPRA y ALQUILER, y sólo con búsqueda: sin criterios cargados no hay
+      {/* Sólo los tipos que buscan, y sólo con búsqueda: sin criterios no hay
           nada que puntuar, y la sección vacía sería ruido en VENTA. */}
       {llevaCriterios && operacion.busqueda_id && (
         <Seccion

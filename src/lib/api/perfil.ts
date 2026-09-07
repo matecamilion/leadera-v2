@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { TOPE_META_MENSUAL } from '../validaciones'
 import type { EstadoLead, OrigenLead } from './leads'
 import type { Database } from '../../types/database'
 import {
@@ -297,6 +298,13 @@ export async function actualizarMetaMensual(nuevaMeta: number): Promise<number> 
   const meta = Math.trunc(nuevaMeta)
   if (!Number.isFinite(meta) || meta < 1) {
     throw new Error('La meta tiene que ser un número mayor a 0.')
+  }
+  // Techo de cordura: la barra de progreso divide por este número, así que una
+  // meta desmedida la deja clavada en 0% y el panel deja de decir nada. Hoy no
+  // hay formulario que llame a esto, así que la validación vive acá y no en una
+  // pantalla; cuando exista, conviene que muestre el mismo tope.
+  if (meta > TOPE_META_MENSUAL) {
+    throw new Error(`La meta no puede ser mayor a ${TOPE_META_MENSUAL}.`)
   }
 
   const cambio: ProfileUpdate = { meta_mensual_ganados: meta }

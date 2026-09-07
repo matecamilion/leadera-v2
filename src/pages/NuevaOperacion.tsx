@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { Campo, ErrorCampo, Input } from '../components/comunes/CampoFormulario'
 import { ComboboxLead } from '../components/comunes/ComboboxLead'
 import { ComboboxPropiedad } from '../components/comunes/ComboboxPropiedad'
@@ -8,13 +9,20 @@ import { FormularioBusqueda } from '../components/operaciones/FormularioBusqueda
 import { IconoCajas } from '../components/leads/Iconos'
 import { useBusquedasDeLead, useCrearOperacion } from '../hooks/useOperaciones'
 import { useCriteriosBusqueda, useGuardarBusqueda } from '../hooks/useBusqueda'
-import { mensajeDeGuardado } from '../lib/mensajesDeError'
+import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
-import { cantidadInvalida, MINIMO_CANTIDAD } from '../lib/validaciones'
+import {
+  cantidadInvalida,
+  excedeTope,
+  MENSAJE_VALOR_ALTO,
+  MINIMO_CANTIDAD,
+  TOPE_PRECIO,
+} from '../lib/validaciones'
 import {
   llevaCriteriosDeBusqueda,
   TIPOS_OPERACION,
   type TipoOperacion,
+  seVinculaConBusqueda,
 } from '../lib/api/operaciones'
 import {
   CRITERIOS_VACIOS,
@@ -54,14 +62,14 @@ export default function NuevaOperacion() {
   const [tocado, setTocado] = useState(false)
   const [criterios, setCriterios] = useState<CriteriosBusqueda>(CRITERIOS_VACIOS)
 
-  // Dos banderas distintas a propósito: `esCompra` decide CON QUÉ se vincula la
+  // Dos banderas distintas a propósito: `vinculaBusqueda` decide CON QUÉ se vincula la
   // operación (búsqueda o propiedad) y `llevaCriterios` decide si se cargan
-  // criterios. ALQUILER cae de un lado en una y del otro en la otra.
-  const esCompra = tipo === 'COMPRA'
+  // criterios. Hoy los dos tipos que buscan caen del mismo lado en las dos.
+  const vinculaBusqueda = seVinculaConBusqueda(tipo)
   const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
 
   const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
-    esCompra ? leadId : null,
+    vinculaBusqueda ? leadId : null,
   )
   const guardarCriterios = useGuardarBusqueda()
 
@@ -94,7 +102,9 @@ export default function NuevaOperacion() {
   const errorTitulo = tocado && !titulo.trim() ? 'El título es obligatorio' : null
   // Piso 1: un monto en 0 resta credibilidad a la métrica de cerrado del mes.
   const montoInvalido = cantidadInvalida(monto)
-  const valido = Boolean(titulo.trim()) && !montoInvalido
+  // Mismo techo que el precio de una propiedad: es la misma plata.
+  const montoAlto = excedeTope(monto, TOPE_PRECIO)
+  const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
 
   function cambiarTipo(nuevo: TipoOperacion) {
     setTipo(nuevo)
@@ -119,8 +129,8 @@ export default function NuevaOperacion() {
           tipo,
           titulo,
           lead_id: leadId,
-          propiedad_id: esCompra ? null : propiedadId,
-          busqueda_id: esCompra ? busquedaId : null,
+          propiedad_id: vinculaBusqueda ? null : propiedadId,
+          busqueda_id: vinculaBusqueda ? busquedaId : null,
           monto: aNumero(monto),
           moneda,
           notas,
@@ -222,9 +232,10 @@ export default function NuevaOperacion() {
             <ComboboxLead value={leadId} onChange={setLeadId} />
           </Campo>
 
-          {/* VENTA y ALQUILER se apoyan en una propiedad; COMPRA en una
+          {/* Quien ofrece (VENTA, ALQUILER) se apoya en una propiedad; quien
+              busca (COMPRA, BUSQUEDA_ALQUILER), en una
               búsqueda del lead. Ninguno es obligatorio. */}
-          {!esCompra ? (
+          {!vinculaBusqueda ? (
             <Campo
               label="Propiedad (opcional)"
               full
@@ -288,10 +299,11 @@ export default function NuevaOperacion() {
                 value={monto}
                 onChange={setMonto}
                 placeholder="120000"
-                invalido={montoInvalido}
+                invalido={montoInvalido || montoAlto}
               />
             </div>
             {montoInvalido && <ErrorCampo>El monto tiene que ser 1 o más.</ErrorCampo>}
+            {montoAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
           </Campo>
 
           <Campo label="Notas" full>
@@ -306,7 +318,7 @@ export default function NuevaOperacion() {
           </Campo>
         </div>
 
-        {/* Criterios en COMPRA y en ALQUILER: en las dos el lead está buscando
+        {/* Criterios en COMPRA y BUSQUEDA_ALQUILER: en las dos el lead busca
             algo. En VENTA no, porque ahí la propiedad la pone la inmobiliaria.
             El RPC filtra los candidatos por finalidad según el tipo, así que
             una búsqueda de alquiler no propone propiedades sólo en venta. */}
@@ -319,9 +331,12 @@ export default function NuevaOperacion() {
         )}
 
         {crear.isError && (
-          <p role="alert" className="mt-4 text-[0.85rem] text-peligro-ink">
-            {mensajeDeGuardado(crear.error, 'No se pudo crear la operación.')}
-          </p>
+          <div role="alert" className="mt-4 text-[0.85rem] text-peligro-ink">
+            <p className="m-0">
+              {mensajeDeGuardado(crear.error, 'No se pudo crear la operación.')}
+            </p>
+            {esLimiteDePlan(crear.error) && <EnlaceAPlanes />}
+          </div>
         )}
 
         {/* La operación ya quedó creada si falla esto: hay que decirlo, o el

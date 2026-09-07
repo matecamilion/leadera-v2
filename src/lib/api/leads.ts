@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { normalizarTelefonoAR, soloDigitos } from '../telefono'
 import type { Database } from '../../types/database'
 // Re-export: las etiquetas viven en su propio módulo (sin supabase) pero
 // el resto de la app las sigue importando desde acá.
@@ -391,6 +392,58 @@ export async function buscarLeadsParaCombobox(
 
   if (error) throw new Error(`No se pudieron buscar los leads: ${error.message}`)
   return data ?? []
+}
+
+/**
+ * Cuántos dígitos finales se usan para prefiltrar en la base.
+ *
+ * Los últimos cuatro son los que quedan juntos en cualquiera de los formatos
+ * que se escriben en la práctica —"223 456-7890", "2234567890", "+54 9 223
+ * 456-7890"—, así que sirven de ancla para un `ilike`. No alcanzan para
+ * afirmar que dos números son el mismo: eso lo decide la comparación
+ * normalizada de abajo, sobre las pocas filas que el prefiltro deja pasar.
+ */
+const DIGITOS_DE_ANCLA = 4
+
+/** Cuántas filas se traen del prefiltro antes de comparar en serio. */
+const TOPE_CANDIDATOS = 20
+
+/**
+ * El lead que ya tiene este teléfono, o null.
+ *
+ * La comparación es sobre el número normalizado y no sobre el texto guardado:
+ * "223 456-7890" y "2234567890" son el mismo teléfono y hay que detectarlos
+ * como tal, que es justo lo que un `ilike` sobre la columna no hace.
+ *
+ * La RLS ya acota a la inmobiliaria de quien pregunta, así que no hace falta
+ * filtrar por ella acá.
+ *
+ * Es un aviso, no un candado: si el prefiltro no llega a traer la fila
+ * duplicada —muchos leads terminando en los mismos cuatro dígitos—, el alta
+ * sigue adelante. Prefiere no avisar antes que trabar una carga legítima.
+ */
+export async function buscarLeadPorTelefono(
+  telefono: string,
+): Promise<LeadResumido | null> {
+  const buscado = normalizarTelefonoAR(telefono)
+  if (!buscado) return null
+
+  const ancla = soloDigitos(telefono).slice(-DIGITOS_DE_ANCLA)
+  if (ancla.length < DIGITOS_DE_ANCLA) return null
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, apellido, telefono')
+    .ilike('telefono', `%${ancla}%`)
+    .limit(TOPE_CANDIDATOS)
+
+  // Un fallo acá no puede frenar el alta: se sigue sin avisar.
+  if (error) {
+    console.error('No se pudo chequear si el teléfono ya existe', error)
+    return null
+  }
+
+  return (data ?? []).find((l) => normalizarTelefonoAR(l.telefono ?? '') === buscado) ?? null
 }
 
 /** Un lead puntual, para mostrar el seleccionado del combobox. */

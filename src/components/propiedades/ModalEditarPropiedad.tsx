@@ -12,7 +12,15 @@ import {
 } from '../../lib/api/propiedades'
 import {
   cantidadInvalida,
+  excedeTope,
   menorACero,
+  MENSAJE_URL_INVALIDA,
+  MENSAJE_VALOR_ALTO,
+  metrosCubiertosExcedidos,
+  TOPE_AMBIENTES,
+  TOPE_METROS,
+  TOPE_PRECIO,
+  urlInvalida,
   MINIMO_CANTIDAD,
   MINIMO_DESDE_CERO,
 } from '../../lib/validaciones'
@@ -135,6 +143,17 @@ export function ModalEditarPropiedad({
       setErrorLocal('Las cocheras no pueden ser negativas.')
       return
     }
+    // Mismos techos que el alta: sin ellos, esta pantalla era la puerta de
+    // atrás para dejar un precio de doce dígitos que el alta ya no acepta.
+    if (excedeTope(precio, TOPE_PRECIO)) return setErrorLocal(MENSAJE_VALOR_ALTO)
+    if (excedeTope(ambientes, TOPE_AMBIENTES)) return setErrorLocal(MENSAJE_VALOR_ALTO)
+    if (excedeTope(metros, TOPE_METROS)) return setErrorLocal(MENSAJE_VALOR_ALTO)
+    if (excedeTope(metrosCubiertos, TOPE_METROS)) return setErrorLocal(MENSAJE_VALOR_ALTO)
+    if (metrosCubiertosExcedidos(metrosCubiertos, metros)) {
+      return setErrorLocal('Los metros cubiertos no pueden superar los metros totales.')
+    }
+    if (urlInvalida(linkPortal)) return setErrorLocal(MENSAJE_URL_INVALIDA)
+
     if (menorACero(expensas)) {
       setErrorLocal('Las expensas no pueden ser negativas.')
       return

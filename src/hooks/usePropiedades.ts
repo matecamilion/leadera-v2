@@ -6,6 +6,8 @@ import {
   type CrearPropiedadInput,
   type FiltrosPropiedad,
   type ListarPropiedadesResult,
+  crearPropiedadConOperacion,
+  type TipoOperacionDePropiedad,
 } from '../lib/api/propiedades'
 
 /** Filas por página del listado de propiedades. */
@@ -51,6 +53,34 @@ export function useCrearPropiedad() {
     mutationFn: (input: CrearPropiedadInput) => crearPropiedad(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['propiedades'] })
+    },
+  })
+}
+
+/**
+ * Alta de propiedad y su operación en una sola transacción.
+ *
+ * Invalida las dos familias de claves porque puede tocar las dos tablas, y la
+ * de operaciones por lead porque el alta puede volver a la ficha del
+ * propietario: sin eso la operación recién creada no aparece hasta que expire
+ * el cache. Mismo criterio que tenían por separado `useCrearPropiedad` y
+ * `useCrearOperacion`.
+ */
+export function useCrearPropiedadConOperacion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      propiedad,
+      tipoOperacion,
+    }: {
+      propiedad: CrearPropiedadInput
+      tipoOperacion: TipoOperacionDePropiedad | null
+    }) => crearPropiedadConOperacion(propiedad, tipoOperacion),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['propiedades'] })
+      queryClient.invalidateQueries({ queryKey: ['operaciones'] })
+      queryClient.invalidateQueries({ queryKey: ['operaciones-por-lead'] })
     },
   })
 }

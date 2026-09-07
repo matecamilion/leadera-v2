@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ModalConfirmarEliminar } from '../components/comunes/ModalConfirmarEliminar'
 import { Spinner } from '../components/Spinner'
@@ -28,12 +28,64 @@ import {
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
 /**
- * Estados en los que todavía hay que elegir un plan.
+ * Los dos modos de la pantalla.
  *
- * CANCELADA entra igual que TRIAL y VENCIDA: quien dio de baja tiene que poder
- * volver a contratar sin pasar por soporte.
+ * `cuenta` es el estado de la suscripción que ya se tiene; `elegir` es el
+ * catálogo comercial. Antes convivían en una sola vista, y mezclaban dos
+ * preguntas distintas —"cómo vengo" y "qué contrato"— que casi nunca se hacen
+ * al mismo tiempo.
  */
-const ESTADOS_SIN_SUSCRIPCION = ['TRIAL', 'VENCIDA', 'CANCELADA']
+type Vista = 'cuenta' | 'elegir'
+
+interface DistintivoEstado {
+  texto: string
+  clases: string
+}
+
+/**
+ * El cartelito de estado de la suscripción.
+ *
+ * `cancelacion_solicitada` gana sobre el estado: la fila sigue ACTIVA hasta la
+ * fecha de corte, pero para quien la mira lo que importa es que ya dio de baja.
+ */
+function distintivoDeEstado(estado: EstadoDeMiSuscripcion): DistintivoEstado {
+  if (estado.cancelacionSolicitada) {
+    return { texto: 'Cancelada', clases: 'bg-surface-2 text-ink-2' }
+  }
+
+  switch (estado.estado) {
+    case 'TRIAL':
+      return { texto: 'Período de prueba', clases: 'bg-cool-soft text-info' }
+    case 'ACTIVA':
+      return { texto: 'Al día', clases: 'bg-brand-soft text-primary' }
+    case 'GRACIA':
+      return { texto: 'Pago pendiente', clases: 'bg-warm-soft text-badge-tibio-ink' }
+    case 'VENCIDA':
+      return { texto: 'Vencida', clases: 'bg-peligro-soft text-peligro-ink' }
+    case 'CANCELADA':
+      return { texto: 'Cancelada', clases: 'bg-surface-2 text-ink-2' }
+  }
+}
+
+/** Qué le pasa a la cuenta, en una línea. */
+function explicacionDeEstado(estado: EstadoDeMiSuscripcion): string {
+  if (estado.cancelacionSolicitada) {
+    return 'Cancelaste la suscripción. No se te va a cobrar de nuevo.'
+  }
+
+  switch (estado.estado) {
+    case 'TRIAL':
+      return 'Estás probando LeadEra gratis. Cuando se termine la prueba elegís si seguir.'
+    case 'ACTIVA':
+      return 'Tu suscripción está activa. No tenés que hacer nada.'
+    case 'GRACIA':
+      return 'No pudimos cobrar el último mes. Mercado Pago va a reintentar; revisá que tu medio de pago tenga fondos.'
+    case 'VENCIDA':
+      return 'Se te terminó el acceso. Elegí un plan para volver a usar LeadEra.'
+    case 'CANCELADA':
+      return 'Diste de baja la suscripción. Podés volver a contratar cuando quieras.'
+  }
+}
 
 const TONOS: Record<TonoVuelta, string> = {
   exito: 'border-primary/30 bg-brand-soft text-ink',
@@ -44,12 +96,26 @@ const TONOS: Record<TonoVuelta, string> = {
 export default function Suscripcion() {
   const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
 
   const precios = usePreciosPlanes()
   const estado = useEstadoSuscripcion()
   const crear = useCrearSuscripcion()
 
   const [error, setError] = useState<string | null>(null)
+
+  // La vista que el usuario pidió a mano. `null` es "la que corresponda", que
+  // se resuelve abajo con los datos ya cargados: guardar acá el default llevaría
+  // a sincronizarlo con una query que todavía está en vuelo cuando esto se
+  // inicializa.
+  //
+  // Se puede llegar pidiendo el catálogo desde afuera: es lo que hace el link
+  // de los formularios cuando una cuota del plan frena un alta, donde mostrar
+  // el estado de la cuenta sería llevar al usuario un paso más lejos de lo que
+  // vino a resolver.
+  const [vistaManual, setVistaManual] = useState<Vista | null>(() =>
+    (location.state as { vista?: Vista } | null)?.vista === 'elegir' ? 'elegir' : null,
+  )
 
   // Se lee una sola vez, al montar: después los parámetros se limpian de la URL
   // y no queremos que el cartel desaparezca por eso.
@@ -101,12 +167,13 @@ export default function Suscripcion() {
   // Con el estado desconocido se muestran los planes: es la salida útil, y quien
   // decide de verdad es `crear-suscripcion`, que sí ve la fila.
   const miEstado = estado.data ?? null
-  const alDia =
-    miEstado !== null &&
-    miEstado.tieneSuscripcionEnMp &&
-    !ESTADOS_SIN_SUSCRIPCION.includes(miEstado.estado)
 
   const comparacionConChica = compararConAgenciaChica(precios.data)
+
+  // Sin plan asignado no hay cuenta que mostrar: la única pantalla útil es el
+  // catálogo. Con plan, se entra por la cuenta y el catálogo queda a un click.
+  const planActual = miEstado?.plan ?? null
+  const vista: Vista = vistaManual ?? (planActual ? 'cuenta' : 'elegir')
 
   return (
     <div className="mx-auto max-w-[1120px]">
@@ -116,11 +183,9 @@ export default function Suscripcion() {
         </p>
         <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-ink">Suscripción</h1>
         <p className="mt-1 text-[0.9rem] text-ink-3">
-          {!alDia
+          {vista === 'elegir'
             ? 'Elegí el plan que le sirve a tu inmobiliaria. Se cobra por mes y lo cancelás cuando quieras.'
-            : miEstado?.cancelacionSolicitada
-              ? 'Tu plan y hasta cuándo seguís teniendo acceso.'
-              : 'El estado de tu plan y cuándo es el próximo cobro.'}
+            : 'El estado de tu plan, cuánto lo estás usando y tus cobros.'}
         </p>
       </header>
 
@@ -143,10 +208,27 @@ export default function Suscripcion() {
         </p>
       )}
 
-      {alDia && miEstado ? (
-        <ResumenAlDia estado={miEstado} />
+      {vista === 'cuenta' && miEstado ? (
+        <VistaCuenta
+          estado={miEstado}
+          precios={precios.data}
+          esDueno={esDueno}
+          onCambiarPlan={() => setVistaManual('elegir')}
+        />
       ) : (
         <>
+          {/* Sólo se ofrece la vuelta si hay una cuenta a la que volver: quien
+              todavía no tiene plan llegó acá porque es su única pantalla. */}
+          {planActual && (
+            <button
+              type="button"
+              onClick={() => setVistaManual('cuenta')}
+              className="mb-5 inline-flex items-center gap-1 rounded-md text-[0.9rem] font-semibold text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+            >
+              ‹ Volver a mi cuenta
+            </button>
+          )}
+
           {!esDueno && (
             <p className="mb-5 rounded-[16px] border border-border bg-surface-2 px-5 py-4 text-[0.9rem] text-ink-3">
               Estos son los planes de LeadEra. Sólo el dueño de la inmobiliaria puede contratarlos
@@ -154,7 +236,11 @@ export default function Suscripcion() {
             </p>
           )}
 
-          {/* El `pt` deja aire arriba para el badge de la tarjeta destacada,
+          {/* Las tarjetas no marcan cuál es el plan vigente: eso lo cuenta la
+              vista de cuenta, que es de donde se llega hasta acá, y repetirlo
+              sería decir dos veces lo mismo a una pantalla de distancia.
+
+              El `pt` deja aire arriba para el badge de la tarjeta destacada,
               que sobresale por encima de su borde. */}
           <ul className="grid list-none grid-cols-1 items-stretch gap-4 p-0 pt-3 md:grid-cols-3 md:pt-5">
             {precios.data.map((precio) => (
@@ -175,18 +261,6 @@ export default function Suscripcion() {
           </p>
         </>
       )}
-
-      {/* Alcanza con que haya un plan asociado, sin mirar el estado: durante el
-          trial los topes ya rigen, y saber contra qué se está midiendo es
-          justamente lo que ayuda a decidir si ese plan alcanza. Sin plan no hay
-          nada contra qué comparar. */}
-      {miEstado?.plan && <UsoDelPlan plan={miEstado.plan} />}
-
-      {/* En TRIAL no hubo ningún cobro todavía: una sección vacía sólo haría
-          dudar de si falta algo. En VENCIDA o CANCELADA sí se muestra —arriba
-          se ven los planes en vez del resumen, pero los cobros viejos siguen
-          siendo lo que explica por qué la cuenta está donde está—. */}
-      {miEstado && miEstado.estado !== 'TRIAL' && <HistorialDePagos />}
     </div>
   )
 }
@@ -271,9 +345,24 @@ function FilaDePago({ pago }: { pago: PagoDelHistorial }) {
   )
 }
 
-function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
+interface VistaCuentaProps {
+  estado: EstadoDeMiSuscripcion
+  precios: PrecioPlan[]
+  esDueno: boolean
+  onCambiarPlan: () => void
+}
+
+/**
+ * El estado de la suscripción propia: qué plan se tiene, cómo viene la cuenta,
+ * cuánto se está usando y qué se cobró.
+ *
+ * Es la entrada por defecto en cuanto hay un plan asignado —incluido el trial,
+ * que desde que el alta lo pregunta también tiene uno—. El catálogo de planes
+ * queda detrás de "Cambiar de plan": es una decisión puntual, no algo que haya
+ * que mirar cada vez que se entra a ver cómo viene la cuenta.
+ */
+function VistaCuenta({ estado, precios, esDueno, onCambiarPlan }: VistaCuentaProps) {
   const detalle = estado.plan ? DETALLE_PLAN[estado.plan] : null
-  const enGracia = estado.estado === 'GRACIA'
   const cancelada = estado.cancelacionSolicitada
 
   const [modalAbierto, setModalAbierto] = useState(false)
@@ -284,6 +373,8 @@ function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
   // cancelar; el backend además la rechazaría por no estar ACTIVA.
   const puedeCancelar = !cancelada && estado.estado === 'ACTIVA'
 
+  const distintivo = distintivoDeEstado(estado)
+  const precio = precios.find((p) => p.plan === estado.plan) ?? null
   const accesoHasta = estado.fecha_proximo_cobro
     ? formatearFecha(estado.fecha_proximo_cobro)
     : null
@@ -293,87 +384,135 @@ function ResumenAlDia({ estado }: { estado: EstadoDeMiSuscripcion }) {
   }
 
   return (
-    <div className="rounded-[16px] border border-border bg-surface px-6 py-6 shadow-md">
-      <p
-        className={`m-0 inline-flex items-center rounded-full px-3 py-1 text-[0.75rem] font-bold uppercase ${
-          cancelada
-            ? 'bg-surface-2 text-ink-2'
-            : enGracia
-              ? 'bg-warm-soft text-badge-tibio-ink'
-              : 'bg-brand-soft text-primary'
-        }`}
-      >
-        {cancelada ? 'Cancelada' : enGracia ? 'Pago pendiente' : 'Al día'}
-      </p>
+    <>
+      <div className="rounded-[16px] border border-border bg-surface px-6 py-6 shadow-md">
+        <p
+          className={`m-0 inline-flex items-center rounded-full px-3 py-1 text-[0.75rem] font-bold uppercase ${distintivo.clases}`}
+        >
+          {distintivo.texto}
+        </p>
 
-      <h2 className="mt-3 mb-0 text-[1.25rem] font-bold text-ink">
-        {detalle ? `Plan ${detalle.nombre}` : 'Tu plan'}
-      </h2>
+        {/* El plan y su precio en la misma línea: son la respuesta a "qué tengo
+            y cuánto cuesta", que es lo que se viene a mirar acá. */}
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="m-0 text-[1.4rem] leading-tight font-bold text-ink">
+            {detalle ? `Plan ${detalle.nombre}` : 'Tu plan'}
+          </h2>
 
-      <p className="mt-1 text-[0.9rem] text-ink-3">
-        {cancelada
-          ? 'Cancelaste la suscripción. No se te va a cobrar de nuevo.'
-          : enGracia
-            ? 'No pudimos cobrar el último mes. Mercado Pago va a reintentar; revisá que tu medio de pago tenga fondos.'
-            : 'Tu suscripción está activa. No tenés que hacer nada.'}
-      </p>
+          {precio?.precio_ars != null && (
+            <p className="m-0 flex items-baseline gap-1.5">
+              <span className="text-[1.25rem] leading-none font-bold tabular-nums text-ink">
+                ${MONTOS.format(precio.precio_ars)}
+              </span>
+              <span className="text-[0.85rem] text-ink-3">por mes</span>
+            </p>
+          )}
+        </div>
 
-      {/* Cancelada: lo que importa no es cuándo se cobra —no se cobra más—
-          sino hasta cuándo se puede seguir usando. */}
-      {cancelada ? (
-        accesoHasta && (
-          <p className="mt-4 text-[0.9rem] text-ink-2">
-            Tenés acceso hasta el{' '}
-            <strong className="font-semibold text-ink">{accesoHasta}</strong>.
-          </p>
-        )
-      ) : (
-        estado.fecha_proximo_cobro && (
-          <p className="mt-4 text-[0.9rem] text-ink-2">
-            Próximo cobro:{' '}
-            <strong className="font-semibold text-ink">{accesoHasta}</strong>
-          </p>
-        )
-      )}
+        <p className="mt-1.5 text-[0.9rem] text-ink-3">{explicacionDeEstado(estado)}</p>
 
-      {puedeCancelar && (
-        <>
-          {/* Acción destructiva y poco frecuente: va discreta, abajo y separada
-              del resto, para que no compita con la información del plan. */}
-          <div className="mt-6 border-t border-border pt-4">
+        <FechaRelevante estado={estado} accesoHasta={accesoHasta} />
+      </div>
+
+      {/* Los dos reusados tal cual: el trial ya tiene topes que rigen, y los
+          cobros viejos siguen explicando por qué la cuenta está donde está. */}
+      {estado.plan && <UsoDelPlan plan={estado.plan} />}
+      {estado.estado !== 'TRIAL' && <HistorialDePagos />}
+
+      {/* Las dos salidas de la pantalla, juntas y al pie: cambiar de plan es
+          poco frecuente, y dar de baja todavía menos. Ninguna compite con la
+          información de arriba, que es a lo que se entra. */}
+      {esDueno && (
+        <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-5">
+          <button
+            type="button"
+            onClick={onCambiarPlan}
+            className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.85rem] font-semibold text-ink-3 transition-colors hover:bg-background hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          >
+            Cambiar de plan
+          </button>
+
+          {puedeCancelar && (
             <button
               type="button"
               onClick={() => setModalAbierto(true)}
-              className="rounded-lg border border-border bg-surface px-4 py-2 text-[0.85rem] font-semibold text-ink-3 transition-colors hover:border-peligro-borde hover:bg-peligro-soft hover:text-peligro-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-peligro-ink motion-reduce:transition-none"
+              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.85rem] font-semibold text-ink-3 transition-colors hover:border-peligro-borde hover:bg-peligro-soft hover:text-peligro-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-peligro-ink motion-reduce:transition-none"
             >
               Cancelar suscripción
             </button>
-          </div>
-
-          <ModalConfirmarEliminar
-            abierto={modalAbierto}
-            titulo="¿Cancelar la suscripción?"
-            descripcion={
-              accesoHasta
-                ? `Vas a mantener acceso hasta el ${accesoHasta}. Después no se te va a cobrar más.`
-                : 'Vas a mantener acceso hasta el final del período que ya pagaste. Después no se te va a cobrar más.'
-            }
-            nombre={detalle ? `Plan ${detalle.nombre}` : undefined}
-            eliminando={cancelar.isPending}
-            error={cancelar.isError ? cancelar.error.message : null}
-            onCancelar={() => {
-              if (cancelar.isPending) return
-              cancelar.reset()
-              setModalAbierto(false)
-            }}
-            onConfirmar={confirmarBaja}
-            textoConfirmar="Sí, cancelar"
-            textoConfirmando="Cancelando…"
-            textoCancelar="No, seguir"
-          />
-        </>
+          )}
+        </div>
       )}
-    </div>
+
+      {puedeCancelar && (
+        <ModalConfirmarEliminar
+          abierto={modalAbierto}
+          titulo="¿Cancelar la suscripción?"
+          descripcion={
+            accesoHasta
+              ? `Vas a mantener acceso hasta el ${accesoHasta}. Después no se te va a cobrar más.`
+              : 'Vas a mantener acceso hasta el final del período que ya pagaste. Después no se te va a cobrar más.'
+          }
+          nombre={detalle ? `Plan ${detalle.nombre}` : undefined}
+          eliminando={cancelar.isPending}
+          error={cancelar.isError ? cancelar.error.message : null}
+          onCancelar={() => {
+            if (cancelar.isPending) return
+            cancelar.reset()
+            setModalAbierto(false)
+          }}
+          onConfirmar={confirmarBaja}
+          textoConfirmar="Sí, cancelar"
+          textoConfirmando="Cancelando…"
+          textoCancelar="No, seguir"
+        />
+      )}
+    </>
+  )
+}
+
+/**
+ * La fecha que importa según cómo esté la cuenta.
+ *
+ * En el trial es cuándo se termina; con la baja pedida, hasta cuándo hay
+ * acceso; cobrando, cuándo es el próximo cobro. Vencida o cancelada no tienen
+ * una fecha por delante que decir.
+ */
+function FechaRelevante({
+  estado,
+  accesoHasta,
+}: {
+  estado: EstadoDeMiSuscripcion
+  accesoHasta: string | null
+}) {
+  if (estado.cancelacionSolicitada) {
+    if (!accesoHasta) return null
+    return (
+      <p className="mt-4 text-[0.9rem] text-ink-2">
+        Tenés acceso hasta el <strong className="font-semibold text-ink">{accesoHasta}</strong>.
+      </p>
+    )
+  }
+
+  if (estado.estado === 'TRIAL') {
+    if (!estado.fecha_fin_trial) return null
+    return (
+      <p className="mt-4 text-[0.9rem] text-ink-2">
+        Tu prueba termina el{' '}
+        <strong className="font-semibold text-ink">
+          {formatearFecha(estado.fecha_fin_trial)}
+        </strong>
+        .
+      </p>
+    )
+  }
+
+  if (!accesoHasta || (estado.estado !== 'ACTIVA' && estado.estado !== 'GRACIA')) return null
+
+  return (
+    <p className="mt-4 text-[0.9rem] text-ink-2">
+      Próximo cobro: <strong className="font-semibold text-ink">{accesoHasta}</strong>
+    </p>
   )
 }
 

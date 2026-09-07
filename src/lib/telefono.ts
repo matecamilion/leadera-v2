@@ -9,6 +9,36 @@
  * Todo es best-effort y está pensado para el mercado argentino.
  */
 
+/** Los dígitos del número, sin separadores ni prefijos de escritura. */
+export function soloDigitos(valor: string): string {
+  return valor.replace(/\D/g, '')
+}
+
+/**
+ * Cuántos dígitos puede tener un teléfono para darse por bueno.
+ *
+ * El piso son 8 —un abonado suelto de 7 más algo, o un número corto de otra
+ * provincia— y el techo 13, que es `54` + `9` + los 10 del número local. Es un
+ * rango a propósito ancho: la base tiene años de números cargados sin
+ * validación y la idea es atajar el error de tipeo evidente ("a", "123"), no
+ * imponer un formato que deje a medio padrón afuera.
+ */
+export const MIN_DIGITOS_TELEFONO = 8
+export const MAX_DIGITOS_TELEFONO = 13
+
+/**
+ * true si el valor no llega a parecer un teléfono.
+ *
+ * Un campo vacío cuenta como inválido: donde se usa, el teléfono es obligatorio.
+ * No se apoya en `normalizarTelefonoAR` porque aquella nunca falla —le inventa
+ * el código de área y el prefijo de país a lo que le den—, así que serviría para
+ * comparar dos números pero no para decidir si uno está bien escrito.
+ */
+export function telefonoInvalido(valor: string): boolean {
+  const largo = soloDigitos(valor).length
+  return largo < MIN_DIGITOS_TELEFONO || largo > MAX_DIGITOS_TELEFONO
+}
+
 /**
  * Deja el número como lo quiere wa.me: sólo dígitos, con código de país.
  *
@@ -20,7 +50,7 @@
  * devuelve algo vacío salvo que no haya un solo dígito.
  */
 export function normalizarTelefonoAR(valor: string): string {
-  let digitos = valor.replace(/\D/g, '')
+  let digitos = soloDigitos(valor)
   if (!digitos) return ''
 
   // Prefijo internacional marcado a la vieja usanza.

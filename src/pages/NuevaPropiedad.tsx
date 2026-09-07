@@ -1,12 +1,12 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { Campo, ErrorCampo, Input } from '../components/comunes/CampoFormulario'
 import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../components/comunes/estilosFormulario'
 import { ComboboxLead } from '../components/comunes/ComboboxLead'
 import { IconoCasa } from '../components/leads/Iconos'
-import { useCrearOperacion } from '../hooks/useOperaciones'
-import { useCrearPropiedad } from '../hooks/usePropiedades'
-import { etiquetaTipoOperacion, type TipoOperacion } from '../lib/api/operaciones'
+import { useCrearPropiedadConOperacion } from '../hooks/usePropiedades'
+import type { TipoOperacion } from '../lib/api/operaciones'
 import {
   admiteDisposicion,
   admiteExpensas,
@@ -15,12 +15,20 @@ import {
   type Disposicion,
   type TipoPropiedad,
 } from '../lib/api/propiedades'
-import { mensajeDeGuardado } from '../lib/mensajesDeError'
+import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import {
   cantidadInvalida,
+  excedeTope,
   menorACero,
+  MENSAJE_URL_INVALIDA,
+  MENSAJE_VALOR_ALTO,
+  metrosCubiertosExcedidos,
   MINIMO_CANTIDAD,
   MINIMO_DESDE_CERO,
+  TOPE_AMBIENTES,
+  TOPE_METROS,
+  TOPE_PRECIO,
+  urlInvalida,
 } from '../lib/validaciones'
 import { useUiStore } from '../stores/ui'
 
@@ -54,8 +62,7 @@ function aNumero(valor: string): number | null {
 
 export default function NuevaPropiedad() {
   const navigate = useNavigate()
-  const crear = useCrearPropiedad()
-  const crearOperacion = useCrearOperacion()
+  const crear = useCrearPropiedadConOperacion()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
 
   // La ficha del lead linkea acá con ?propietario=<id>: lo tomamos como valor
@@ -82,13 +89,6 @@ export default function NuevaPropiedad() {
   const [operacion, setOperacion] = useState<OperacionAcrear>('VENTA')
   const [tocado, setTocado] = useState(false)
 
-  /**
-   * Id de la propiedad ya creada, si el alta quedó a medias.
-   *
-   * Ver `manejarSubmit`: son dos escrituras sin transacción y esto evita que un
-   * reintento cargue la propiedad dos veces.
-   */
-  const propiedadCreada = useRef<string | null>(null)
 
   const errorDireccion = tocado && !direccion.trim() ? 'La dirección es obligatoria' : null
 
@@ -103,8 +103,7 @@ export default function NuevaPropiedad() {
       ? 'Elegí el propietario —o crealo desde el mismo buscador— para poder crear la operación.'
       : null
 
-  /** Cualquiera de las dos escrituras en curso deja el botón ocupado. */
-  const guardando = crear.isPending || crearOperacion.isPending
+  const guardando = crear.isPending
 
   // Piso 1: un 0 no es "sin dato" —para eso el campo va vacío— sino un error.
   const precioInvalido = cantidadInvalida(precio)
@@ -116,6 +115,16 @@ export default function NuevaPropiedad() {
   const cocherasInvalido = menorACero(cocheras)
   const expensasInvalido = menorACero(expensas)
 
+  // Techos: un cero de más no es una propiedad cara, es un error de tipeo que
+  // después arrastra los totales de la cartera.
+  const precioAlto = excedeTope(precio, TOPE_PRECIO)
+  const ambientesAlto = excedeTope(ambientes, TOPE_AMBIENTES)
+  const metrosAlto = excedeTope(metros, TOPE_METROS)
+  const metrosCubiertosAlto = excedeTope(metrosCubiertos, TOPE_METROS)
+  // Los cubiertos son parte de los totales: no pueden ser más.
+  const metrosIncoherentes = metrosCubiertosExcedidos(metrosCubiertos, metros)
+  const linkInvalido = urlInvalida(linkPortal)
+
   const valido =
     Boolean(direccion.trim()) &&
     !faltaPropietario &&
@@ -125,7 +134,13 @@ export default function NuevaPropiedad() {
     !metrosCubiertosInvalido &&
     !banosInvalido &&
     !cocherasInvalido &&
-    !expensasInvalido
+    !expensasInvalido &&
+    !precioAlto &&
+    !ambientesAlto &&
+    !metrosAlto &&
+    !metrosCubiertosAlto &&
+    !metrosIncoherentes &&
+    !linkInvalido
 
   /**
    * Cambiar el tipo puede sacar de pantalla disposición o expensas; el valor
@@ -145,13 +160,12 @@ export default function NuevaPropiedad() {
     if (!valido) return
 
     try {
-      // Con una operación elegida el alta son dos escrituras sin transacción.
-      // Si la segunda falla, la propiedad ya existe: se recuerda su id para que
-      // reintentar cree sólo la operación y no una propiedad duplicada. Mismo
-      // patrón que el alta de operación con búsqueda en `NuevaOperacion`.
-      let idPropiedad = propiedadCreada.current
-      if (!idPropiedad) {
-        const propiedad = await crear.mutateAsync({
+      // Una sola llamada: el RPC crea la propiedad y, si corresponde, su
+      // operación dentro de la misma transacción. Si algo falla no queda nada
+      // a medias, así que reintentar es volver a mandar el formulario entero y
+      // no hace falta recordar qué parte ya se había guardado.
+      const { operacion_id } = await crear.mutateAsync({
+        propiedad: {
           direccion,
           tipo,
           // Nullable a propósito: se puede cargar una propiedad sin propietario.
@@ -170,30 +184,12 @@ export default function NuevaPropiedad() {
           expensas: admiteExpensas(tipo) ? aNumero(expensas) : null,
           descripcion,
           link_portal: linkPortal,
-        })
-        idPropiedad = propiedad.id
-        propiedadCreada.current = idPropiedad
-      }
-
-      // El estado inicial no se elige acá: `crearOperacion` ya inserta todas
-      // las operaciones como PUBLICADA.
-      let idOperacion: string | null = null
-      if (operacion !== 'NINGUNA' && propietarioId) {
-        const nueva = await crearOperacion.mutateAsync({
-          tipo: operacion,
-          // Autogenerado con la dirección, que es como el agente reconoce la
-          // operación en el listado. Se puede editar después desde su ficha.
-          titulo: `${etiquetaTipoOperacion(operacion)} - ${direccion.trim()}`,
-          lead_id: propietarioId,
-          propiedad_id: idPropiedad,
-          // El precio de la propiedad arranca como monto de la operación: es
-          // el número que el agente acaba de cargar y no tiene por qué
-          // retipearlo. Sin precio queda en null, que es "a definir".
-          monto: aNumero(precio),
-          moneda,
-        })
-        idOperacion = nueva.id
-      }
+        },
+        // El título y el monto de la operación los arma el RPC con la dirección
+        // y el precio, que es lo mismo que hacía este formulario. El estado
+        // inicial tampoco se elige acá: nace PUBLICADA.
+        tipoOperacion: creaOperacion ? (operacion as TipoOperacion) : null,
+      })
 
       // El aviso va antes de navegar y sale por el store: este formulario se
       // desmonta con la navegación y no podría mostrarlo él mismo. Es el caso
@@ -205,8 +201,8 @@ export default function NuevaPropiedad() {
       // el destino de siempre —si llegamos desde la ficha de un lead volvemos
       // ahí, porque la propiedad aparece en su tab; si no, al listado—.
       navigate(
-        idOperacion
-          ? `/operaciones/${idOperacion}`
+        operacion_id
+          ? `/operaciones/${operacion_id}`
           : propietarioDeLaUrl
             ? `/leads/${propietarioDeLaUrl}`
             : '/propiedades',
@@ -319,10 +315,11 @@ export default function NuevaPropiedad() {
                 value={precio}
                 onChange={setPrecio}
                 placeholder="120000"
-                invalido={precioInvalido}
+                invalido={precioInvalido || precioAlto}
               />
             </div>
             {precioInvalido && <ErrorCampo>El precio tiene que ser 1 o más.</ErrorCampo>}
+            {precioAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
           </Campo>
 
           <Campo label="Ambientes">
@@ -332,8 +329,9 @@ export default function NuevaPropiedad() {
               value={ambientes}
               onChange={setAmbientes}
               placeholder="3"
-              invalido={ambientesInvalido}
+              invalido={ambientesInvalido || ambientesAlto}
             />
+            {ambientesAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
             {ambientesInvalido && (
               <ErrorCampo>La cantidad de ambientes tiene que ser 1 o más.</ErrorCampo>
             )}
@@ -348,8 +346,9 @@ export default function NuevaPropiedad() {
               value={metros}
               onChange={setMetros}
               placeholder="85"
-              invalido={metrosInvalido}
+              invalido={metrosInvalido || metrosAlto}
             />
+            {metrosAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
             {metrosInvalido && (
               <ErrorCampo>Los metros totales tienen que ser 1 o más.</ErrorCampo>
             )}
@@ -362,8 +361,14 @@ export default function NuevaPropiedad() {
               value={metrosCubiertos}
               onChange={setMetrosCubiertos}
               placeholder="70"
-              invalido={metrosCubiertosInvalido}
+              invalido={metrosCubiertosInvalido || metrosCubiertosAlto || metrosIncoherentes}
             />
+            {metrosCubiertosAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
+            {metrosIncoherentes && (
+              <ErrorCampo>
+                Los metros cubiertos no pueden superar los metros totales.
+              </ErrorCampo>
+            )}
             {metrosCubiertosInvalido && (
               <ErrorCampo>Los metros cubiertos tienen que ser 1 o más.</ErrorCampo>
             )}
@@ -437,7 +442,9 @@ export default function NuevaPropiedad() {
               value={linkPortal}
               onChange={setLinkPortal}
               placeholder="https://..."
+              invalido={linkInvalido}
             />
+            {linkInvalido && <ErrorCampo>{MENSAJE_URL_INVALIDA}</ErrorCampo>}
           </Campo>
 
           <Campo label="Descripción" full>
@@ -452,24 +459,17 @@ export default function NuevaPropiedad() {
           </Campo>
         </div>
 
-        {(crear.isError || crearOperacion.isError) && (
+        {crear.isError && (
           <div role="alert" className="mt-4 text-[0.85rem] text-peligro-ink">
             <p className="m-0">
-              {mensajeDeGuardado(
-                crear.error ?? crearOperacion.error,
-                'No se pudo crear la propiedad.',
-              )}
+              {mensajeDeGuardado(crear.error, 'No se pudo crear la propiedad.')}
             </p>
 
-            {/* Falló la segunda escritura: hay que decir que la primera quedó
-                hecha, o el agente vuelve a cargar la propiedad entera creyendo
-                que se perdió todo. */}
-            {crear.isSuccess && crearOperacion.isError && (
-              <p className="mt-1 text-ink-3">
-                La propiedad ya quedó guardada. Al reintentar se crea sólo la
-                operación.
-              </p>
-            )}
+            {esLimiteDePlan(crear.error) && <EnlaceAPlanes />}
+
+            {/* Sin aclaración de "la propiedad ya quedó guardada": con la
+                transacción, un fallo no deja nada creado y el reintento es el
+                formulario entero. */}
           </div>
         )}
 
@@ -488,13 +488,9 @@ export default function NuevaPropiedad() {
           >
             {guardando
               ? 'Creando…'
-              : // Reintento con la propiedad ya creada: decir "Crear propiedad"
-                // ahí sería mentirle al agente sobre lo que falta.
-                crear.isSuccess && creaOperacion
-                ? 'Crear operación'
-                : creaOperacion
-                  ? 'Crear propiedad y operación'
-                  : 'Crear propiedad'}
+              : creaOperacion
+                ? 'Crear propiedad y operación'
+                : 'Crear propiedad'}
           </button>
         </div>
       </form>

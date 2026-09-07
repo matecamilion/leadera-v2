@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { InputTelefono } from '../comunes/InputTelefono'
+import { telefonoInvalido } from '../../lib/telefono'
 import type { ContactoLead, Lead } from '../../lib/api/leads'
 
 interface ModalEditarContactoProps {
@@ -45,10 +46,14 @@ export function ModalEditarContacto({
   function manejarSubmit(e: FormEvent) {
     e.preventDefault()
 
-    // Mismas validaciones que guardarContacto() del Angular.
+    // Mismas validaciones que el alta: nombre, apellido y un teléfono que
+    // parezca un teléfono.
     if (!nombre.trim()) return setErrorLocal('El nombre es obligatorio.')
     if (!apellido.trim()) return setErrorLocal('El apellido es obligatorio.')
     if (!telefono.trim()) return setErrorLocal('El teléfono es obligatorio.')
+    // Mismo criterio que el alta: acá se editaba sin ningún control de largo,
+    // así que un número que el alta hubiera rechazado entraba por esta puerta.
+    if (telefonoInvalido(telefono)) return setErrorLocal('Ingresá un teléfono válido.')
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return setErrorLocal('El email no tiene un formato válido.')
     }

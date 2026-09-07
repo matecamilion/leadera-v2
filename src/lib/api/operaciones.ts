@@ -24,6 +24,7 @@ export const TIPOS_OPERACION: { valor: TipoOperacion; label: string }[] = [
   { valor: 'VENTA', label: 'Venta' },
   { valor: 'COMPRA', label: 'Compra' },
   { valor: 'ALQUILER', label: 'Alquiler' },
+  { valor: 'BUSQUEDA_ALQUILER', label: 'Búsqueda de alquiler' },
 ]
 
 /** Estados que siguen abiertos. El resto va al final del listado. */
@@ -53,7 +54,14 @@ export function esAbierta(estado: EstadoOperacion): boolean {
  */
 export const ESTADOS_BLOQUEADOS: EstadoOperacion[] = ['CERRADA_GANADA', 'CANCELADA']
 
-export function esBloqueada(estado: EstadoOperacion): boolean {
+/** Los estados de `ESTADOS_BLOQUEADOS`, como tipo. */
+export type EstadoTerminal = Extract<EstadoOperacion, 'CERRADA_GANADA' | 'CANCELADA'>
+
+/**
+ * Estrecha el tipo además de contestar que sí: quien confirma el cierre necesita
+ * saber a cuál de los dos está pasando para elegir el texto que corresponde.
+ */
+export function esBloqueada(estado: EstadoOperacion): estado is EstadoTerminal {
   return ESTADOS_BLOQUEADOS.includes(estado)
 }
 
@@ -71,23 +79,37 @@ export function etiquetaTipoOperacion(tipo: TipoOperacion): string {
 /**
  * ¿Este tipo de operación describe lo que el lead está buscando?
  *
- * COMPRA y ALQUILER sí: en las dos el lead busca algo y la operación se apoya
- * en una búsqueda —un perfil de criterios— que después puntúa propiedades.
- * VENTA no: ahí la inmobiliaria pone una propiedad concreta y no hay nada que
- * buscar.
+ * Los dos tipos "del lado del que busca": COMPRA (quiere comprar) y
+ * BUSQUEDA_ALQUILER (quiere alquilar). En los dos la operación se apoya en una
+ * búsqueda —un perfil de criterios— que después puntúa propiedades.
+ *
+ * VENTA y ALQUILER son el lado de enfrente: ahí la inmobiliaria ya tiene una
+ * propiedad concreta para ofrecer y no hay nada que buscar. ALQUILER estuvo
+ * acá adentro por error hasta que existió BUSQUEDA_ALQUILER: es el propietario
+ * que ofrece, no el inquilino que busca.
  *
  * El filtro por finalidad lo hace el RPC `buscar_coincidencias_busqueda`, que
- * mira el tipo de la operación: una búsqueda de COMPRA sólo ve propiedades con
- * `finalidad` VENTA o AMBAS, y una de ALQUILER sólo ALQUILER o AMBAS. Por eso
- * alcanza con mostrar el formulario: el lado de los candidatos ya está resuelto
- * en la base.
- *
- * OJO: esto NO es lo mismo que `esCompra`, que sigue gobernando con qué se
- * vincula la operación (COMPRA elige una búsqueda; VENTA y ALQUILER, una
- * propiedad). Una operación de ALQUILER puede tener las dos cosas.
+ * mira el tipo de la operación.
  */
 export function llevaCriteriosDeBusqueda(tipo: TipoOperacion): boolean {
-  return tipo === 'COMPRA' || tipo === 'ALQUILER'
+  return tipo === 'COMPRA' || tipo === 'BUSQUEDA_ALQUILER'
+}
+
+/**
+ * ¿Con qué se vincula esta operación: con una búsqueda o con una propiedad?
+ *
+ * Es la otra mitad de la pregunta anterior y no la misma: `llevaCriterios`
+ * decide si se muestra el formulario de criterios, esto decide qué se puede
+ * enganchar. Hoy coinciden —quien busca se vincula a una búsqueda; quien ofrece,
+ * a una propiedad—, pero se escriben aparte porque son decisiones distintas y
+ * un tipo nuevo podría querer una y no la otra.
+ *
+ * Vivía repetido como `tipo === 'COMPRA'` en tres pantallas. Esa duplicación
+ * fue justamente la que dejó que ALQUILER quedara mal clasificado en un lugar y
+ * bien en otro.
+ */
+export function seVinculaConBusqueda(tipo: TipoOperacion): boolean {
+  return tipo === 'COMPRA' || tipo === 'BUSQUEDA_ALQUILER'
 }
 
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })

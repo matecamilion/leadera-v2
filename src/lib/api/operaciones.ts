@@ -227,6 +227,45 @@ export async function listarOperaciones({
   }
 }
 
+/**
+ * Las operaciones abiertas más recientes, para el resumen de Mi día.
+ *
+ * Función aparte y no `listarOperaciones` con `pageSize: 3`: su filtro `estado`
+ * es un valor único (`.eq`) y acá hace falta el complemento —todo lo que no está
+ * cerrado ni cancelado—, que sólo se expresa con `.in(ESTADOS_ABIERTOS)`.
+ *
+ * Lee de la misma vista que el listado, así que las filas salen con la forma que
+ * ya esperan los componentes. El orden es sólo por fecha: `rango_estado` no
+ * agrega nada cuando todas las filas son abiertas.
+ *
+ * El `count` es el de las operaciones abiertas, no el de la tabla entera: es lo
+ * que tiene que decir el "Ver todas" de una sección que sólo muestra abiertas.
+ */
+export async function listarOperacionesEnCurso(
+  limit: number,
+): Promise<ListarOperacionesResult> {
+  const { data, error, count } = await supabase
+    .from('operaciones_ordenadas')
+    .select(
+      '*, lead:leads(id, nombre, apellido), propiedad:propiedades(id, direccion), busqueda:busquedas(id, zona)',
+      { count: 'exact' },
+    )
+    .in('estado', ESTADOS_ABIERTOS)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    throw new Error(
+      `No se pudieron cargar las operaciones en curso: ${error.message}`,
+    )
+  }
+
+  return {
+    data: (data ?? []) as unknown as OperacionListada[],
+    count: count ?? 0,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Alta
 // ---------------------------------------------------------------------------

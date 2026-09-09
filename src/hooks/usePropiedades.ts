@@ -3,6 +3,7 @@ import {
   crearPropiedad,
   listarPropiedades,
   listarPropiedadesPorLead,
+  listarPropiedadesRecientes,
   type CrearPropiedadInput,
   type FiltrosPropiedad,
   type ListarPropiedadesResult,
@@ -82,5 +83,22 @@ export function useCrearPropiedadConOperacion() {
       queryClient.invalidateQueries({ queryKey: ['operaciones'] })
       queryClient.invalidateQueries({ queryKey: ['operaciones-por-lead'] })
     },
+  })
+}
+
+/**
+ * Las últimas propiedades cargadas, para el resumen de Mi día.
+ *
+ * Hook aparte y no `usePropiedades` con otra página: el listado ordena por
+ * `estado` antes que por fecha, así que sus primeras filas no son las más
+ * recientes. El porqué largo está en `listarPropiedadesRecientes`.
+ *
+ * La clave cuelga de `['propiedades']`, así que `useCrearPropiedad` y
+ * `useCrearPropiedadConOperacion` ya la invalidan sin wiring extra.
+ */
+export function usePropiedadesRecientes(limit = 3) {
+  return useQuery<ListarPropiedadesResult>({
+    queryKey: ['propiedades', 'recientes', limit],
+    queryFn: () => listarPropiedadesRecientes(limit),
   })
 }

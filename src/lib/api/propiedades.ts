@@ -213,6 +213,39 @@ export async function listarPropiedades({
  * del lead en cada card— para devolver el mismo tipo que el listado y poder
  * reusar sus cards sin adaptadores.
  */
+/**
+ * Las últimas propiedades cargadas, para el resumen de Mi día.
+ *
+ * Función aparte y no `listarPropiedades` con `pageSize: 3`: aquel ordena por
+ * `estado` antes que por fecha —para dejar las disponibles arriba—, así que sus
+ * tres primeras filas son las tres disponibles más nuevas y no las tres más
+ * nuevas. Una propiedad cargada hoy como RESERVADA no aparecería nunca.
+ *
+ * Trae el `count` exacto de la cartera entera: el resumen necesita saber si hay
+ * más de las que muestra para ofrecer el "Ver todas". PostgREST lo devuelve
+ * sobre el total, antes del `limit`.
+ */
+export async function listarPropiedadesRecientes(
+  limit: number,
+): Promise<ListarPropiedadesResult> {
+  const { data, error, count } = await supabase
+    .from('propiedades')
+    .select('*, lead_propietario:leads(id, nombre, apellido)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    throw new Error(
+      `No se pudieron cargar las propiedades recientes: ${error.message}`,
+    )
+  }
+
+  return {
+    data: (data ?? []) as unknown as PropiedadConPropietario[],
+    count: count ?? 0,
+  }
+}
+
 export async function listarPropiedadesPorLead(
   leadId: string,
 ): Promise<PropiedadConPropietario[]> {

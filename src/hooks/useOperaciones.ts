@@ -3,6 +3,7 @@ import {
   crearOperacion,
   listarBusquedasDeLead,
   listarOperaciones,
+  listarOperacionesEnCurso,
   type CrearOperacionInput,
   type EstadoOperacion,
   type ListarOperacionesResult,
@@ -55,5 +56,22 @@ export function useBusquedasDeLead(leadId: string | null) {
     queryKey: ['busquedas-de-lead', leadId],
     queryFn: () => listarBusquedasDeLead(leadId as string),
     enabled: Boolean(leadId),
+  })
+}
+
+/**
+ * Las operaciones abiertas más recientes, para el resumen de Mi día.
+ *
+ * Hook aparte y no `useOperaciones` con otro `pageSize`: su filtro `estado` es
+ * un valor único y acá hace falta el complemento —todo lo que no está cerrado ni
+ * cancelado—. El porqué largo está en `listarOperacionesEnCurso`.
+ *
+ * La clave cuelga de `['operaciones']`, así que `useCrearOperacion` y
+ * `useCrearPropiedadConOperacion` ya la invalidan sin wiring extra.
+ */
+export function useOperacionesEnCurso(limit = 3) {
+  return useQuery<ListarOperacionesResult>({
+    queryKey: ['operaciones', 'en-curso', limit],
+    queryFn: () => listarOperacionesEnCurso(limit),
   })
 }

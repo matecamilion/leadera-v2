@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CardResumen } from '../components/dashboard/CardResumen'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
+import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
+import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
+import { ResumenTareasHoy } from '../components/dashboard/ResumenTareasHoy'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
 import { IconoCheck } from '../components/leads/Iconos'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
@@ -161,6 +164,16 @@ export default function MiDia() {
         </>
       )}
 
+      {/* Contexto de la cartera, debajo de los leads del día.
+
+          Van fuera del ternario de `alDia` a propósito: son secciones que se
+          traen sus propios datos y no dependen de si quedan leads por
+          contactar. Estar al día con los leads no es motivo para esconder las
+          propiedades, las operaciones ni la agenda. */}
+      <ResumenTareasHoy />
+      <ListaPropiedadesRecientes />
+      <ListaOperacionesEnCurso />
+
       {/* Registrar desde acá no navega: `useCrearInteraccion` invalida
           `['leads']`, del que cuelgan los candidatos del día y los contactados
           de hoy, así que la fila se va de su sección y el progreso avanza sin
@@ -289,6 +302,25 @@ function Skeleton() {
           </div>
         </div>
       ))}
+
+      {/* Las tres secciones de abajo. Cada una tiene además su propio skeleton
+          para cuando su query tarda más que la de leads; estos bloques cubren
+          el rato anterior, en el que Mi día todavía no montó ninguna. */}
+      <BloqueSeccion alto="h-[229px]" />
+      <BloqueSeccion alto="h-[203px]" />
+      <BloqueSeccion alto="h-[203px]" />
+    </div>
+  )
+}
+
+/** Título y cuerpo de una sección de lista, mientras carga. */
+function BloqueSeccion({ alto }: { alto: string }) {
+  return (
+    <div className="mb-8">
+      <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
+      <div
+        className={`${alto} animate-pulse rounded-[14px] bg-surface-2 motion-reduce:animate-none`}
+      />
     </div>
   )
 }

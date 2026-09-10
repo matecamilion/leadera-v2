@@ -145,9 +145,15 @@ function asumirMarDelPlata(digitos: string): string {
  * Link de WhatsApp. Devuelve '' si no hay ningún dígito: quien lo use tiene
  * que saltear el botón en ese caso, en vez de dibujar un link muerto.
  */
-export function linkWhatsApp(telefono: string): string {
+export function linkWhatsApp(telefono: string, mensaje?: string): string {
   const numero = normalizarTelefonoAR(telefono)
-  return numero ? `https://wa.me/${numero}` : ''
+  if (!numero) return ''
+
+  // `mensaje` deja el chat con el texto ya escrito, sin enviarlo: wa.me lo
+  // toma del parámetro `text`. Sin mensaje el link queda igual que siempre,
+  // que es como lo usan los botones de contacto de todas las pantallas.
+  const base = `https://wa.me/${numero}`
+  return mensaje?.trim() ? `${base}?text=${encodeURIComponent(mensaje)}` : base
 }
 
 /**

@@ -271,6 +271,7 @@ export default function DetalleOperacion() {
           contador={coincidencias.data?.length}
         >
           <SeccionCoincidencias
+            busquedaId={operacion.busqueda_id}
             coincidencias={coincidencias.data ?? []}
             cargando={coincidencias.isPending}
             error={
@@ -305,7 +306,7 @@ export default function DetalleOperacion() {
               borrado.reset()
               setModal('eliminar')
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-caliente bg-transparent px-3.5 py-[7px] text-[0.8rem] font-medium text-caliente opacity-65 transition hover:bg-hot-soft hover:opacity-100 motion-reduce:transition-none"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-peligro-borde bg-transparent px-3.5 py-[7px] text-[0.8rem] font-medium text-peligro-ink opacity-65 transition hover:bg-peligro-soft hover:opacity-100 motion-reduce:transition-none"
           >
             <IconoTacho className="size-4" />
             Eliminar operación

@@ -19,6 +19,8 @@ function estilosScore(pct: number): string {
 }
 
 interface SeccionCoincidenciasProps {
+  /** Necesario para armar el link al detalle de cada coincidencia. */
+  busquedaId: string
   coincidencias: PropiedadCoincidente[]
   cargando: boolean
   error?: string | null
@@ -34,6 +36,7 @@ interface SeccionCoincidenciasProps {
  */
 export function SeccionCoincidencias({
   coincidencias,
+  busquedaId,
   cargando,
   error,
 }: SeccionCoincidenciasProps) {
@@ -89,7 +92,10 @@ export function SeccionCoincidencias({
           return (
             <li key={p.id}>
               <Link
-                to={`/propiedades/${p.id}`}
+                // Al detalle del match, no a la ficha de la propiedad: acá
+                // lo que importa es por qué le sirve a este lead. El score va
+                // por query string para no recalcularlo del otro lado.
+                to={`/coincidencias/${busquedaId}/${p.id}?score=${p.scorePct}`}
                 className="flex items-stretch gap-4 rounded-[16px] border border-border bg-surface p-4 transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
               >
                 {foto ? (

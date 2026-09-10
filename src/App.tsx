@@ -17,6 +17,7 @@ const ContactadosHoy = lazy(() => import('./pages/ContactadosHoy'))
 const Leads = lazy(() => import('./pages/Leads'))
 const NuevoLead = lazy(() => import('./pages/NuevoLead'))
 const DetalleLead = lazy(() => import('./pages/DetalleLead'))
+const DetalleMatch = lazy(() => import('./pages/DetalleMatch'))
 const Propiedades = lazy(() => import('./pages/Propiedades'))
 const NuevaPropiedad = lazy(() => import('./pages/NuevaPropiedad'))
 const DetallePropiedad = lazy(() => import('./pages/DetallePropiedad'))
@@ -96,6 +97,12 @@ export default function App() {
                   <Route path="/operaciones/tablero" element={<KanbanOperaciones />} />
                   <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
                   <Route path="/operaciones/:id" element={<DetalleOperacion />} />
+                  {/* El detalle de una coincidencia. Los dos ids identifican
+                      el par; el score viaja por query string desde la card. */}
+                  <Route
+                    path="/coincidencias/:busquedaId/:propiedadId"
+                    element={<DetalleMatch />}
+                  />
                   <Route path="/estadisticas" element={<Estadisticas />} />
                   <Route path="/perfil" element={<Perfil />} />
                   <Route path="/equipo" element={<Equipo />} />

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { obtenerDetalleMatch, type DetalleMatch } from '../lib/api/detalleMatch'
 import {
   guardarBusqueda,
   obtenerCoincidencias,
@@ -61,5 +62,22 @@ export function useCoincidenciasBusqueda(busquedaId: string | null | undefined) 
     queryFn: () => obtenerCoincidencias(busquedaId as string),
     enabled: Boolean(busquedaId),
     staleTime: 0,
+  })
+}
+
+/**
+ * La búsqueda y la propiedad de una coincidencia, para la pantalla de detalle.
+ *
+ * `data === null` no es un error: es "esta coincidencia ya no está vigente".
+ * La pantalla lo distingue de `isError` y muestra una salida, no un fallo.
+ */
+export function useDetalleMatch(
+  busquedaId: string | undefined,
+  propiedadId: string | undefined,
+) {
+  return useQuery<DetalleMatch | null>({
+    queryKey: ['detalle-match', busquedaId, propiedadId],
+    queryFn: () => obtenerDetalleMatch(busquedaId as string, propiedadId as string),
+    enabled: Boolean(busquedaId && propiedadId),
   })
 }

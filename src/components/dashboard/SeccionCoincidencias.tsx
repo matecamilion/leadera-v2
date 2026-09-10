@@ -47,8 +47,11 @@ interface Props {
 export function SeccionCoincidencias({ coincidencias }: Props) {
   const totalPares = coincidencias.reduce((suma, c) => suma + c.compradores.length, 0)
 
+  // Mismo `p-4`/`mb-5` que `SeccionCard`: esta sección no lo usa —su header
+  // tiene chip circular, subtítulo con markup y badge invertido— pero va en
+  // la misma pantalla, y a `p-5` se leería como una card de otro tamaño.
   return (
-    <section className="mb-7 rounded-2xl border border-border bg-surface p-5 shadow-sm">
+    <section className="mb-5 rounded-2xl border border-border bg-surface p-4 shadow-sm">
       <header className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <span aria-hidden className="text-[1.1rem] text-tibio">

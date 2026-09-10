@@ -1,4 +1,4 @@
-import { CardKpi } from '../perfil/CardKpi'
+import { CardKpi } from '../comunes/CardKpi'
 import {
   IconoCheck,
   IconoConversacion,

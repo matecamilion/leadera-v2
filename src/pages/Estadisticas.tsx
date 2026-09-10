@@ -1,4 +1,4 @@
-import { CardKpi } from '../components/perfil/CardKpi'
+import { CardKpi } from '../components/comunes/CardKpi'
 import { DonutTemperatura } from '../components/perfil/DonutTemperatura'
 import { Embudo } from '../components/perfil/Embudo'
 import { GraficoEvolucion } from '../components/perfil/GraficoEvolucion'

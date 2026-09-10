@@ -12,6 +12,7 @@ import {
   type SeguimientoLead,
 } from '../lib/api/tareas'
 import { listarVisitas, type VisitaConContexto } from '../lib/api/visitas'
+import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import { claveDia } from '../lib/calendario'
 import type { EstadoTarea, EstadoVisita, Recurrencia, Tarea } from '../types/database'
 
@@ -158,6 +159,12 @@ function useCambiarCompletada(accion: (id: string) => Promise<void>, completada:
       }
     },
 
+    // El sync va en onSuccess y no en onSettled: onSettled corre también
+    // cuando la mutación falló, y ahí en Google no cambió nada que reflejar.
+    onSuccess: (_datos, id) => {
+      sincronizarConGoogle({ tipo: 'tarea', accion: 'editar', registro_id: id })
+    },
+
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
     },
@@ -187,11 +194,16 @@ export interface CrearInput {
 export function useCrearTarea() {
   const queryClient = useQueryClient()
 
-  return useMutation<{ ocurrencias: number }, Error, CrearInput>({
+  // `id` sale sólo en el alta suelta: `crearTareaRecurrente` inserta N filas de
+  // un saque, sin RETURNING, así que no hay ids que sincronizar. Las series
+  // quedan fuera del push a Google en esta fase, igual que `useEliminarSerie`.
+  return useMutation<{ ocurrencias: number; id?: string }, Error, CrearInput>({
     mutationFn: async ({ tarea, repeticion }) => {
       if (!repeticion) {
-        await crearTarea(tarea)
-        return { ocurrencias: 1 }
+        // `crearTarea` ya devolvía la fila; antes se descartaba. Se propaga el
+        // id porque es lo único con lo que el sync puede ubicar la tarea.
+        const creada = await crearTarea(tarea)
+        return { ocurrencias: 1, id: creada.id }
       }
       const { ocurrencias } = await crearTareaRecurrente(
         tarea,
@@ -200,8 +212,9 @@ export function useCrearTarea() {
       )
       return { ocurrencias }
     },
-    onSuccess: () => {
+    onSuccess: ({ id }) => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      if (id) sincronizarConGoogle({ tipo: 'tarea', accion: 'crear', registro_id: id })
     },
   })
 }
@@ -209,10 +222,21 @@ export function useCrearTarea() {
 export function useEliminarTarea() {
   const queryClient = useQueryClient()
 
-  return useMutation<void, Error, string>({
+  // `eliminarTarea` devuelve el `google_event_id` de la fila borrada: para
+  // cuando esto corre, la fila ya no existe y ese id no se puede leer de
+  // ningún lado.
+  return useMutation<string | null, Error, string>({
     mutationFn: eliminarTarea,
-    onSuccess: () => {
+    onSuccess: (googleEventId, id) => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      if (googleEventId) {
+        sincronizarConGoogle({
+          tipo: 'tarea',
+          accion: 'borrar',
+          registro_id: id,
+          google_event_id: googleEventId,
+        })
+      }
     },
   })
 }

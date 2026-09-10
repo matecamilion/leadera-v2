@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { claveDia, desdeClaveDia } from '../calendario'
 import type {
@@ -294,11 +295,25 @@ export async function descompletarTarea(id: string): Promise<void> {
   verificarAfectadas(data, 'No tenés permiso para reabrir esta tarea.')
 }
 
-export async function eliminarTarea(id: string): Promise<void> {
-  const { data, error } = await supabase.from('tareas').delete().eq('id', id).select('id')
+export async function eliminarTarea(id: string): Promise<string | null> {
+  // El RETURNING trae `google_event_id` de la fila que se está borrando: es la
+  // última chance de leerlo. Después del DELETE no queda de dónde sacarlo —el
+  // borrado es real, no un soft-delete— y sin ese id no se puede borrar el
+  // evento en Google. Una lectura previa haría dos viajes para lo mismo.
+  //
+  // La columna todavía no está en `src/types/database.ts`; los tipos se
+  // regeneran con `npx supabase gen types`. Hasta entonces la consulta va por
+  // el cliente sin tipar.
+  const { data, error } = await (supabase as SupabaseClient)
+    .from('tareas')
+    .delete()
+    .eq('id', id)
+    .select('id, google_event_id')
 
   if (error) throw new Error(`No se pudo eliminar la tarea: ${error.message}`)
   verificarAfectadas(data, 'No tenés permiso para eliminar esta tarea.')
+
+  return (data?.[0]?.google_event_id as string | null) ?? null
 }
 
 /**

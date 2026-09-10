@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { crearInteraccion } from './interacciones'
 import type { EstadoVisita, Visita, VisitaInsert } from '../../types/database'
@@ -198,11 +199,19 @@ export async function cancelarVisita(id: string): Promise<void> {
   verificarAfectadas(data, 'No tenés permiso para cancelar esta visita.')
 }
 
-export async function eliminarVisita(id: string): Promise<void> {
-  const { data, error } = await supabase.from('visitas').delete().eq('id', id).select('id')
+export async function eliminarVisita(id: string): Promise<string | null> {
+  // Mismo motivo que en `eliminarTarea`: el RETURNING es la última chance de
+  // leer `google_event_id` antes de que la fila deje de existir.
+  const { data, error } = await (supabase as SupabaseClient)
+    .from('visitas')
+    .delete()
+    .eq('id', id)
+    .select('id, google_event_id')
 
   if (error) throw new Error(`No se pudo eliminar la visita: ${error.message}`)
   verificarAfectadas(data, 'No tenés permiso para eliminar esta visita.')
+
+  return (data?.[0]?.google_event_id as string | null) ?? null
 }
 
 // ---------------------------------------------------------------------------

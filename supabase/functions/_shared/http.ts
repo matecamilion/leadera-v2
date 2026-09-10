@@ -23,6 +23,16 @@ export type ErrorCode =
   | 'PRECIO_NO_DISPONIBLE'
   | 'MP_NO_DISPONIBLE'
   | 'MP_RECHAZO'
+  // Google Calendar. `NO_CONECTADO` y `REAUTH_REQUERIDO` describen estados
+  // normales de un agente que no conectó su cuenta o a quien le revocaron el
+  // permiso: viajan como `reason` en respuestas 200, no como error.
+  | 'GOOGLE_NO_CONFIGURADO'
+  | 'GOOGLE_STATE_INVALIDO'
+  | 'GOOGLE_TOKEN_ERROR'
+  | 'GOOGLE_API_ERROR'
+  | 'NO_CONECTADO'
+  | 'REAUTH_REQUERIDO'
+  | 'REGISTRO_NO_ENCONTRADO'
   | 'ERROR_INTERNO'
 
 export function jsonResponse(req: Request, body: unknown, status = 200): Response {

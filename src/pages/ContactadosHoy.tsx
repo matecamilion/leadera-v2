@@ -69,7 +69,10 @@ export default function ContactadosHoy() {
             aparecer acá.
           </p>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+          // Mismo `@container` que en `ListaLeads`: es la misma lista y las
+          // filas se miden contra ella. Acá siempre da 1120px, así que todas
+          // las variantes de `FilaLead` quedan en su rama ancha.
+          <ul className="@container divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
             {data.map(({ lead, interaccion }) => (
               <FilaLead
                 key={lead.id}

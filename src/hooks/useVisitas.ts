@@ -15,7 +15,8 @@ import {
 // y la forma del evento. La dependencia va en un solo sentido —`useTareas` no
 // importa nada de acá— así que no hay ciclo.
 import { CLAVE_TAREAS, type EventoCalendario } from './useTareas'
-import type { EstadoVisita } from '../types/database'
+import { sincronizarConGoogle } from '../lib/api/googleCalendar'
+import type { EstadoVisita, Visita } from '../types/database'
 
 /** Las visitas sueltas cuelgan de esta clave; el calendario, de CLAVE_TAREAS. */
 export const CLAVE_VISITAS = ['visitas'] as const
@@ -106,6 +107,13 @@ function useCambiarEstadoVisita(
       }
     },
 
+    // Va en onSuccess y no en onSettled: onSettled corre también cuando la
+    // mutación falló, y ahí el estado no cambió. Una visita cancelada le
+    // reescribe el título al evento a "(Cancelada)" en vez de borrarlo.
+    onSuccess: (_datos, id) => {
+      sincronizarConGoogle({ tipo: 'visita', accion: 'editar', registro_id: id })
+    },
+
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
       queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
@@ -141,11 +149,14 @@ export function useCancelarVisita() {
 export function useCrearVisita() {
   const queryClient = useQueryClient()
 
-  return useMutation<unknown, Error, CrearVisitaInput>({
+  // El tipo pasa de `unknown` a `Visita`: `crearVisita` siempre devolvió la
+  // fila, y el id es lo único con lo que el sync puede ubicarla.
+  return useMutation<Visita, Error, CrearVisitaInput>({
     mutationFn: crearVisita,
-    onSuccess: () => {
+    onSuccess: (creada) => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
       queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
+      sincronizarConGoogle({ tipo: 'visita', accion: 'crear', registro_id: creada.id })
     },
   })
 }
@@ -153,11 +164,21 @@ export function useCrearVisita() {
 export function useEliminarVisita() {
   const queryClient = useQueryClient()
 
-  return useMutation<void, Error, string>({
+  // `eliminarVisita` devuelve el `google_event_id` de la fila borrada: mismo
+  // motivo que en tareas, después del DELETE ese id no existe más.
+  return useMutation<string | null, Error, string>({
     mutationFn: eliminarVisita,
-    onSuccess: () => {
+    onSuccess: (googleEventId, id) => {
       queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
       queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
+      if (googleEventId) {
+        sincronizarConGoogle({
+          tipo: 'visita',
+          accion: 'borrar',
+          registro_id: id,
+          google_event_id: googleEventId,
+        })
+      }
     },
   })
 }

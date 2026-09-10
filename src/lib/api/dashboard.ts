@@ -248,26 +248,6 @@ export interface LeadAContactar {
   interaccionDeHoy: DetalleInteraccion | null
 }
 
-/** Un ítem de la jornada, sea tarea, visita o lead. Forma unificada. */
-export interface ItemProgresoDia {
-  tipo: 'TAREA' | 'VISITA' | 'LEAD_A_CONTACTAR'
-  /** Único dentro de la lista: lleva el prefijo del tipo. */
-  id: string
-  /** Título de la tarea, dirección de la propiedad, o nombre del lead. */
-  titulo: string
-  completado: boolean
-  /** `HH:MM`, si el ítem tiene hora puntual. */
-  hora?: string | null
-  /** Sólo para LEAD_A_CONTACTAR ya contactado. */
-  detalleInteraccion?: DetalleInteraccion
-}
-
-export interface ProgresoDia {
-  completados: number
-  total: number
-  items: ItemProgresoDia[]
-}
-
 /**
  * Cuando un lead cae en varias categorías, con cuál se lo cuenta.
  *
@@ -305,18 +285,6 @@ export function deduplicarAContactar(candidatos: CandidatosDelDia): LeadAContact
   }
 
   return [...porId.values()]
-}
-
-/** Un lead de la jornada, con la forma común de la lista de progreso. */
-export function leadAItemProgreso(entrada: LeadAContactar): ItemProgresoDia {
-  const { lead, interaccionDeHoy } = entrada
-  return {
-    tipo: 'LEAD_A_CONTACTAR',
-    id: `lead-${lead.id}`,
-    titulo: `${lead.nombre} ${lead.apellido ?? ''}`.trim(),
-    completado: interaccionDeHoy != null,
-    ...(interaccionDeHoy ? { detalleInteraccion: interaccionDeHoy } : {}),
-  }
 }
 
 // ---------------------------------------------------------------------------

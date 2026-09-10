@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { SeccionCard } from './SeccionCard'
 import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { IconoCajas } from '../leads/Iconos'
 import { useOperacionesEnCurso } from '../../hooks/useOperaciones'
@@ -18,61 +19,40 @@ const MOSTRADAS = 3
  * sus propios datos y se esconde si la query falla: es contexto de la jornada,
  * no la jornada.
  */
-export function ListaOperacionesEnCurso() {
+export function ListaOperacionesEnCurso({ className = '' }: { className?: string }) {
   const { data, isPending, isError } = useOperacionesEnCurso(MOSTRADAS)
 
   if (isError) return null
-  if (isPending || !data) return <SkeletonSeccion />
+  if (isPending || !data) return <SkeletonSeccion className={className} />
 
   const operaciones = data.data
   const hayMas = data.count > operaciones.length
 
   return (
-    <section className="mb-8">
-      <header className="mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            aria-hidden
-            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-warm-soft text-badge-tibio-ink"
-          >
-            <IconoCajas className="size-[18px]" />
-          </span>
-
-          <h2 className="m-0 text-[1.05rem] font-bold text-ink">
-            Operaciones en curso
-          </h2>
-
-          <span className="rounded-full bg-warm-soft px-2.5 py-0.5 text-[0.72rem] font-bold text-badge-tibio-ink">
-            {operaciones.length} {operaciones.length === 1 ? 'abierta' : 'abiertas'}
-          </span>
-
-          {hayMas && (
-            <Link
-              to="/operaciones"
-              className="ml-auto text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
-            >
-              Ver todas ({data.count}) →
-            </Link>
-          )}
-        </div>
-
-        <p className="mt-1 text-[0.85rem] text-ink-3">
-          Todavía no están cerradas ni canceladas
-        </p>
-      </header>
-
+    <SeccionCard
+      icono={<IconoCajas className="size-[18px]" />}
+      tono="tibio"
+      titulo="Operaciones en curso"
+      subtitulo="Todavía no están cerradas ni canceladas"
+      badge={`${operaciones.length} ${operaciones.length === 1 ? 'abierta' : 'abiertas'}`}
+      verTodos={
+        hayMas ? { ruta: '/operaciones', texto: `Ver todas (${data.count}) →` } : undefined
+      }
+      className={className}
+    >
       {operaciones.length === 0 ? (
         <p className="rounded-[14px] border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-[0.88rem] text-ink-3">
           No tenés operaciones abiertas.
         </p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+        // Sin borde ni radio propios: los pone la card que la envuelve.
+        <ul className="divide-y divide-border">
           {operaciones.map((operacion) => (
             <FilaOperacion key={operacion.id} operacion={operacion} />
           ))}
         </ul>
       )}
-    </section>
+    </SeccionCard>
   )
 }
 
@@ -119,11 +99,11 @@ function FilaOperacion({ operacion }: { operacion: OperacionListada }) {
  * Mismo idioma visual que el skeleton de Mi día: barra de título y un bloque
  * del alto que va a ocupar la lista, para que no salte al llegar los datos.
  */
-function SkeletonSeccion() {
+function SkeletonSeccion({ className = '' }: { className?: string }) {
   return (
-    <div aria-hidden className="mb-8">
+    <div aria-hidden className={`mb-5 ${className}`.trim()}>
       <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
-      <div className="h-[203px] animate-pulse rounded-[14px] bg-surface-2 motion-reduce:animate-none" />
+      <div className="h-[193px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none" />
     </div>
   )
 }

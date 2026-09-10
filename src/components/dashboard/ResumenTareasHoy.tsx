@@ -1,16 +1,40 @@
 import { Link } from 'react-router-dom'
-import { IconoCalendario } from '../leads/Iconos'
+import { SeccionCard } from './SeccionCard'
+import {
+  IconoCalendario,
+  IconoCasa,
+  IconoCheck,
+  IconoTelefono,
+} from '../leads/Iconos'
+import { TONOS, type TonoKpi } from '../comunes/tonos'
 import { useEventosCalendario, type EventoCalendario } from '../../hooks/useTareas'
 import { hoyComoClave } from '../../lib/calendario'
 
 /** Cuántas filas entran en el resumen. El "Ver todo" aparece si hay más. */
 const MOSTRADOS = 4
 
-/** Mismos colores que los tres bloques de `PanelDiaTareas`, ya que es lo mismo. */
-const PUNTO: Record<EventoCalendario['tipo'], string> = {
-  TAREA: 'bg-primary',
-  SEGUIMIENTO: 'bg-frio',
-  VISITA: 'bg-tibio',
+/**
+ * Qué se dibuja para cada tipo de evento.
+ *
+ * Los tres íconos ya existen en el proyecto y se usan para lo mismo en otro
+ * lado: la casa es la de `ItemVisita` y la de Propiedades, el teléfono es el de
+ * `AccionesContacto` —un seguimiento es un contacto que se debe— y el check es
+ * el de una tarea hecha o por hacer.
+ *
+ * Los tonos son los mismos colores que tenía el punto y que usan los tres
+ * bloques de `PanelDiaTareas`, ahora expresados con la tabla compartida para
+ * que un evento acá y el mismo evento allá no se pinten distinto.
+ */
+const ICONO: Record<EventoCalendario['tipo'], typeof IconoCasa> = {
+  TAREA: IconoCheck,
+  SEGUIMIENTO: IconoTelefono,
+  VISITA: IconoCasa,
+}
+
+const TONO: Record<EventoCalendario['tipo'], TonoKpi> = {
+  TAREA: 'brand',
+  SEGUIMIENTO: 'frio',
+  VISITA: 'tibio',
 }
 
 const ETIQUETA: Record<EventoCalendario['tipo'], string> = {
@@ -43,61 +67,42 @@ function porHora(a: EventoCalendario, b: EventoCalendario): number {
  * rango—, pero las dos cuelgan de `CLAVE_TAREAS`: cualquier alta o cambio
  * hecho allá refresca esto sin wiring extra.
  */
-export function ResumenTareasHoy() {
+export function ResumenTareasHoy({ className = '' }: { className?: string }) {
   const hoy = hoyComoClave()
   const { data, isPending, isError } = useEventosCalendario(hoy, hoy)
 
   if (isError) return null
-  if (isPending || !data) return <SkeletonSeccion />
+  // El skeleton también lleva las utilidades del contenedor: si no, la sección
+  // ocuparía media columna mientras carga y saltaría al ancho completo después.
+  if (isPending || !data) return <SkeletonSeccion className={className} />
 
   const eventos = [...data].sort(porHora)
   const visibles = eventos.slice(0, MOSTRADOS)
   const hayMas = eventos.length > visibles.length
 
   return (
-    <section className="mb-8">
-      <header className="mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            aria-hidden
-            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-cool-soft text-frio"
-          >
-            <IconoCalendario className="size-[18px]" />
-          </span>
-
-          <h2 className="m-0 text-[1.05rem] font-bold text-ink">Agenda de hoy</h2>
-
-          <span className="rounded-full bg-cool-soft px-2.5 py-0.5 text-[0.72rem] font-bold text-frio">
-            {eventos.length} {eventos.length === 1 ? 'evento' : 'eventos'}
-          </span>
-
-          {hayMas && (
-            <Link
-              to="/tareas"
-              className="ml-auto text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
-            >
-              Ver todo ({eventos.length}) →
-            </Link>
-          )}
-        </div>
-
-        <p className="mt-1 text-[0.85rem] text-ink-3">
-          Tareas, seguimientos y visitas del día
-        </p>
-      </header>
-
+    <SeccionCard
+      icono={<IconoCalendario className="size-[18px]" />}
+      tono="frio"
+      titulo="Agenda de hoy"
+      subtitulo="Tareas, seguimientos y visitas del día"
+      badge={`${eventos.length} ${eventos.length === 1 ? 'evento' : 'eventos'}`}
+      verTodos={hayMas ? { ruta: '/tareas', texto: `Ver todo (${eventos.length}) →` } : undefined}
+      className={className}
+    >
       {eventos.length === 0 ? (
         <p className="rounded-[14px] border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-[0.88rem] text-ink-3">
           No tenés nada agendado para hoy.
         </p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+        // Sin borde ni radio propios: los pone la card que la envuelve.
+        <ul className="divide-y divide-border">
           {visibles.map((evento) => (
             <FilaEvento key={evento.id} evento={evento} />
           ))}
         </ul>
       )}
-    </section>
+    </SeccionCard>
   )
 }
 
@@ -113,6 +118,7 @@ function FilaEvento({ evento }: { evento: EventoCalendario }) {
   // Una visita ya resuelta se aclara; una agendada no necesita rótulo, que es
   // lo que se espera de algo que está en la agenda de hoy.
   const cerrada = evento.estadoVisita && evento.estadoVisita !== 'AGENDADA'
+  const Icono = ICONO[evento.tipo]
 
   const destino =
     evento.tipo === 'SEGUIMIENTO' && evento.leadId
@@ -129,8 +135,10 @@ function FilaEvento({ evento }: { evento: EventoCalendario }) {
       >
         <span
           aria-hidden
-          className={`size-2 shrink-0 rounded-full ${PUNTO[evento.tipo]} ${completada ? 'opacity-40' : ''}`}
-        />
+          className={`grid size-8 shrink-0 place-items-center rounded-[10px] ${TONOS[TONO[evento.tipo]]} ${completada ? 'opacity-50' : ''}`}
+        >
+          <Icono className="size-4" />
+        </span>
 
         <span className="min-w-0 flex-1">
           <span
@@ -156,11 +164,11 @@ function FilaEvento({ evento }: { evento: EventoCalendario }) {
  * Mismo idioma visual que el skeleton de Mi día: barra de título y un bloque
  * del alto que va a ocupar la lista, para que no salte al llegar los datos.
  */
-function SkeletonSeccion() {
+function SkeletonSeccion({ className = '' }: { className?: string }) {
   return (
-    <div aria-hidden className="mb-8">
+    <div aria-hidden className={`mb-5 ${className}`.trim()}>
       <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
-      <div className="h-[229px] animate-pulse rounded-[14px] bg-surface-2 motion-reduce:animate-none" />
+      <div className="h-[219px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none" />
     </div>
   )
 }

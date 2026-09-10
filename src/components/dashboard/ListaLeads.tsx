@@ -1,22 +1,26 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { SeccionCard } from './SeccionCard'
 import { AvatarLead } from '../leads/AvatarLead'
 import { BadgeEstado } from '../leads/BadgeEstado'
 import { IconoAlerta, IconoPersonaMas, IconoReloj } from '../leads/Iconos'
 import { AccionesContacto } from '../comunes/AccionesContacto'
 import { tiempoTranscurrido } from '../../lib/formatoFecha'
+import type { TonoKpi } from '../comunes/tonos'
 import type { Lead } from '../../lib/api/leads'
 
 export type VarianteLista = 'prioritarios' | 'nuevos' | 'seguimientos'
 
-/** Color del ícono y del badge de conteo, igual que `.section-icon.X`. */
-const ACENTO: Record<VarianteLista, { icono: string; badge: string }> = {
-  prioritarios: { icono: 'bg-hot-soft text-caliente', badge: 'bg-hot-soft text-caliente' },
-  nuevos: { icono: 'bg-brand-soft text-primary', badge: 'bg-brand-soft text-primary' },
-  seguimientos: {
-    icono: 'bg-warm-soft text-badge-tibio-ink',
-    badge: 'bg-warm-soft text-badge-tibio-ink',
-  },
+/**
+ * Tono de la sección, en el vocabulario de `CardKpi`.
+ *
+ * Reemplaza al viejo `ACENTO`, que repetía las mismas clases para el ícono y
+ * para el badge: ahora las pone `SeccionCard` desde una sola tabla.
+ */
+const TONO: Record<VarianteLista, TonoKpi> = {
+  prioritarios: 'caliente',
+  nuevos: 'brand',
+  seguimientos: 'tibio',
 }
 
 const ICONO: Record<VarianteLista, typeof IconoAlerta> = {
@@ -60,53 +64,34 @@ export function ListaLeads({
   onRegistrar,
 }: ListaLeadsProps) {
   const Icono = ICONO[variante]
-  const acento = ACENTO[variante]
   const hayMas = total > leads.length
 
   return (
-    <section className="mb-8">
-      <header className="mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            aria-hidden
-            className={`flex size-8 shrink-0 items-center justify-center rounded-[10px] ${acento.icono}`}
-          >
-            <Icono className="size-[18px]" />
-          </span>
-
-          <h2 className="m-0 text-[1.05rem] font-bold text-ink">{titulo}</h2>
-
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-[0.72rem] font-bold ${acento.badge}`}
-          >
-            {leads.length} {textoBadge}
-          </span>
-
-          {hayMas && (
-            <Link
-              to={verTodosRuta}
-              className="ml-auto text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
-            >
-              Ver todos ({total}) →
-            </Link>
-          )}
-        </div>
-
-        <p className="mt-1 text-[0.85rem] text-ink-3">{subtitulo}</p>
-      </header>
-
+    <SeccionCard
+      icono={<Icono className="size-[18px]" />}
+      tono={TONO[variante]}
+      titulo={titulo}
+      subtitulo={subtitulo}
+      badge={`${leads.length} ${textoBadge}`}
+      verTodos={hayMas ? { ruta: verTodosRuta, texto: `Ver todos (${total}) →` } : undefined}
+    >
       {leads.length === 0 ? (
         <p className="rounded-[14px] border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-[0.88rem] text-ink-3">
           No hay leads en esta sección.
         </p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+        // `@container`: las filas miden esta lista, no la ventana. Sin esto,
+        // en la grilla de Mi día una columna de 352px seguía armando la fila
+        // de una línea porque el viewport superaba los 640px.
+        //
+        // Sin borde ni radio propios: los pone la card que la envuelve.
+        <ul className="@container divide-y divide-border">
           {leads.map((lead) => (
             <FilaLead key={lead.id} lead={lead} onRegistrar={onRegistrar} />
           ))}
         </ul>
       )}
-    </section>
+    </SeccionCard>
   )
 }
 
@@ -146,7 +131,7 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps)
           lo deja crecer y todo entra en una sola. */}
       <Link
         to={`/leads/${lead.id}`}
-        className="flex min-w-0 shrink basis-full items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-1 sm:basis-0"
+        className="flex min-w-0 shrink basis-full items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary @[40rem]:flex-1 @[40rem]:basis-0"
       >
         <AvatarLead
           nombre={lead.nombre}
@@ -165,7 +150,7 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps)
       {/* En una línea a la derecha desde sm; abajo y de ancho completo en
           mobile, con el botón contra el borde para que siga siendo el destino
           más grande de la fila. */}
-      <div className="flex w-full items-center gap-3 sm:ml-auto sm:w-auto">
+      <div className="flex w-full items-center gap-3 @[40rem]:ml-auto @[40rem]:w-auto">
         <BadgeEstado estado={lead.estado} />
 
         {/* Las acciones van acá y no pegadas al teléfono de arriba: allá el
@@ -177,7 +162,19 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps)
 
         {/* Ancho mínimo para que la columna quede a plomo entre filas aunque
             diga "Ayer" en una y "28 días" en la siguiente. */}
-        <span className="min-w-[4.5rem] text-[0.78rem] whitespace-nowrap text-ink-3 tabular-nums sm:text-right">
+        <span
+          className={[
+            'min-w-[4.5rem] text-[0.78rem] whitespace-nowrap text-ink-3 tabular-nums @[40rem]:text-right',
+            // El "hace cuánto" es lo único que se cae en un contenedor
+            // angosto: es contexto. Llamar y WhatsApp se quedan siempre —son
+            // la acción que el agente necesita justo cuando está en el
+            // teléfono—, y lo que manda ContactadosHoy tampoco se esconde: ahí
+            // con qué y a qué hora se contactó es el dato de la pantalla.
+            enLugarDelTiempo ? '' : '@max-[30rem]:hidden',
+          ]
+            .join(' ')
+            .trim()}
+        >
           {enLugarDelTiempo ?? tiempoTranscurrido(lead.fecha_ultimo_contacto_real)}
         </span>
 
@@ -188,7 +185,7 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps)
           type="button"
           onClick={() => onRegistrar(lead)}
           aria-label={`Registrar una interacción con ${nombreCompleto}`}
-          className="ml-auto rounded-lg bg-brand-soft px-3 py-2 text-[0.78rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none sm:ml-0"
+          className="ml-auto rounded-lg bg-brand-soft px-3 py-2 text-[0.78rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[40rem]:ml-0"
         >
           Interacción
         </button>

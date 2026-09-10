@@ -447,3 +447,26 @@ verify_jwt = false
 [functions.cancelar-suscripcion]
 enabled = true
 verify_jwt = true
+
+# google-oauth-init la llama el agente logueado desde /perfil para arrancar el
+# consentimiento de Google Calendar. Exige JWT: el agente_id que queda firmado
+# en el `state` sale del token validado adentro, no del body.
+[functions.google-oauth-init]
+enabled = true
+verify_jwt = true
+
+# google-oauth-callback lo abre el navegador del agente siguiendo un 302 de
+# Google, que no puede llevar header Authorization: verify_jwt = false o el
+# gateway lo rechaza antes de que la función corra. Quien autoriza es la firma
+# HMAC del `state`, generada por google-oauth-init y validada adentro.
+[functions.google-oauth-callback]
+enabled = true
+verify_jwt = false
+
+# google-calendar-sync la llama el frontend del agente logueado después de
+# crear, editar o borrar una tarea o una visita. Exige JWT: el calendario que
+# se toca es el del agente del token, y adentro se verifica además que el
+# registro sea suyo antes de empujarlo a Google.
+[functions.google-calendar-sync]
+enabled = true
+verify_jwt = true

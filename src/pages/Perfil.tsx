@@ -1,7 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
+import { useConectarGoogle, useConexionGoogle } from '../hooks/useGoogleCalendar'
 import {
   actualizarDatosCuenta,
   cambiarPassword,
@@ -64,6 +65,8 @@ export default function Perfil() {
         />
 
         {esDueno && <PlanYFacturacion />}
+
+        <GoogleCalendar />
 
         <CambiarPassword />
       </div>
@@ -131,6 +134,150 @@ function PlanYFacturacion() {
         Ver planes y facturación
       </Link>
     </Tarjeta>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Google Calendar
+// ---------------------------------------------------------------------------
+
+/**
+ * Qué le decimos al agente cuando vuelve del consentimiento.
+ *
+ * El callback redirige acá con `?google=conectado` o con
+ * `?google=error&motivo=...`. Los motivos son los que define
+ * `google-oauth-callback`; cualquier otro cae en el mensaje genérico, así que
+ * agregar uno nuevo allá no rompe esta pantalla.
+ */
+const MENSAJE_VUELTA: Record<string, string> = {
+  acceso_denegado: 'No autorizaste el acceso, así que no conectamos nada.',
+  state_invalido: 'El pedido venció o no era válido. Probá conectar de nuevo.',
+  sin_codigo: 'Google no devolvió la autorización. Probá de nuevo.',
+  token_error: 'No pudimos completar la conexión con Google. Probá de nuevo.',
+  sin_refresh_token:
+    'Google no nos dio un permiso duradero. Quitá el acceso de LeadEra en ' +
+    'myaccount.google.com/permissions y volvé a conectar.',
+  guardado_error: 'Conectamos con Google pero no pudimos guardar el permiso. Probá de nuevo.',
+}
+
+/**
+ * Conectar el calendario del agente.
+ *
+ * Está fuera del `esDueno`: la agenda es de cada uno, no de la inmobiliaria, así
+ * que la ve cualquier rol.
+ */
+function GoogleCalendar() {
+  const conexion = useConexionGoogle()
+  const conectar = useConectarGoogle()
+  const [params, setParams] = useSearchParams()
+
+  const vuelta = params.get('google')
+  const motivo = params.get('motivo')
+
+  // El aviso se limpia de la URL al cerrarlo: si quedara, un F5 lo volvería a
+  // mostrar como si el agente acabara de conectar.
+  const cerrarAviso = () => {
+    const limpio = new URLSearchParams(params)
+    limpio.delete('google')
+    limpio.delete('motivo')
+    setParams(limpio, { replace: true })
+  }
+
+  // `null` es "nunca conectó"; `conectado: false` es "conectó y le revocaron el
+  // permiso". Se distinguen porque el segundo pide reconectar, no conectar.
+  const estado = conexion.data
+  const conectado = estado?.conectado === true
+  const necesitaReconectar = estado != null && !estado.conectado
+
+  return (
+    <Tarjeta
+      titulo="Google Calendar"
+      descripcion="Tus tareas y visitas aparecen como eventos en tu calendario de Google."
+    >
+      {vuelta === 'conectado' && (
+        <div className="mb-4">
+          <Aviso estado={{ tipo: 'ok', mensaje: 'Listo, tu Google Calendar quedó conectado.' }} />
+          <BotonEntendido onClick={cerrarAviso} />
+        </div>
+      )}
+
+      {vuelta === 'error' && (
+        <div className="mb-4">
+          <Aviso
+            estado={{
+              tipo: 'error',
+              mensaje:
+                MENSAJE_VUELTA[motivo ?? ''] ??
+                'No pudimos conectar con Google. Probá de nuevo.',
+            }}
+          />
+          <BotonEntendido onClick={cerrarAviso} />
+        </div>
+      )}
+
+      <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.75rem] font-semibold ${
+            conectado
+              ? 'bg-brand-soft text-primary'
+              : necesitaReconectar
+                ? 'bg-warm-soft text-badge-tibio-ink'
+                : 'bg-surface-2 text-ink-2'
+          }`}
+        >
+          {conexion.isPending
+            ? 'Verificando…'
+            : conectado
+              ? 'Conectado'
+              : necesitaReconectar
+                ? 'Reconexión pendiente'
+                : 'No conectado'}
+        </span>
+
+        {necesitaReconectar && (
+          <span className="text-[0.85rem] text-ink-3">
+            Google dejó de aceptar el permiso. Volvé a conectar para retomar la sincronización.
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => conectar.mutate()}
+        disabled={conectar.isPending || conexion.isPending}
+        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+      >
+        {conectar.isPending && (
+          <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />
+        )}
+        {conectado ? 'Volver a conectar' : necesitaReconectar ? 'Reconectar' : 'Conectar Google Calendar'}
+      </button>
+
+      {conectar.isError && (
+        <p className="mt-3">
+          <Aviso estado={{ tipo: 'error', mensaje: conectar.error.message }} />
+        </p>
+      )}
+
+      {conexion.isError && (
+        <p className="mt-3 text-[0.85rem] text-ink-3">
+          No pudimos verificar el estado de la conexión.
+        </p>
+      )}
+    </Tarjeta>
+  )
+}
+
+/** Cierra un aviso de vuelta del callback y le saca los params a la URL. */
+function BotonEntendido({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-2 text-[0.82rem] font-semibold text-primary hover:underline"
+    >
+      Entendido
+    </button>
   )
 }
 

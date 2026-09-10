@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { SeccionCard } from './SeccionCard'
 import { BadgeEstadoPropiedad } from '../propiedades/BadgeEstadoPropiedad'
 import { IconoCasa } from '../leads/Iconos'
 import { usePropiedadesRecientes } from '../../hooks/usePropiedades'
@@ -32,51 +33,29 @@ export function ListaPropiedadesRecientes() {
   const hayMas = data.count > propiedades.length
 
   return (
-    <section className="mb-8">
-      <header className="mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            aria-hidden
-            className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-brand-soft text-primary"
-          >
-            <IconoCasa className="size-[18px]" />
-          </span>
-
-          <h2 className="m-0 text-[1.05rem] font-bold text-ink">
-            Propiedades recientes
-          </h2>
-
-          <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-[0.72rem] font-bold text-primary">
-            {propiedades.length} {propiedades.length === 1 ? 'nueva' : 'nuevas'}
-          </span>
-
-          {hayMas && (
-            <Link
-              to="/propiedades"
-              className="ml-auto text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
-            >
-              Ver todas ({data.count}) →
-            </Link>
-          )}
-        </div>
-
-        <p className="mt-1 text-[0.85rem] text-ink-3">
-          Lo último que sumaste a la cartera
-        </p>
-      </header>
-
+    <SeccionCard
+      icono={<IconoCasa className="size-[18px]" />}
+      tono="brand"
+      titulo="Propiedades recientes"
+      subtitulo="Lo último que sumaste a la cartera"
+      badge={`${propiedades.length} ${propiedades.length === 1 ? 'nueva' : 'nuevas'}`}
+      verTodos={
+        hayMas ? { ruta: '/propiedades', texto: `Ver todas (${data.count}) →` } : undefined
+      }
+    >
       {propiedades.length === 0 ? (
         <p className="rounded-[14px] border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-[0.88rem] text-ink-3">
           Todavía no cargaste propiedades.
         </p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-[14px] border border-border bg-surface">
+        // Sin borde ni radio propios: los pone la card que la envuelve.
+        <ul className="divide-y divide-border">
           {propiedades.map((propiedad) => (
             <FilaPropiedad key={propiedad.id} propiedad={propiedad} />
           ))}
         </ul>
       )}
-    </section>
+    </SeccionCard>
   )
 }
 
@@ -139,9 +118,9 @@ function FilaPropiedad({ propiedad }: { propiedad: PropiedadConPropietario }) {
  */
 function SkeletonSeccion() {
   return (
-    <div aria-hidden className="mb-8">
+    <div aria-hidden className="mb-5">
       <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
-      <div className="h-[203px] animate-pulse rounded-[14px] bg-surface-2 motion-reduce:animate-none" />
+      <div className="h-[193px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none" />
     </div>
   )
 }

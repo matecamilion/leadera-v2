@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react'
@@ -108,11 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, refrescarPerfil, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  // Memoizado y no un objeto literal: el literal es una referencia nueva en
+  // cada render del provider, así que TODO lo que use `useAuth()` —el layout,
+  // el header, la ficha del lead, media app— volvía a renderizar cada vez que
+  // acá cambiaba cualquier estado, incluso uno que el consumidor no lee.
+  // `profile` se deriva en render pero es estable mientras `perfilCargado` y
+  // `user` no cambien, así que entra como dependencia sin recrear nada.
+  const value = useMemo(
+    () => ({ user, profile, loading, refrescarPerfil, signOut }),
+    [user, profile, loading, refrescarPerfil, signOut],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

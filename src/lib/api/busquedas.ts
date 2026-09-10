@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 import type { TipoPropiedad } from './propiedades'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Busqueda = Database['public']['Tables']['busquedas']['Row']
 
@@ -89,7 +90,7 @@ export async function obtenerCriterios(
     .eq('id', busquedaId)
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo cargar la búsqueda: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la búsqueda.'))
   return data
 }
 
@@ -131,7 +132,7 @@ export async function guardarBusqueda(
     .maybeSingle()
 
   if (errorOperacion) {
-    throw new Error(`No se pudo leer la operación: ${errorOperacion.message}`)
+    throw new Error(interpretarErrorSupabase(errorOperacion, 'No se pudo leer la operación.'))
   }
   if (!operacion) throw new Error('No tenés permiso para editar esta operación.')
 
@@ -144,7 +145,7 @@ export async function guardarBusqueda(
       .select('id')
       .maybeSingle()
 
-    if (error) throw new Error(`No se pudo guardar la búsqueda: ${error.message}`)
+    if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la búsqueda.'))
     if (!data) throw new Error('No tenés permiso para editar esta búsqueda.')
     return data.id
   }
@@ -163,9 +164,7 @@ export async function guardarBusqueda(
     .single()
 
   if (errorAlta || !creada) {
-    throw new Error(
-      `No se pudo crear la búsqueda: ${errorAlta?.message ?? 'sin detalle'}`,
-    )
+    throw new Error(interpretarErrorSupabase(errorAlta, 'No se pudo crear la búsqueda.'))
   }
 
   const { data: vinculada, error: errorVinculo } = await supabase
@@ -176,9 +175,7 @@ export async function guardarBusqueda(
     .maybeSingle()
 
   if (errorVinculo) {
-    throw new Error(
-      `La búsqueda se creó, pero no se pudo vincular a la operación: ${errorVinculo.message}`,
-    )
+    throw new Error(interpretarErrorSupabase(errorVinculo, 'La búsqueda se creó, pero no se pudo vincular a la operación.'))
   }
   if (!vinculada) {
     throw new Error('La búsqueda se creó, pero no tenés permiso para editar la operación.')
@@ -214,12 +211,11 @@ export interface PropiedadCoincidente {
 /**
  * Cuántas coincidencias se muestran como máximo.
  *
- * El RPC no aplica un piso de score: devuelve TODAS las propiedades
- * disponibles que pudo puntuar, incluidas las de 0%. Cortar por arriba sirve
- * para dos cosas. Una de producto: una lista con cincuenta propiedades al 0%
- * no es un resultado, es ruido. Y otra técnica: los ids del corte van en un
- * `.in()`, que viaja en la query string, y unos cientos de UUIDs alcanzan para
- * pasarse del largo máximo de URL y que el request falle entero.
+ * El RPC ya aplica su propio piso —descarta todo lo que puntúe por debajo del
+ * 30%—, así que este tope no está para sacar ruido: está para acotar el
+ * segundo viaje. Los ids del corte van en un `.in()`, que viaja en la query
+ * string, y unos cientos de UUIDs alcanzan para pasarse del largo máximo de
+ * URL y que el request falle entero.
  *
  * Como el RPC ordena por score descendente, el corte se queda con las mejores.
  */
@@ -243,7 +239,7 @@ export async function obtenerCoincidencias(
     p_busqueda_id: busquedaId,
   })
 
-  if (error) throw new Error(`No se pudieron buscar coincidencias: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar coincidencias.'))
 
   const puntajes = ((filas ?? []) as FilaCoincidencia[]).slice(0, MAXIMO_COINCIDENCIAS)
   if (puntajes.length === 0) return []
@@ -259,7 +255,7 @@ export async function obtenerCoincidencias(
     )
 
   if (errorPropiedades) {
-    throw new Error(`No se pudieron cargar las propiedades: ${errorPropiedades.message}`)
+    throw new Error(interpretarErrorSupabase(errorPropiedades, 'No se pudieron cargar las propiedades.'))
   }
 
   const porId = new Map((propiedades ?? []).map((p) => [p.id, p]))

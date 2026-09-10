@@ -91,7 +91,20 @@ export function esLimiteDePlan(error: unknown): boolean {
  */
 export function mensajeDeError(error: unknown, respaldo: string): string {
   if (!(error instanceof Error)) return respaldo
-  const texto = error.message
+  return mensajeDeNegocio(error.message) ?? error.message ?? respaldo
+}
+
+/**
+ * El mensaje legible que le corresponde a un texto de error, o `null` si no es
+ * ninguno de los conocidos.
+ *
+ * Separado de `mensajeDeError` para que `interpretarErrorSupabase` —que corre
+ * en la capa de API, donde todavía existe el `code` de Postgres— pueda
+ * preguntar "¿esto es un mensaje de negocio?" sin heredar el respaldo, que
+ * devuelve el texto crudo. Las dos entradas comparten estas reglas en vez de
+ * tener cada una su copia.
+ */
+export function mensajeDeNegocio(texto: string): string | null {
 
   // El trigger ya redacta el motivo con el número exacto del plan, así que se
   // deja tal cual y sólo se le agrega la salida. Se recorta desde el fragmento
@@ -121,7 +134,7 @@ export function mensajeDeError(error: unknown, respaldo: string): string {
     return 'Alguno de los datos no cumple con lo que acepta el sistema. Revisá los valores cargados.'
   }
 
-  return texto || respaldo
+  return null
 }
 
 /**

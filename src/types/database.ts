@@ -799,7 +799,7 @@ export type Database = {
           creado_por: string
           created_at: string | null
           descripcion: string | null
-          estado: string
+          estado: EstadoTarea
           fecha: string
           google_event_id: string | null
           hora: string | null
@@ -817,7 +817,7 @@ export type Database = {
           creado_por: string
           created_at?: string | null
           descripcion?: string | null
-          estado?: string
+          estado?: EstadoTarea
           fecha: string
           google_event_id?: string | null
           hora?: string | null
@@ -835,7 +835,7 @@ export type Database = {
           creado_por?: string
           created_at?: string | null
           descripcion?: string | null
-          estado?: string
+          estado?: EstadoTarea
           fecha?: string
           google_event_id?: string | null
           hora?: string | null
@@ -912,21 +912,21 @@ export type Database = {
           hasta: string
           id: string
           inmobiliaria_id: string
-          recurrencia: string
+          recurrencia: Recurrencia
         }
         Insert: {
           created_at?: string | null
           hasta: string
           id?: string
           inmobiliaria_id: string
-          recurrencia: string
+          recurrencia: Recurrencia
         }
         Update: {
           created_at?: string | null
           hasta?: string
           id?: string
           inmobiliaria_id?: string
-          recurrencia?: string
+          recurrencia?: Recurrencia
         }
         Relationships: [
           {
@@ -943,7 +943,7 @@ export type Database = {
           asignado_a: string
           creado_por: string
           created_at: string | null
-          estado: string
+          estado: EstadoVisita
           fecha: string
           google_event_id: string | null
           hora: string | null
@@ -958,7 +958,7 @@ export type Database = {
           asignado_a: string
           creado_por: string
           created_at?: string | null
-          estado?: string
+          estado?: EstadoVisita
           fecha: string
           google_event_id?: string | null
           hora?: string | null
@@ -973,7 +973,7 @@ export type Database = {
           asignado_a?: string
           creado_por?: string
           created_at?: string | null
-          estado?: string
+          estado?: EstadoVisita
           fecha?: string
           google_event_id?: string | null
           hora?: string | null

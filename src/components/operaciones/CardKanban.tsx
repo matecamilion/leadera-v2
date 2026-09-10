@@ -1,17 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { Link } from 'react-router-dom'
-import { formatearMonto, type OperacionKanban, type TipoOperacion } from '../../lib/api/operaciones'
+import { formatearMonto, type OperacionKanban } from '../../lib/api/operaciones'
 import { diasSinMovimiento, esOperacionTrabada } from '../../lib/kanbanUtils'
 import { linkTelefono, linkWhatsApp } from '../../lib/telefono'
 import { IconoChat, IconoReloj, IconoTelefono } from '../leads/Iconos'
-
-/** Barra lateral por tipo. Mismos colores que BadgeTipoOperacion. */
-const BARRA: Record<TipoOperacion, string> = {
-  VENTA: 'bg-primary',
-  COMPRA: 'bg-frio',
-  ALQUILER: 'bg-tibio',
-  BUSQUEDA_ALQUILER: 'bg-info',
-}
+import { BARRA } from './barraTipoOperacion'
 
 export function CardKanban({ operacion }: { operacion: OperacionKanban }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =

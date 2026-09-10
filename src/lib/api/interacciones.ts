@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Interaccion = Database['public']['Tables']['interacciones']['Row']
 export type TipoInteraccion = Database['public']['Enums']['tipo_interaccion']
@@ -47,7 +48,7 @@ export async function listarInteraccionesPorOperacion(
     .order('fecha', { ascending: false })
 
   if (error) {
-    throw new Error(`No se pudieron cargar los eventos de la operación: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los eventos de la operación.'))
   }
   return data ?? []
 }
@@ -63,7 +64,7 @@ export async function listarInteraccionesPorLead(
     .order('fecha', { ascending: false })
 
   if (error) {
-    throw new Error(`No se pudieron cargar las interacciones: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las interacciones.'))
   }
   return data ?? []
 }
@@ -113,7 +114,7 @@ export async function crearInteraccion(
     .single()
 
   if (error) {
-    throw new Error(`No se pudo registrar la interacción: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo registrar la interacción.'))
   }
 
   const proximo = aIso(input.fecha_proximo_contacto)
@@ -244,7 +245,7 @@ export async function actualizarInteraccion(
   if (error) {
     if (esRechazoDeRls(error)) throw new Error(MENSAJE_EDITAR_RECHAZADO)
     if (esRechazoDelTrigger(error)) throw new Error(MENSAJE_ESTRUCTURA)
-    throw new Error(`No se pudo guardar la interacción: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la interacción.'))
   }
 
   // Sin error y sin fila: la policy filtró el UPDATE. PostgREST no lo trata
@@ -272,7 +273,7 @@ export async function eliminarInteraccion(id: string): Promise<void> {
     if (esRechazoDeRls(error) || esRechazoDelTrigger(error)) {
       throw new Error(MENSAJE_ELIMINAR_RECHAZADO)
     }
-    throw new Error(`No se pudo eliminar la interacción: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la interacción.'))
   }
 
   if (!data || data.length === 0) throw new Error(MENSAJE_ELIMINAR_RECHAZADO)

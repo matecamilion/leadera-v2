@@ -102,7 +102,12 @@ export function ListaLeads({
  * muestra el teléfono, que es con lo que se actúa desde una lista de llamados.
  */
 function contexto(lead: Lead): string {
-  if (!lead.fecha_primer_contacto_real) return 'Sin interacciones registradas'
+  // "Todavía sin contactar" y no "sin interacciones": lo que se está mirando es
+  // `fecha_primer_contacto_real`, que es otra cosa. Hoy los dos casos suelen
+  // coincidir, pero un lead puede tener interacciones cargadas sin que ninguna
+  // le haya movido la fecha de primer contacto. Mismo texto que usa el resumen
+  // de la ficha para esta misma condición.
+  if (!lead.fecha_primer_contacto_real) return 'Todavía sin contactar'
   return lead.telefono ?? 'Sin teléfono cargado'
 }
 

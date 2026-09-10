@@ -5,6 +5,7 @@ import {
   crearLead,
   eliminarLead,
   obtenerLeadPorId,
+  obtenerNombreAgente,
   type ContactoLead,
   type CrearLeadInput,
   type EstadoLead,
@@ -83,5 +84,20 @@ export function useEliminarLead() {
       queryClient.removeQueries({ queryKey: claveLead(id) })
       invalidar()
     },
+  })
+}
+
+/**
+ * Nombre del agente asignado a un lead.
+ *
+ * Clave propia —`['agente', id]`— y no colgada de la del lead: el perfil no
+ * cambia cuando cambia el lead, y así dos fichas del mismo agente comparten la
+ * entrada en vez de pedirlo dos veces.
+ */
+export function useNombreAgente(agenteId: string | null | undefined) {
+  return useQuery<string | null>({
+    queryKey: ['agente', agenteId],
+    queryFn: () => obtenerNombreAgente(agenteId as string),
+    enabled: Boolean(agenteId),
   })
 }

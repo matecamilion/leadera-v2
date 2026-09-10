@@ -3,6 +3,7 @@ import type { TipoInteraccion } from './interacciones'
 import type { Lead } from './leads'
 import type { EstadoPropiedad, TipoPropiedad } from './propiedades'
 import type { Database } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 /** Cuántos leads se traen por categoría; el resto sale como "+N más". */
 export const LEADS_POR_SECCION = 10
@@ -175,7 +176,7 @@ export async function obtenerCandidatosDelDia(): Promise<CandidatosDelDia> {
 
   const fallo =
     prioritarios.error ?? nuevos.error ?? seguimientos.error ?? interacciones.error
-  if (fallo) throw new Error(`No se pudo cargar tu jornada: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudo cargar tu jornada.'))
 
   return {
     prioritarios: prioritarios.data ?? [],
@@ -318,7 +319,7 @@ export async function obtenerContactadosHoy(): Promise<LeadContactado[]> {
     .order('fecha', { ascending: false })
 
   if (error) {
-    throw new Error(`No se pudieron cargar los contactados de hoy: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los contactados de hoy.'))
   }
 
   const porLead = ultimaPorLead(filas ?? [])
@@ -330,9 +331,7 @@ export async function obtenerContactadosHoy(): Promise<LeadContactado[]> {
     .in('id', [...porLead.keys()])
 
   if (errorLeads) {
-    throw new Error(
-      `No se pudieron cargar los contactados de hoy: ${errorLeads.message}`,
-    )
+    throw new Error(interpretarErrorSupabase(errorLeads, 'No se pudieron cargar los contactados de hoy.'))
   }
 
   return (leads ?? [])
@@ -450,7 +449,7 @@ export async function obtenerCoincidenciasDelDia(): Promise<CoincidenciaDelDia[]
   ])
 
   const fallo = propiedades.error ?? busquedas.error
-  if (fallo) throw new Error(`No se pudieron buscar coincidencias: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudieron buscar coincidencias.'))
 
   const filasPropiedades = (propiedades.data ?? []) as unknown as FilaPropiedad[]
   const filasBusquedas = ((busquedas.data ?? []) as unknown as FilaBusqueda[]).filter(

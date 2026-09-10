@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { crearInteraccion } from './interacciones'
 import type { EstadoVisita, Visita, VisitaInsert } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 /**
  * Perfil del usuario logueado: hace falta para el alta.
@@ -69,7 +70,7 @@ export async function listarVisitas(
     .order('fecha', { ascending: true })
     .order('hora', { ascending: true, nullsFirst: true })
 
-  if (error) throw new Error(`No se pudieron cargar las visitas: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las visitas.'))
   return (data ?? []) as unknown as VisitaConContexto[]
 }
 
@@ -115,7 +116,7 @@ export async function crearVisita(input: CrearVisitaInput): Promise<Visita> {
   const { data, error } = await supabase.from('visitas').insert(fila).select('*').single()
 
   if (error || !data) {
-    throw new Error(`No se pudo agendar la visita: ${error?.message ?? 'sin detalle'}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo agendar la visita.'))
   }
   return data
 }
@@ -162,7 +163,7 @@ export async function marcarRealizada(id: string): Promise<Visita> {
     .eq('id', id)
     .select('*')
 
-  if (error) throw new Error(`No se pudo marcar la visita: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo marcar la visita.'))
   const visita = verificarAfectadas(data, 'No tenés permiso para cambiar esta visita.')[0]
 
   if (!visita.lead_id) return visita
@@ -195,7 +196,7 @@ export async function cancelarVisita(id: string): Promise<void> {
     .eq('id', id)
     .select('id')
 
-  if (error) throw new Error(`No se pudo cancelar la visita: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cancelar la visita.'))
   verificarAfectadas(data, 'No tenés permiso para cancelar esta visita.')
 }
 
@@ -208,7 +209,7 @@ export async function eliminarVisita(id: string): Promise<string | null> {
     .eq('id', id)
     .select('id, google_event_id')
 
-  if (error) throw new Error(`No se pudo eliminar la visita: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la visita.'))
   verificarAfectadas(data, 'No tenés permiso para eliminar esta visita.')
 
   return (data?.[0]?.google_event_id as string | null) ?? null
@@ -256,7 +257,7 @@ export async function obtenerEstadisticasVisitasPropiedad(
   })
 
   if (error) {
-    throw new Error(`No se pudo cargar la actividad de la propiedad: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la actividad de la propiedad.'))
   }
 
   // La función devuelve una tabla de una fila; sin filas, no hubo actividad.
@@ -277,7 +278,7 @@ export async function contarVisitasDeLead(leadId: string): Promise<number> {
   })
 
   if (error) {
-    throw new Error(`No se pudieron contar las visitas del lead: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron contar las visitas del lead.'))
   }
   return aEntero(data)
 }

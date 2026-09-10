@@ -7,6 +7,7 @@ import {
   type DiaEvolucion,
   type PeriodoEvolucion,
 } from '../graficoUtils'
+import { interpretarErrorSupabase } from '../errores'
 
 /** Los estados que cuentan como cartera activa. `null` también entra. */
 const ESTADOS_ACTIVOS: EstadoLead[] = ['CALIENTE', 'TIBIO', 'FRIO']
@@ -204,7 +205,7 @@ export async function obtenerMetricasPerfil(): Promise<MetricasPerfil> {
     pipeline.error ??
     propiedades.error ??
     perfil.error
-  if (fallo) throw new Error(`No se pudieron cargar tus métricas: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudieron cargar tus métricas.'))
 
   const contactados = contar(leadsContactados)
 
@@ -315,7 +316,7 @@ export async function actualizarMetaMensual(nuevaMeta: number): Promise<number> 
     .eq('id', userData.user.id)
     .select('meta_mensual_ganados')
 
-  if (error) throw new Error(`No se pudo guardar la meta: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la meta.'))
   // Un UPDATE que RLS bloquea vuelve 200 con lista vacía, no error.
   if (!data || data.length === 0) throw new Error('No tenés permiso para cambiar tu meta.')
 
@@ -405,7 +406,7 @@ export async function obtenerEmbudo(): Promise<Embudo> {
     conVisita.error ??
     conOferta.error ??
     cerradas.error
-  if (fallo) throw new Error(`No se pudo cargar tu embudo: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudo cargar tu embudo.'))
 
   return {
     contactados: contactados.count ?? 0,
@@ -434,7 +435,7 @@ export async function obtenerEvolucion(
     dias: diasDelPeriodo(periodo),
   })
 
-  if (error) throw new Error(`No se pudo cargar tu evolución: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar tu evolución.'))
   return data ?? []
 }
 
@@ -473,7 +474,7 @@ export async function actualizarDatosCuenta(datos: DatosCuenta): Promise<DatosCu
     .eq('id', userData.user.id)
     .select('nombre, apellido')
 
-  if (error) throw new Error(`No se pudieron guardar tus datos: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron guardar tus datos.'))
   // Un UPDATE que RLS bloquea vuelve 200 con lista vacía, no error.
   if (!data || data.length === 0) {
     throw new Error('No tenés permiso para cambiar tus datos.')
@@ -515,5 +516,5 @@ export async function cambiarPassword({ actual, nueva }: CambioPassword): Promis
   if (errorLogin) throw new Error('La contraseña actual no es correcta.')
 
   const { error } = await supabase.auth.updateUser({ password: nueva })
-  if (error) throw new Error(`No se pudo cambiar la contraseña: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cambiar la contraseña.'))
 }

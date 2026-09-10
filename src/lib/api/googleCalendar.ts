@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { mensajeDeFuncion } from './equipo'
+import { interpretarErrorSupabase } from '../errores'
 
 /**
  * Estado de la conexión del agente con Google Calendar.
@@ -39,7 +40,7 @@ export async function obtenerConexionGoogle(): Promise<ConexionGoogle | null> {
     .maybeSingle()
 
   if (error) {
-    throw new Error(`No se pudo leer la conexión con Google: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo leer la conexión con Google.'))
   }
   if (!data) return null
 

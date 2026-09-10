@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { limitesDelMes } from './perfil'
 import type { EstadoLead, Lead } from './leads'
 import type { Database } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 export type RolAgente = Database['public']['Enums']['rol_agente']
 export type Profile = Database['public']['Tables']['profiles']['Row']
@@ -67,7 +68,7 @@ export async function listarEquipo(rol: RolAgente, miId: string): Promise<Miembr
   }
 
   const { data, error } = await query.order('rol').order('nombre')
-  if (error) throw new Error(`No se pudo cargar el equipo: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar el equipo.'))
 
   const perfiles = (data ?? []) as FilaProfile[]
   if (perfiles.length === 0) return []
@@ -80,7 +81,7 @@ export async function listarEquipo(rol: RolAgente, miId: string): Promise<Miembr
     .select('agente_id')
     .or(`estado.is.null,estado.in.(${ESTADOS_ACTIVOS.join(',')})`)
 
-  if (errorLeads) throw new Error(`No se pudo contar los leads: ${errorLeads.message}`)
+  if (errorLeads) throw new Error(interpretarErrorSupabase(errorLeads, 'No se pudo contar los leads.'))
 
   const porAgente = new Map<string, number>()
   for (const lead of leads ?? []) {
@@ -212,7 +213,7 @@ export async function obtenerStatsEquipo(): Promise<StatsEquipo> {
   ])
 
   const fallo = perfiles.error ?? leads.error ?? operaciones.error ?? interacciones.error
-  if (fallo) throw new Error(`No se pudieron cargar las métricas del equipo: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudieron cargar las métricas del equipo.'))
 
   const totales = acumuladorVacio()
   const porAgente = new Map<string, Acumulador>()
@@ -294,7 +295,7 @@ export async function listarLeadsDelEquipo(
     .order('fecha_ingreso', { ascending: false })
     .range(desde, desde + pageSize - 1)
 
-  if (error) throw new Error(`No se pudieron cargar los leads del equipo: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads del equipo.'))
 
   return { data: (data ?? []) as unknown as LeadDelEquipo[], count: count ?? 0 }
 }
@@ -336,7 +337,7 @@ export async function obtenerCupo(): Promise<CupoEquipo> {
     supabase.from('profiles').select('id', { count: 'exact', head: true }),
   ])
 
-  if (conteo.error) throw new Error(`No se pudo leer el cupo: ${conteo.error.message}`)
+  if (conteo.error) throw new Error(interpretarErrorSupabase(conteo.error, 'No se pudo leer el cupo.'))
 
   // `data` null es "no se pudo leer la fila"; `limite_usuarios` null adentro de
   // una fila que sí vino es "sin tope". Sin esta distinción los dos casos se

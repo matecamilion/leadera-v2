@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { etiquetaTipoInteraccion, type TipoInteraccion } from './interacciones'
 import { etiquetaTipoOperacion, type TipoOperacion } from './operaciones'
+import { interpretarErrorSupabase } from '../errores'
 
 /** Qué clase de cosa pasó. Lo devuelve el RPC en crudo. */
 export type TipoActividad =
@@ -94,7 +95,7 @@ export async function obtenerActividadReciente(
     { p_limite: limite },
   )
 
-  if (error) throw new Error(`No se pudo cargar la actividad reciente: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la actividad reciente.'))
 
   return (data ?? []) as ActividadReciente[]
 }

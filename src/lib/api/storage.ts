@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { interpretarErrorSupabase } from '../errores'
 
 export const BUCKET_FOTOS = 'propiedades-fotos'
 export const MAX_FOTOS = 10
@@ -59,7 +60,7 @@ async function leerFotos(propiedadId: string): Promise<string[]> {
     .eq('id', propiedadId)
     .maybeSingle()
 
-  if (error) throw new ErrorStorage(`No se pudieron leer las fotos: ${error.message}`)
+  if (error) throw new ErrorStorage(interpretarErrorSupabase(error, 'No se pudieron leer las fotos.'))
   if (!data) throw new ErrorStorage('La propiedad no existe o no tenés permiso.')
   return data.fotos_urls ?? []
 }
@@ -72,7 +73,7 @@ async function escribirFotos(propiedadId: string, urls: string[]): Promise<void>
     .select('id')
     .maybeSingle()
 
-  if (error) throw new ErrorStorage(`No se pudo guardar la foto: ${error.message}`)
+  if (error) throw new ErrorStorage(interpretarErrorSupabase(error, 'No se pudo guardar la foto.'))
   if (!data) throw new ErrorStorage('No tenés permiso para editar esta propiedad.')
 }
 

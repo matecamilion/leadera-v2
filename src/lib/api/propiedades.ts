@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
+import { sanearBusqueda } from './filtros'
 import type { Database } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Propiedad = Database['public']['Tables']['propiedades']['Row']
 export type EstadoPropiedad = Database['public']['Enums']['estado_propiedad']
@@ -144,11 +146,6 @@ export interface ListarPropiedadesResult {
   count: number
 }
 
-/** PostgREST usa la coma como separador en `.or()`: hay que neutralizarla. */
-function sanearBusqueda(texto: string): string {
-  return texto.replace(/[,()\\]/g, ' ').trim()
-}
-
 /**
  * Listado paginado. RLS filtra por inmobiliaria en el server, así que acá no
  * repetimos ese filtro.
@@ -196,7 +193,7 @@ export async function listarPropiedades({
     .range(desde, hasta)
 
   if (error) {
-    throw new Error(`No se pudieron cargar las propiedades: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las propiedades.'))
   }
 
   return {
@@ -235,9 +232,7 @@ export async function listarPropiedadesRecientes(
     .limit(limit)
 
   if (error) {
-    throw new Error(
-      `No se pudieron cargar las propiedades recientes: ${error.message}`,
-    )
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las propiedades recientes.'))
   }
 
   return {
@@ -258,7 +253,7 @@ export async function listarPropiedadesPorLead(
     .order('created_at', { ascending: false })
 
   if (error) {
-    throw new Error(`No se pudieron cargar las propiedades del lead: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las propiedades del lead.'))
   }
   return (data ?? []) as unknown as PropiedadConPropietario[]
 }
@@ -328,7 +323,7 @@ export async function crearPropiedad(
     .select('*')
     .single()
 
-  if (error) throw new Error(`No se pudo crear la propiedad: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo crear la propiedad.'))
   return data
 }
 
@@ -388,7 +383,7 @@ export async function crearPropiedadConOperacion(
     },
   )
 
-  if (error) throw new Error(`No se pudo crear la propiedad: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo crear la propiedad.'))
 
   // Un RPC que declara `RETURNS TABLE` devuelve un array de una fila; uno que
   // devuelve un compuesto o jsonb, el objeto pelado. Se aceptan las dos formas
@@ -427,7 +422,7 @@ export async function obtenerPropiedadPorId(
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo cargar la propiedad: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la propiedad.'))
   return data as unknown as PropiedadDetalle | null
 }
 
@@ -442,7 +437,7 @@ export async function actualizarEstadoPropiedad(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo actualizar el estado: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el estado.'))
   if (!data) throw new Error('No tenés permiso para editar esta propiedad.')
   return data
 }
@@ -479,7 +474,7 @@ export async function actualizarPropiedad(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo guardar la propiedad: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la propiedad.'))
   if (!data) throw new Error('No tenés permiso para editar esta propiedad.')
   return data
 }
@@ -493,7 +488,7 @@ export async function eliminarPropiedad(id: string): Promise<void> {
     .eq('id', id)
     .select('id')
 
-  if (error) throw new Error(`No se pudo eliminar la propiedad: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la propiedad.'))
   if (!data || data.length === 0) {
     throw new Error('No tenés permiso para eliminar esta propiedad.')
   }
@@ -539,7 +534,7 @@ export async function buscarCoincidenciasInternas(
     .eq('id', propiedadId)
     .maybeSingle()
 
-  if (errorProp) throw new Error(`No se pudo leer la propiedad: ${errorProp.message}`)
+  if (errorProp) throw new Error(interpretarErrorSupabase(errorProp, 'No se pudo leer la propiedad.'))
   if (!propiedad) return []
 
   let query = supabase
@@ -562,7 +557,7 @@ export async function buscarCoincidenciasInternas(
 
   const { data, error } = await query
   if (error) {
-    throw new Error(`No se pudieron buscar coincidencias: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar coincidencias.'))
   }
 
   type Fila = {

@@ -1,6 +1,7 @@
 import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 import { mensajeDeFuncion } from './equipo'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Plan = Database['public']['Enums']['plan_leadera']
 export type EstadoSuscripcion = Database['public']['Enums']['estado_suscripcion']
@@ -78,7 +79,7 @@ export async function listarPreciosPlanes(): Promise<PrecioPlan[]> {
     .from('planes_precio')
     .select('plan, precio_usd, precio_ars_actual, actualizado_at')
 
-  if (error) throw new Error(`No se pudieron cargar los precios: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los precios.'))
 
   const porPlan = new Map(
     (data ?? []).map((fila) => [
@@ -403,7 +404,7 @@ export async function listarPagos(inmobiliariaId: string): Promise<PagoDelHistor
     .limit(TOPE_HISTORIAL)
 
   if (error) {
-    throw new Error(`No se pudo cargar el historial de pagos: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar el historial de pagos.'))
   }
 
   return (data ?? []).map((fila) => ({

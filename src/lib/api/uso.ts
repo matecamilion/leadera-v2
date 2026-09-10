@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { ESTADOS_BLOQUEADOS } from './operaciones'
 import type { Plan } from './suscripcion'
+import { interpretarErrorSupabase } from '../errores'
 
 /**
  * Cuánto de su plan está usando la inmobiliaria.
@@ -64,7 +65,7 @@ async function contarRecursos() {
   ])
 
   const fallo = leads.error ?? propiedades.error ?? operaciones.error
-  if (fallo) throw new Error(`No se pudo leer el uso del plan: ${fallo.message}`)
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudo leer el uso del plan.'))
 
   return {
     leads: leads.count ?? 0,

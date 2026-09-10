@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { mensajeDeFuncion, type RolAgente } from './equipo'
+import { interpretarErrorSupabase } from '../errores'
 
 export interface InvitacionCreada {
   token: string
@@ -68,7 +69,7 @@ export async function listarInvitacionesPendientes(): Promise<InvitacionPendient
     .gt('expira_at', new Date().toISOString())
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(`No se pudieron cargar las invitaciones: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las invitaciones.'))
 
   const filas = (data ?? []) as FilaInvitacion[]
   if (filas.length === 0) return []

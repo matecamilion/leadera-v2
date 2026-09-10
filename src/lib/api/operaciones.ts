@@ -1,5 +1,7 @@
 import { supabase } from '../supabase'
+import { sanearBusqueda } from './filtros'
 import type { Database } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Operacion = Database['public']['Tables']['operaciones']['Row']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
@@ -140,17 +142,6 @@ export interface ListarOperacionesParams {
 }
 
 /**
- * PostgREST usa la coma como separador en `.or()`: hay que neutralizarla.
- *
- * Gemelo del de `leads.ts`. Está duplicado y no importado porque allá es
- * privado del módulo; el día que aparezca un tercer buscador conviene sacarlo
- * a un helper común.
- */
-function sanearBusqueda(texto: string): string {
-  return texto.replace(/[,()\\]/g, ' ').trim()
-}
-
-/**
  * Lo que devuelve la vista `operaciones_ordenadas`.
  *
  * La vista se creó antes de que existiera `fecha_proximo_seguimiento`, así que
@@ -218,7 +209,7 @@ export async function listarOperaciones({
     .range(desde, hasta)
 
   if (error) {
-    throw new Error(`No se pudieron cargar las operaciones: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones.'))
   }
 
   return {
@@ -255,9 +246,7 @@ export async function listarOperacionesEnCurso(
     .limit(limit)
 
   if (error) {
-    throw new Error(
-      `No se pudieron cargar las operaciones en curso: ${error.message}`,
-    )
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones en curso.'))
   }
 
   return {
@@ -316,7 +305,7 @@ export async function crearOperacion(
     .select('*')
     .single()
 
-  if (error) throw new Error(`No se pudo crear la operación: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo crear la operación.'))
   return data
 }
 
@@ -351,7 +340,7 @@ export async function buscarPropiedadesParaCombobox(
     .order('direccion', { ascending: true })
     .limit(8)
 
-  if (error) throw new Error(`No se pudieron buscar propiedades: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar propiedades.'))
   return data ?? []
 }
 
@@ -361,6 +350,9 @@ export interface BusquedaResumida {
   tipo_propiedad: Database['public']['Enums']['tipo_propiedad'] | null
   precio_min: number | null
   precio_max: number | null
+  /** `ambientes_min` y `notas` los agrega el resumen de la ficha del lead. */
+  ambientes_min: number | null
+  notas: string | null
 }
 
 /**
@@ -368,18 +360,22 @@ export interface BusquedaResumida {
  *
  * Un lead tiene pocas búsquedas, así que van todas a un `<select>` común en
  * vez de un combobox con debounce.
+ *
+ * El mismo resultado alimenta el "Qué busca" del resumen de la ficha: filtra
+ * por `activa` y ordena por fecha, que es exactamente lo que esa sección
+ * necesita mostrar.
  */
 export async function listarBusquedasDeLead(
   leadId: string,
 ): Promise<BusquedaResumida[]> {
   const { data, error } = await supabase
     .from('busquedas')
-    .select('id, zona, tipo_propiedad, precio_min, precio_max')
+    .select('id, zona, tipo_propiedad, precio_min, precio_max, ambientes_min, notas')
     .eq('lead_id', leadId)
     .eq('activa', true)
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(`No se pudieron cargar las búsquedas: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las búsquedas.'))
   return data ?? []
 }
 
@@ -466,7 +462,7 @@ export async function obtenerOperacionPorId(
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo cargar la operación: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la operación.'))
   return data as unknown as OperacionDetalle | null
 }
 
@@ -493,7 +489,7 @@ export async function actualizarEstadoOperacion(
       .maybeSingle()
 
     if (errorLectura) {
-      throw new Error(`No se pudo actualizar el estado: ${errorLectura.message}`)
+      throw new Error(interpretarErrorSupabase(errorLectura, 'No se pudo actualizar el estado.'))
     }
     if (actual && !actual.fecha_cierre) {
       cambios.fecha_cierre = new Date().toISOString()
@@ -507,7 +503,7 @@ export async function actualizarEstadoOperacion(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo actualizar el estado: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el estado.'))
   if (!data) throw new Error('No tenés permiso para editar esta operación.')
   return data
 }
@@ -525,7 +521,7 @@ export async function listarOperacionesPorLead(
     .order('created_at', { ascending: false })
 
   if (error) {
-    throw new Error(`No se pudieron cargar las operaciones del lead: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones del lead.'))
   }
   return ordenarAbiertasPrimero((data ?? []) as unknown as OperacionConVinculos[])
 }
@@ -543,9 +539,7 @@ export async function listarOperacionesPorPropiedad(
     .order('created_at', { ascending: false })
 
   if (error) {
-    throw new Error(
-      `No se pudieron cargar las operaciones de la propiedad: ${error.message}`,
-    )
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones de la propiedad.'))
   }
   return ordenarAbiertasPrimero((data ?? []) as unknown as OperacionConVinculos[])
 }
@@ -675,7 +669,7 @@ export async function listarOperacionesKanban(): Promise<TableroKanban> {
   const fallo =
     conteo.error ?? sumas.error ?? activas.error ?? ganadas.error ?? canceladas.error
   if (fallo) {
-    throw new Error(`No se pudo cargar el tablero: ${fallo.message}`)
+    throw new Error(interpretarErrorSupabase(fallo, 'No se pudo cargar el tablero.'))
   }
 
   const totales: Partial<Record<EstadoOperacion, number>> = {}
@@ -722,7 +716,7 @@ export async function actualizarSeguimientoOperacion(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo agendar el seguimiento: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo agendar el seguimiento.'))
   if (!data) throw new Error('No tenés permiso para editar esta operación.')
   return data
 }
@@ -811,7 +805,7 @@ export async function actualizarOperacion(
     if (esRechazoPorCerrada(error)) throw new Error(MENSAJE_EDITAR_BLOQUEADA)
     // El resto sigue la convención del módulo: se propaga con contexto y lo
     // traduce `mensajeDeError`, que ya sabe mapear los constraints por nombre.
-    throw new Error(`No se pudo guardar la operación: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la operación.'))
   }
 
   // Sin error y sin fila: RLS la tapó (otra inmobiliaria) o ya no existe.
@@ -846,7 +840,7 @@ export async function eliminarOperacion(id: string): Promise<void> {
         'La operación tiene actividad asociada (interacciones, tareas o visitas) y no se puede eliminar. Cancelala en su lugar.',
       )
     }
-    throw new Error(`No se pudo eliminar la operación: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la operación.'))
   }
 
   if (!data || data.length === 0) throw new Error(MENSAJE_ELIMINAR_RECHAZADO)

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   completarTarea,
   crearTarea,
+  listarTareasPorLead,
   crearTareaRecurrente,
   descompletarTarea,
   eliminarSerie,
@@ -85,6 +86,23 @@ function visitaAEvento(v: VisitaConContexto): EventoCalendario {
  * Las tres fuentes van en la misma query key para que el calendario se pinte de
  * una vez y no en saltos.
  */
+/**
+ * Cuelga de `CLAVE_TAREAS` a propósito: el `onSettled` de completar, eliminar y
+ * crear invalida esa raíz entera, así que el panel de la ficha se refresca sin
+ * wiring extra. Mismo patrón que `claveVisitasDeLead`.
+ */
+export const claveTareasDeLead = (id: string) =>
+  [...CLAVE_TAREAS, 'por-lead', id] as const
+
+/** Tareas de un lead, para el panel de su ficha. */
+export function useTareasPorLead(leadId: string | undefined) {
+  return useQuery<Tarea[]>({
+    queryKey: claveTareasDeLead(leadId ?? ''),
+    queryFn: () => listarTareasPorLead(leadId as string),
+    enabled: Boolean(leadId),
+  })
+}
+
 export function useEventosCalendario(desde: string, hasta: string) {
   return useQuery<EventoCalendario[]>({
     queryKey: [...CLAVE_TAREAS, 'eventos', desde, hasta],

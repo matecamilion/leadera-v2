@@ -4,6 +4,7 @@ import {
   formatearPrecio,
   type PropiedadConPropietario,
 } from '../../lib/api/propiedades'
+import { IconoCasa } from '../leads/Iconos'
 import { BadgeEstadoPropiedad } from './BadgeEstadoPropiedad'
 
 interface PropiedadesCardsProps {
@@ -18,7 +19,17 @@ interface PropiedadesCardsProps {
   ocultarPropietario?: boolean
 }
 
-/** Mismo contenido que la tabla, apilado. Se usa por debajo de `md`. */
+/**
+ * La cartera apilada en cards. Se usa por debajo de `md` y en la tab del lead.
+ *
+ * Mismo esqueleto que las coincidencias de una búsqueda: la card entera es el
+ * link a la ficha, con la miniatura a la izquierda y una columna a la derecha
+ * que reparte el contenido con `justify-between` —arriba qué es, abajo cuánto
+ * vale y cómo está—. Antes el precio vivía en un `<dl>` de dos columnas y
+ * abajo iba un "Ver detalle" a todo el ancho: ese botón repetía lo que la card
+ * ya hacía al tocarla, y la segunda columna del `<dl>` quedaba vacía cuando el
+ * propietario no se mostraba.
+ */
 export function PropiedadesCards({
   propiedades,
   ocultarPropietario = false,
@@ -26,52 +37,61 @@ export function PropiedadesCards({
   return (
     <ul className="space-y-3">
       {propiedades.map((p) => (
-        <li
-          key={p.id}
-          className="rounded-xl border border-border bg-surface p-4 shadow-sm"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-ink">{p.direccion}</p>
-              <p className="text-[0.8rem] text-ink-3">
-                {etiquetaTipo(p.tipo)}
-                {p.zona ? ` · ${p.zona}` : ''}
-              </p>
-            </div>
-            <BadgeEstadoPropiedad estado={p.estado} />
-          </div>
-
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <div>
-              <dt className="text-xs text-ink-3">Precio</dt>
-              <dd className="tabular-nums text-ink-2">
-                {p.precio == null ? '—' : formatearPrecio(p.precio, p.moneda)}
-              </dd>
-            </div>
-            {!ocultarPropietario && (
-              <div className="min-w-0">
-                <dt className="text-xs text-ink-3">Propietario</dt>
-                <dd className="truncate">
-                  {p.lead_propietario ? (
-                    <Link
-                      to={`/leads/${p.lead_propietario.id}`}
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      {p.lead_propietario.nombre} {p.lead_propietario.apellido ?? ''}
-                    </Link>
-                  ) : (
-                    <span className="text-ink-4">—</span>
-                  )}
-                </dd>
-              </div>
-            )}
-          </dl>
-
+        <li key={p.id}>
           <Link
             to={`/propiedades/${p.id}`}
-            className="mt-4 block w-full rounded-lg border border-border bg-surface p-2.5 text-center font-semibold text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+            className="flex items-stretch gap-4 rounded-[16px] border border-border bg-surface p-4 transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
           >
-            Ver detalle
+            {/* Caja de tamaño fijo: la miniatura entra recortada y, sin foto,
+                el hueco lo llena el placeholder. La card mide lo mismo en los
+                dos casos. */}
+            {p.fotos_urls?.[0] ? (
+              <img
+                src={p.fotos_urls[0]}
+                alt=""
+                loading="lazy"
+                className="size-20 shrink-0 rounded-lg object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="flex size-20 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-ink-4"
+              >
+                <IconoCasa className="size-7" />
+              </span>
+            )}
+
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-bold text-ink">{p.direccion}</p>
+                {/* Ambientes y metros sólo si están cargados: la línea es un
+                    resumen, no una planilla con guiones. */}
+                <p className="mt-0.5 truncate text-[0.82rem] text-ink-3">
+                  {etiquetaTipo(p.tipo)}
+                  {p.zona ? ` · ${p.zona}` : ''}
+                  {p.ambientes != null ? ` · ${p.ambientes} amb.` : ''}
+                  {p.metros_cuadrados != null ? ` · ${p.metros_cuadrados} m²` : ''}
+                </p>
+
+                {/* Texto y no link, aunque antes lo fuera: con la card entera
+                    envuelta en un `<a>`, un `<a>` adentro no es HTML válido.
+                    Acá el propietario es contexto —de quién es esto—, no un
+                    destino; para ir a su ficha está la propia ficha de la
+                    propiedad. Misma trampa que documenta `ListaLeads`. */}
+                {!ocultarPropietario && p.lead_propietario && (
+                  <p className="mt-0.5 truncate text-[0.78rem] text-ink-4">
+                    {p.lead_propietario.nombre} {p.lead_propietario.apellido ?? ''}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-ink tabular-nums">
+                  {formatearPrecio(p.precio, p.moneda)}
+                </span>
+                <BadgeEstadoPropiedad estado={p.estado} />
+              </div>
+            </div>
           </Link>
         </li>
       ))}

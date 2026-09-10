@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ComboboxLead } from '../comunes/ComboboxLead'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCrearTarea } from '../../hooks/useTareas'
 import { MAX_OCURRENCIAS, generarFechas } from '../../lib/api/tareas'
@@ -21,12 +22,22 @@ interface ModalNuevaTareaProps {
   asistentes: Miembro[]
   /** Día preseleccionado, el que esté abierto en el calendario. */
   fechaInicial: string
+  /**
+   * Lead ya elegido, cuando el alta sale de su ficha.
+   *
+   * Con valor, el combobox se reemplaza por el nombre como texto fijo: desde
+   * la ficha de un lead, poder cambiarlo por otro sería una trampa. Sin él
+   * —abierto desde el calendario— el campo sigue siendo un combobox libre.
+   * Mismo reparto que `propiedadFija` en `ModalNuevaVisita`.
+   */
+  leadFijo?: { id: string; nombre: string; apellido: string | null }
   onCerrar: () => void
 }
 
 export function ModalNuevaTarea({
   asistentes,
   fechaInicial,
+  leadFijo,
   onCerrar,
 }: ModalNuevaTareaProps) {
   const [titulo, setTitulo] = useState('')
@@ -34,6 +45,10 @@ export function ModalNuevaTarea({
   const [fecha, setFecha] = useState(fechaInicial)
   const [hora, setHora] = useState('')
   const [asignadoA, setAsignadoA] = useState(asistentes[0]?.id ?? '')
+  // Opcional a propósito: no entra en `faltaAlgo`. Una tarea suelta —"cerrar
+  // la caja", "pedir las llaves"— no es de nadie en particular. Con `leadFijo`
+  // el estado arranca ya resuelto y el combobox no llega a montarse.
+  const [leadId, setLeadId] = useState<string | null>(leadFijo?.id ?? null)
   const [repite, setRepite] = useState(false)
   const [recurrencia, setRecurrencia] = useState<Recurrencia>('SEMANAL')
   const [hasta, setHasta] = useState('')
@@ -91,6 +106,7 @@ export function ModalNuevaTarea({
           fecha,
           hora: hora || null,
           asignado_a: destinatario,
+          lead_id: leadId,
         },
         repeticion: repite ? { recurrencia, hasta } : undefined,
       },
@@ -148,6 +164,28 @@ export function ModalNuevaTarea({
               rows={2}
               className={`${campo} resize-y`}
             />
+          </div>
+
+          {/* Mismo lugar que en `ModalNuevaVisita`: a quién se refiere la tarea
+              va antes de cuándo. `<span>` y no `<label htmlFor>` porque el
+              combobox no es un input suelto al que apuntar. */}
+          <div>
+            <span className={etiquetaCampo}>
+              Lead{!leadFijo && <span className="normal-case"> (opcional)</span>}
+            </span>
+            {leadFijo ? (
+              <p className="m-0 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[0.9rem] font-medium text-ink">
+                {`${leadFijo.nombre} ${leadFijo.apellido ?? ''}`.trim()}
+              </p>
+            ) : (
+              <>
+                <ComboboxLead value={leadId} onChange={setLeadId} />
+                <p className="mt-1.5 text-[0.75rem] text-ink-4">
+                  Para lo que hay que hacer por un lead puntual. Sin vincular
+                  queda como una tarea suelta de tu calendario.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

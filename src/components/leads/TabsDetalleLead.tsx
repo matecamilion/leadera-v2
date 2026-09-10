@@ -5,41 +5,66 @@ import {
   useEliminarInteraccion,
   useInteraccionesPorLead,
 } from '../../hooks/useInteracciones'
+import { useAuth } from '../../contexts/AuthContext'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
+import {
+  useCompletarTarea,
+  useDescompletarTarea,
+  useEliminarTarea,
+  useTareasPorLead,
+} from '../../hooks/useTareas'
 import { usePropiedadesPorLead } from '../../hooks/usePropiedades'
 import { ModalConfirmarEliminar } from '../comunes/ModalConfirmarEliminar'
+import { ItemTarea } from '../tareas/ItemTarea'
 import { ListaOperacionesCompacta } from '../operaciones/ListaOperacionesCompacta'
 import { PropiedadesCards } from '../propiedades/PropiedadesCards'
-import { IconoCasa } from './Iconos'
+import { IconoCalendario, IconoCasa } from './Iconos'
 import { ModalEditarInteraccion } from './ModalEditarInteraccion'
+import { ResumenLead } from './ResumenLead'
 import { TimelineInteracciones } from './TimelineInteracciones'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
 import { useUiStore } from '../../stores/ui'
 import type { Interaccion } from '../../lib/api/interacciones'
+import type { Lead } from '../../lib/api/leads'
 import type { PropiedadConPropietario } from '../../lib/api/propiedades'
+import type { Tarea } from '../../types/database'
 
-type Tab = 'interacciones' | 'operaciones' | 'propiedades'
+type Tab = 'resumen' | 'interacciones' | 'operaciones' | 'propiedades' | 'tareas'
 
 interface TabsDetalleLeadProps {
+  /** La fila que `DetalleLead` ya tiene cargada; la usa el Resumen. */
+  lead: Lead
   leadId: string
   /** Abre el alta de interacción. El modal lo monta `DetalleLead`. */
   onNuevaInteraccion: () => void
+  /** Abre la edición de contacto, para el botón que vive en el Resumen. */
+  onEditarContacto: () => void
+  /** Abre el alta de tarea con este lead ya fijo. El modal lo monta `DetalleLead`. */
+  onNuevaTarea: () => void
 }
 
 /**
  * Shell de tabs de la ficha.
  *
- * Arranca en Interacciones. Las tres tabs muestran el conteo real de lo que
- * hay del otro lado.
+ * Arranca en Resumen, que es la lectura de un vistazo: en qué anda el
+ * seguimiento y qué busca el lead. Las otras tres muestran el conteo real de lo
+ * que hay del otro lado.
  */
 export function TabsDetalleLead({
+  lead,
   leadId,
   onNuevaInteraccion,
+  onEditarContacto,
+  onNuevaTarea,
 }: TabsDetalleLeadProps) {
-  const [activa, setActiva] = useState<Tab>('interacciones')
+  const [activa, setActiva] = useState<Tab>('resumen')
   const { data: interacciones, isPending, error } = useInteraccionesPorLead(leadId)
   const operaciones = useOperacionesPorLead(leadId)
   const propiedades = usePropiedadesPorLead(leadId)
+  // Misma clave que el panel del Resumen: si el agente ya pasó por ahí, esto
+  // no dispara un request nuevo.
+  const tareas = useTareasPorLead(leadId)
+  const { profile } = useAuth()
 
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   // Qué interacción está en el modal, y cuál de los dos. La fila se guarda
@@ -50,18 +75,26 @@ export function TabsDetalleLead({
   const edicion = useActualizarInteraccion(leadId)
   const borrado = useEliminarInteraccion(leadId)
 
-  const tabs: { id: Tab; label: string; n: number }[] = [
+  // `n` es opcional: Resumen no es una lista de nada, así que un "(0)" al lado
+  // mentiría sobre lo que hay adentro.
+  const tabs: { id: Tab; label: string; n?: number }[] = [
+    { id: 'resumen', label: 'Resumen' },
     { id: 'interacciones', label: 'Interacciones', n: interacciones?.length ?? 0 },
     { id: 'operaciones', label: 'Operaciones', n: operaciones.data?.length ?? 0 },
     { id: 'propiedades', label: 'Propiedades', n: propiedades.data?.length ?? 0 },
+    { id: 'tareas', label: 'Tareas', n: tareas.data?.length ?? 0 },
   ]
 
   return (
     <section>
+      {/* Scrollea de costado en pantallas angostas en vez de estirar la
+          página: las cuatro tabs suman más de 390px y, al ser items de un
+          flex, no encogen. Mismo recurso —y misma forma de esconder la
+          barra— que los chips de filtro del listado de leads. */}
       <div
         role="tablist"
         aria-label="Secciones del lead"
-        className="mb-5 flex border-b-2 border-border"
+        className="mb-5 flex overflow-x-auto border-b-2 border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab) => {
           const activo = activa === tab.id
@@ -73,7 +106,7 @@ export function TabsDetalleLead({
               aria-selected={activo}
               onClick={() => setActiva(tab.id)}
               className={[
-                '-mb-0.5 border-b-2 px-4.5 py-2.5 text-[0.83rem] font-semibold',
+                '-mb-0.5 shrink-0 border-b-2 px-4.5 py-2.5 text-[0.83rem] font-semibold',
                 'transition-colors motion-reduce:transition-none',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary',
                 activo
@@ -81,13 +114,25 @@ export function TabsDetalleLead({
                   : 'border-transparent text-ink-3 hover:text-ink',
               ].join(' ')}
             >
-              {tab.label} ({tab.n})
+              {tab.label}
+              {tab.n !== undefined && ` (${tab.n})`}
             </button>
           )
         })}
       </div>
 
       <div className="min-h-[200px]">
+        {activa === 'resumen' && (
+          <ResumenLead
+            lead={lead}
+            leadId={leadId}
+            onEditarContacto={onEditarContacto}
+            // Los "Ver todas" del resumen son saltos de tab, no navegación:
+            // el estado ya vive acá, así que alcanza con pasarle el setter.
+            onIrATab={setActiva}
+          />
+        )}
+
         {activa === 'interacciones' && (
           <>
             <div className="mb-4 flex justify-end">
@@ -122,6 +167,14 @@ export function TabsDetalleLead({
             cargando={operaciones.isPending}
             error={operaciones.error instanceof Error ? operaciones.error.message : null}
             textoVacio="Este lead todavía no tiene operaciones."
+          />
+        )}
+
+        {activa === 'tareas' && (
+          <PanelTareas
+            leadId={leadId}
+            miId={profile?.id ?? ''}
+            onNuevaTarea={onNuevaTarea}
           />
         )}
 
@@ -202,6 +255,94 @@ export function TabsDetalleLead({
         />
       )}
     </section>
+  )
+}
+
+/**
+ * Todas las tareas del lead, completables y borrables desde acá.
+ *
+ * El panel del Resumen muestra las mismas filas; esta tab es la lista entera,
+ * con el alta arriba. Comparten hook y clave de cache, así que tildar en un
+ * lado se ve en el otro sin wiring extra.
+ */
+function PanelTareas({
+  leadId,
+  miId,
+  onNuevaTarea,
+}: {
+  leadId: string
+  miId: string
+  onNuevaTarea: () => void
+}) {
+  const { data, isPending, isError, error } = useTareasPorLead(leadId)
+
+  const completar = useCompletarTarea()
+  const descompletar = useDescompletarTarea()
+  const borrar = useEliminarTarea()
+
+  // Mismo reparto que en /tareas: el estado actual decide qué mutación corre.
+  function alternarCompletada(tarea: Tarea) {
+    const mutacion = tarea.estado === 'COMPLETADA' ? descompletar : completar
+    mutacion.mutate(tarea.id)
+  }
+
+  const idCambiando =
+    completar.isPending || descompletar.isPending
+      ? ((completar.variables ?? descompletar.variables) ?? null)
+      : null
+
+  const tareas = data ?? []
+
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onNuevaTarea}
+          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-white motion-reduce:transition-none"
+        >
+          + Nueva tarea
+        </button>
+      </div>
+
+      {isPending ? (
+        <div aria-busy="true" aria-label="Cargando tareas" className="space-y-3">
+          {Array.from({ length: 2 }, (_, i) => (
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-xl bg-surface-2 motion-reduce:animate-none"
+            />
+          ))}
+        </div>
+      ) : isError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-peligro-borde bg-peligro-soft px-4 py-3 text-[0.9rem] text-peligro-ink"
+        >
+          {error instanceof Error ? error.message : 'No pudimos cargar las tareas.'}
+        </p>
+      ) : tareas.length === 0 ? (
+        <EstadoVacio
+          icono={<IconoCalendario className="size-10" />}
+          titulo="Sin tareas"
+          detalle="Este lead todavía no tiene ninguna tarea asociada."
+        />
+      ) : (
+        <ul className="space-y-2">
+          {tareas.map((tarea) => (
+            <ItemTarea
+              key={tarea.id}
+              tarea={tarea}
+              miId={miId}
+              cambiando={idCambiando === tarea.id}
+              eliminando={borrar.isPending && borrar.variables === tarea.id}
+              onAlternarCompletada={alternarCompletada}
+              onEliminar={(t) => borrar.mutate(t.id)}
+            />
+          ))}
+        </ul>
+      )}
+    </>
   )
 }
 

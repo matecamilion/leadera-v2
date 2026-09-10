@@ -7,6 +7,7 @@ import type {
   Tarea,
   TareaInsert,
 } from '../../types/database'
+import { interpretarErrorSupabase } from '../errores'
 
 /**
  * Tope de ocurrencias por serie.
@@ -56,7 +57,7 @@ export async function listarTareas(desde: string, hasta: string): Promise<Tarea[
     .order('fecha', { ascending: true })
     .order('hora', { ascending: true, nullsFirst: true })
 
-  if (error) throw new Error(`No se pudieron cargar las tareas: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las tareas.'))
   return data ?? []
 }
 
@@ -102,7 +103,7 @@ export async function listarSeguimientosComoEventos(
     .lt('fecha_proximo_seguimiento', fin.toISOString())
     .order('fecha_proximo_seguimiento', { ascending: true })
 
-  if (error) throw new Error(`No se pudieron cargar los seguimientos: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los seguimientos.'))
   return (data ?? []) as SeguimientoLead[]
 }
 
@@ -156,9 +157,42 @@ export async function crearTarea(input: CrearTareaInput): Promise<Tarea> {
     .single()
 
   if (error || !data) {
-    throw new Error(`No se pudo crear la tarea: ${error?.message ?? 'sin detalle'}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo crear la tarea.'))
   }
   return data
+}
+
+/**
+ * Tareas de un lead, para el panel de su ficha.
+ *
+ * Se traen las pendientes y las completadas —el historial de lo hecho por ese
+ * lead también cuenta— y se descartan las canceladas, que no son ni una cosa
+ * ni la otra.
+ *
+ * El orden se arma en JS y no en la query: PostgREST ordena `estado` por el
+ * orden de declaración del enum, y hoy `CANCELADA` va después de `COMPLETADA`,
+ * así que un estado nuevo movería el criterio sin que nadie lo tocara. Son las
+ * tareas de UN lead —decenas, no miles—, así que ordenarlas acá no cuesta nada
+ * y deja el criterio a la vista.
+ */
+export async function listarTareasPorLead(leadId: string): Promise<Tarea[]> {
+  const { data, error } = await supabase
+    .from('tareas')
+    .select('*')
+    .eq('lead_id', leadId)
+    .neq('estado', 'CANCELADA')
+
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las tareas del lead.'))
+  }
+
+  // Pendientes primero; dentro de cada grupo, la más próxima arriba.
+  return (data ?? []).sort((a, b) => {
+    const pesoA = a.estado === 'COMPLETADA' ? 1 : 0
+    const pesoB = b.estado === 'COMPLETADA' ? 1 : 0
+    if (pesoA !== pesoB) return pesoA - pesoB
+    return a.fecha.localeCompare(b.fecha)
+  })
 }
 
 /**
@@ -235,7 +269,7 @@ export async function crearTareaRecurrente(
     .single()
 
   if (errorSerie || !serie) {
-    throw new Error(`No se pudo crear la serie: ${errorSerie?.message ?? 'sin detalle'}`)
+    throw new Error(interpretarErrorSupabase(errorSerie, 'No se pudo crear la serie.'))
   }
 
   const { error } = await supabase
@@ -245,7 +279,7 @@ export async function crearTareaRecurrente(
   if (error) {
     // La serie quedaría huérfana; se limpia para no dejar basura.
     await supabase.from('tareas_series').delete().eq('id', serie.id)
-    throw new Error(`No se pudieron crear las tareas: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron crear las tareas.'))
   }
 
   return { serieId: serie.id, ocurrencias: fechas.length }
@@ -275,7 +309,7 @@ export async function completarTarea(id: string): Promise<void> {
     .eq('id', id)
     .select('id')
 
-  if (error) throw new Error(`No se pudo completar la tarea: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo completar la tarea.'))
   verificarAfectadas(data, 'No tenés permiso para completar esta tarea.')
 }
 
@@ -291,7 +325,7 @@ export async function descompletarTarea(id: string): Promise<void> {
     .eq('id', id)
     .select('id')
 
-  if (error) throw new Error(`No se pudo reabrir la tarea: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo reabrir la tarea.'))
   verificarAfectadas(data, 'No tenés permiso para reabrir esta tarea.')
 }
 
@@ -310,7 +344,7 @@ export async function eliminarTarea(id: string): Promise<string | null> {
     .eq('id', id)
     .select('id, google_event_id')
 
-  if (error) throw new Error(`No se pudo eliminar la tarea: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la tarea.'))
   verificarAfectadas(data, 'No tenés permiso para eliminar esta tarea.')
 
   return (data?.[0]?.google_event_id as string | null) ?? null
@@ -332,7 +366,7 @@ export async function eliminarSerie(serieId: string): Promise<number> {
     .gte('fecha', hoy)
     .select('id')
 
-  if (error) throw new Error(`No se pudo eliminar la serie: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar la serie.'))
   verificarAfectadas(data, 'No tenés permiso para eliminar esta serie.')
   return data!.length
 }

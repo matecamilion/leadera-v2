@@ -51,7 +51,7 @@ export function LeadsCards({
                 <button
                   type="button"
                   onClick={() => onEliminar(lead)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-caliente px-3.5 py-[7px] text-[0.8rem] font-medium text-caliente opacity-65 transition hover:bg-caliente/6 hover:opacity-100 motion-reduce:transition-none"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-peligro-borde px-3.5 py-[7px] text-[0.8rem] font-medium text-peligro-ink opacity-65 transition hover:bg-peligro-soft hover:opacity-100 motion-reduce:transition-none"
                 >
                   <IconoTacho className="size-4" />
                   Eliminar

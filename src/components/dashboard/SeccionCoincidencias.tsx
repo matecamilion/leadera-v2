@@ -51,7 +51,7 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
   // tiene chip circular, subtítulo con markup y badge invertido— pero va en
   // la misma pantalla, y a `p-5` se leería como una card de otro tamaño.
   return (
-    <section className="mb-5 rounded-2xl border border-border bg-surface p-4 shadow-sm">
+    <section className="mb-5 min-w-0 rounded-2xl border border-border bg-surface p-4 shadow-sm">
       <header className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <span aria-hidden className="text-[1.1rem] text-tibio">
@@ -77,7 +77,9 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
             return (
               <Link
                 key={`${coincidencia.propiedadId}-${comprador.busquedaId}`}
-                to={`/propiedades/${coincidencia.propiedadId}`}
+                // Al detalle del match: los dos ids ya están en los datos,
+                // uno por cada lado del cruce.
+                to={`/coincidencias/${comprador.busquedaId}/${coincidencia.propiedadId}`}
                 className="-mx-3 flex flex-col gap-3 rounded-[10px] px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:flex-row md:items-start md:gap-5 [&+a]:border-t [&+a]:border-border"
               >
                 {/* Propiedad */}

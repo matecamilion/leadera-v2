@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { formatearMonto, type OperacionListada } from '../../lib/api/operaciones'
+import { diasSinMovimiento, esOperacionTrabada } from '../../lib/kanbanUtils'
 import { formatearFecha } from '../../lib/formatoFecha'
+import { IconoReloj } from '../leads/Iconos'
 import { BadgeEstadoOperacion } from './BadgeEstadoOperacion'
 import { BadgeTipoOperacion } from './BadgeTipoOperacion'
+import { BARRA } from './barraTipoOperacion'
 
 interface Props {
   operaciones: OperacionListada[]
@@ -59,12 +62,23 @@ export function ListaOperacionesCompacta({
 
   return (
     <ul className="space-y-3">
-      {operaciones.map((op) => (
+      {operaciones.map((op) => {
+        const trabada = esOperacionTrabada(op.updated_at)
+        return (
         <li key={op.id}>
           <Link
             to={`/operaciones/${op.id}`}
-            className="block rounded-[14px] border border-border bg-surface p-4 transition-colors hover:border-primary motion-reduce:transition-none"
+            // `relative` + `overflow-hidden` para que la barra lateral se
+            // recorte contra el radio de la card en vez de pisarle la esquina.
+            className="relative block overflow-hidden rounded-[14px] border border-border bg-surface p-4 pl-5 transition-colors hover:border-primary motion-reduce:transition-none"
           >
+            {/* Misma barra por tipo que la card del kanban: de un vistazo se
+                distingue una venta de un alquiler sin leer el badge. */}
+            <span
+              aria-hidden
+              className={`absolute inset-y-0 left-0 w-1.5 ${BARRA[op.tipo]}`}
+            />
+
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 <BadgeTipoOperacion tipo={op.tipo} />
@@ -80,9 +94,19 @@ export function ListaOperacionesCompacta({
             <p className="mt-1 text-[0.85rem] text-ink-3">
               {op.monto != null ? formatearMonto(op.monto, op.moneda) : 'Sin monto'}
             </p>
+
+            {/* Mismo aviso que en el kanban: una operación que hace días no se
+                mueve es la que hay que empujar, y acá se ve sin ir al tablero. */}
+            {trabada && (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-warm-soft px-2 py-0.5 text-[0.68rem] font-bold text-badge-tibio-ink uppercase">
+                <IconoReloj className="size-3" />
+                {diasSinMovimiento(op.updated_at)} días sin mover
+              </p>
+            )}
           </Link>
         </li>
-      ))}
+        )
+      })}
     </ul>
   )
 }

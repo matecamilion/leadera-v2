@@ -70,7 +70,7 @@ export function ModalEliminarLead({
             type="button"
             onClick={onCancelar}
             disabled={eliminando}
-            className="flex-1 rounded-lg border border-caliente bg-transparent px-4 py-2 font-semibold text-caliente transition-colors hover:bg-hot-soft disabled:opacity-60 motion-reduce:transition-none"
+            className="flex-1 rounded-lg border border-border bg-transparent px-4 py-2 font-semibold text-ink-2 transition-colors hover:bg-background disabled:opacity-60 motion-reduce:transition-none"
           >
             Cancelar
           </button>

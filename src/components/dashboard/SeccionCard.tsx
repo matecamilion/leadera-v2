@@ -56,7 +56,12 @@ export function SeccionCard({
 }: SeccionCardProps) {
   return (
     <section
-      className={`mb-5 rounded-2xl border border-border bg-surface p-4 shadow-sm [&>ul>li]:px-0 [&>ul>li>a]:px-0 ${className}`.trim()}
+      // `min-w-0`: como hija de un grid, su `min-width` es `auto`, o sea que
+      // se niega a bajar del min-content de su contenido. En un teléfono eso
+      // la dejaba en 566px dentro de una celda de 358 y empujaba el scroll
+      // horizontal de toda la página. Con esto el `truncate` de las filas
+      // vuelve a tener contra qué recortar.
+      className={`mb-5 min-w-0 rounded-2xl border border-border bg-surface p-4 shadow-sm [&>ul>li]:px-0 [&>ul>li>a]:px-0 ${className}`.trim()}
     >
       <header className="mb-2.5">
         <div className="flex flex-wrap items-center gap-2">

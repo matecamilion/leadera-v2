@@ -2,21 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AvatarLead } from '../components/leads/AvatarLead'
 import { BadgeEstado } from '../components/leads/BadgeEstado'
-import {
-  IconoCalendario,
-  IconoCasa,
-  IconoCerrar,
-  IconoLapiz,
-  IconoLink,
-  IconoMail,
-  IconoTacho,
-  IconoTelefono,
-} from '../components/leads/Iconos'
+import { IconoCerrar, IconoLapiz, IconoTacho } from '../components/leads/Iconos'
 import { ModalCambiarEstado } from '../components/leads/ModalCambiarEstado'
 import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
-import { EmailLink, TelefonoConAcciones } from '../components/comunes/AccionesContacto'
+import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
+import { useEquipo } from '../hooks/useEquipo'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
 import {
   useActualizarContacto,
@@ -24,22 +16,27 @@ import {
   useEliminarLead,
   useLead,
 } from '../hooks/useLead'
-import { etiquetaOrigen } from '../lib/api/leads'
-import { useVisitasDeLead } from '../hooks/useVisitas'
-import { formatearFecha } from '../lib/formatoFecha'
+import { hoyComoClave } from '../lib/calendario'
+import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
 
-type ModalAbierto = 'estado' | 'contacto' | 'interaccion' | 'eliminar' | null
+type ModalAbierto = 'estado' | 'contacto' | 'interaccion' | 'tarea' | 'eliminar' | null
 
 export default function DetalleLead() {
   const { id = '' } = useParams()
-  const visitas = useVisitasDeLead(id)
   const navigate = useNavigate()
 
   const { data: lead, isPending, isError, error } = useLead(id)
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   const [modal, setModal] = useState<ModalAbierto>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+
+  const { profile } = useAuth()
+  // A quién se le puede asignar la tarea. Un agente reparte a sus asistentes;
+  // para el resto la lista viene vacía y el modal la asigna a quien la crea.
+  const rol = profile?.rol
+  const esAgente = rol === 'AGENTE'
+  const equipo = useEquipo(esAgente ? rol : undefined, esAgente ? profile?.id : undefined)
 
   const cambioEstado = useActualizarEstado(id)
   const cambioContacto = useActualizarContacto(id)
@@ -97,7 +94,7 @@ export default function DetalleLead() {
             Ficha de lead
           </p>
 
-          <div className="mb-2 flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="m-0 text-[1.35rem] leading-tight font-bold text-ink">
               {nombreCompleto}
             </h1>
@@ -110,63 +107,6 @@ export default function DetalleLead() {
               <BadgeEstado estado={lead.estado} />
               <IconoLapiz className="size-3.5 text-ink-3" />
             </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">
-              {lead.telefono ? (
-                <TelefonoConAcciones
-                  telefono={lead.telefono}
-                  nombre={nombreCompleto}
-                  conIcono
-                />
-              ) : (
-                <>
-                  <IconoTelefono className="size-4 shrink-0" />
-                  Sin teléfono
-                </>
-              )}
-              <button
-                type="button"
-                title="Editar contacto"
-                aria-label="Editar contacto"
-                onClick={() => setModal('contacto')}
-                className="inline-flex rounded p-0.5 text-ink-3 transition-colors hover:bg-brand-softer hover:text-primary motion-reduce:transition-none"
-              >
-                <IconoLapiz className="size-3.5" />
-              </button>
-            </span>
-
-            {/* Sin email no va nada: mismo criterio que el origen y las
-                visitas de acá abajo. El teléfono sí muestra "Sin teléfono"
-                porque es obligatorio y su ausencia es un dato. */}
-            {lead.email && (
-              <span className="flex min-w-0 items-center gap-1.5 text-[0.82rem] text-ink-3">
-                <IconoMail className="size-4 shrink-0" />
-                <EmailLink email={lead.email} />
-              </span>
-            )}
-
-            <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">
-              <IconoCalendario className="size-4 shrink-0" />
-              Desde {formatearFecha(lead.fecha_ingreso)}
-            </span>
-
-            {lead.origen && (
-              <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">
-                <IconoLink className="size-4 shrink-0" />
-                {etiquetaOrigen(lead.origen)}
-              </span>
-            )}
-
-            {/* En cero no se muestra nada: mismo criterio que el origen de acá
-                arriba y que los campos opcionales de la ficha de propiedad. */}
-            {(visitas.data ?? 0) > 0 && (
-              <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">
-                <IconoCasa className="size-4 shrink-0" />
-                {visitas.data} {visitas.data === 1 ? 'visita realizada' : 'visitas realizadas'}
-              </span>
-            )}
           </div>
         </div>
 
@@ -192,26 +132,27 @@ export default function DetalleLead() {
           <Link to={`/operaciones/nueva?lead=${lead.id}`} className={CLASES_ACCION}>
             + Operación
           </Link>
+          {/* Como Interacción, no navega: la tarea se carga en un modal con
+              este lead ya fijo. */}
+          <button
+            type="button"
+            onClick={() => setModal('tarea')}
+            className={CLASES_ACCION}
+          >
+            + Tarea
+          </button>
         </div>
       </div>
 
-{lead.descripcion_inicial?.trim() && (
-  <div className="mb-7 rounded-[16px] border border-border bg-surface p-5">
-    <p className="mb-2 text-xs font-bold tracking-[0.05em] text-primary uppercase">
-      Sobre el lead
-    </p>
-
-    <p className="m-0 whitespace-pre-wrap text-[0.9rem] leading-relaxed text-ink-2">
-      {lead.descripcion_inicial}
-    </p>
-  </div>
-)}
-
-      {/* El botón de la tab de Interacciones abre este mismo modal: uno solo
-          por pantalla, montado acá. */}
+      {/* Los dos modales que se abren desde adentro de las tabs se siguen
+          montando acá: uno solo por pantalla. Las tabs sólo llevan el
+          disparador hasta donde vive el botón. */}
       <TabsDetalleLead
+        lead={lead}
         leadId={lead.id}
         onNuevaInteraccion={() => setModal('interaccion')}
+        onEditarContacto={() => setModal('contacto')}
+        onNuevaTarea={() => setModal('tarea')}
       />
 
       {/* ---------------------------- ELIMINAR ---------------------------- */}
@@ -219,7 +160,7 @@ export default function DetalleLead() {
         <button
           type="button"
           onClick={() => setModal('eliminar')}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-caliente bg-transparent px-3.5 py-[7px] text-[0.8rem] font-medium text-caliente opacity-65 transition hover:bg-hot-soft hover:opacity-100 motion-reduce:transition-none"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-peligro-borde bg-transparent px-3.5 py-[7px] text-[0.8rem] font-medium text-peligro-ink opacity-65 transition hover:bg-peligro-soft hover:opacity-100 motion-reduce:transition-none"
         >
           <IconoTacho className="size-4" />
           Eliminar lead
@@ -274,6 +215,17 @@ export default function DetalleLead() {
         onCerrar={() => setModal(null)}
         onCreada={() => mostrarAviso('Interacción registrada.')}
       />
+
+      {/* Montado sólo cuando se abre: así arranca con la fecha de hoy y los
+          campos limpios en cada alta, sin necesidad de resetearlos a mano. */}
+      {modal === 'tarea' && (
+        <ModalNuevaTarea
+          asistentes={equipo.data ?? []}
+          fechaInicial={hoyComoClave()}
+          leadFijo={{ id: lead.id, nombre: lead.nombre, apellido: lead.apellido }}
+          onCerrar={() => setModal(null)}
+        />
+      )}
 
       <ModalEliminarLead
         abierto={modal === 'eliminar'}

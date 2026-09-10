@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { sanearBusqueda } from './filtros'
 import { normalizarTelefonoAR, soloDigitos } from '../telefono'
 import type { Database } from '../../types/database'
 // Re-export: las etiquetas viven en su propio módulo (sin supabase) pero
@@ -8,6 +9,7 @@ export {
   etiquetaOrigen,
   etiquetaEstado,
 } from '../etiquetasLead'
+import { interpretarErrorSupabase } from '../errores'
 
 export type Lead = Database['public']['Tables']['leads']['Row']
 export type EstadoLead = Database['public']['Enums']['estado_lead']
@@ -28,11 +30,6 @@ export interface ListarLeadsResult {
   data: Lead[]
   /** Total de filas que matchean el filtro, para la paginación. */
   count: number
-}
-
-/** PostgREST usa la coma como separador en `.or()`: hay que neutralizarla. */
-function sanearBusqueda(texto: string): string {
-  return texto.replace(/[,()\\]/g, ' ').trim()
 }
 
 /**
@@ -116,7 +113,7 @@ export async function listarLeads({
     .range(desde, hasta)
 
   const { data, error, count } = await query
-  if (error) throw new Error(`No se pudieron cargar los leads: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads.'))
 
   return { data: data ?? [], count: count ?? 0 }
 }
@@ -130,7 +127,7 @@ export async function contarLeads(busqueda?: string): Promise<number> {
   )
 
   const { count, error } = await query
-  if (error) throw new Error(`No se pudo contar los leads: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo contar los leads.'))
   return count ?? 0
 }
 
@@ -156,7 +153,7 @@ export async function contarOperacionesPorLead(
     .select('lead_id, tipo')
     .in('lead_id', leadIds)
 
-  if (error) throw new Error(`No se pudieron cargar las operaciones: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones.'))
 
   for (const fila of data ?? []) {
     if (!fila.lead_id) continue
@@ -203,7 +200,7 @@ export async function contarInteraccionesPorLead(
     p_lead_ids: leadIds,
   })
 
-  if (error) throw new Error(`No se pudieron cargar las interacciones: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las interacciones.'))
 
   for (const fila of data ?? []) {
     resumen.set(fila.lead_id, {
@@ -223,7 +220,7 @@ export async function eliminarLead(id: string): Promise<void> {
   // chequeo el borrado fallado se vería como exitoso en la UI.
   const { data, error } = await supabase.from('leads').delete().eq('id', id).select('id')
 
-  if (error) throw new Error(`No se pudo eliminar el lead: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo eliminar el lead.'))
   if (!data || data.length === 0) {
     throw new Error('No tenés permiso para eliminar este lead.')
   }
@@ -290,7 +287,7 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
   if (error) {
     // 23505 = unique_violation. Si hay índice único por email, este es el caso.
     if (error.code === '23505') throw new Error('Ya existe un lead con ese email.')
-    throw new Error(`No se pudo crear el lead: ${error.message}`)
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo crear el lead.'))
   }
 
   return data
@@ -309,7 +306,7 @@ function aIso(valor: string | undefined): string | null {
  */
 export async function obtenerLeadPorId(id: string): Promise<Lead | null> {
   const { data, error } = await supabase.from('leads').select('*').eq('id', id).maybeSingle()
-  if (error) throw new Error(`No se pudo cargar el lead: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar el lead.'))
   return data
 }
 
@@ -336,7 +333,7 @@ export async function actualizarContacto(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo actualizar el contacto: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el contacto.'))
   if (!data) throw new Error('No tenés permiso para editar este lead.')
   return data
 }
@@ -353,7 +350,7 @@ export async function actualizarEstado(
     .select('*')
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo actualizar el estado: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el estado.'))
   if (!data) throw new Error('No tenés permiso para editar este lead.')
   return data
 }
@@ -390,7 +387,7 @@ export async function buscarLeadsParaCombobox(
     .order('nombre', { ascending: true })
     .limit(8)
 
-  if (error) throw new Error(`No se pudieron buscar los leads: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar los leads.'))
   return data ?? []
 }
 
@@ -454,7 +451,7 @@ export async function obtenerLeadResumido(id: string): Promise<LeadResumido | nu
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`No se pudo cargar el lead: ${error.message}`)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar el lead.'))
   return data
 }
 
@@ -521,7 +518,7 @@ export async function listarLeadsParaExportar({
       .range(desde, desde + TAMANO_LOTE - 1)
 
     const { data, error } = await query
-    if (error) throw new Error(`No se pudieron exportar los leads: ${error.message}`)
+    if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron exportar los leads.'))
 
     const lote = (data ?? []) as LeadExportable[]
     todos.push(...lote)
@@ -529,4 +526,26 @@ export async function listarLeadsParaExportar({
   }
 
   return todos
+}
+
+/**
+ * Nombre y apellido del agente dueño de un lead.
+ *
+ * Consulta aparte y no un join en `obtenerLeadPorId`: el nombre del agente se
+ * muestra en un solo lugar de la ficha, y agregarlo al select del lead lo haría
+ * viajar en cada listado y en cada refetch que ese tipo alimenta. Además, con
+ * su propia clave de cache, dos leads del mismo agente lo piden una sola vez.
+ *
+ * Devuelve null si no hay agente o si el perfil no se puede leer: es un dato
+ * decorativo y la ficha se muestra igual sin él.
+ */
+export async function obtenerNombreAgente(agenteId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, nombre, apellido')
+    .eq('id', agenteId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return `${data.nombre} ${data.apellido ?? ''}`.trim() || null
 }

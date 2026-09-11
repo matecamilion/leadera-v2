@@ -22,6 +22,7 @@
  */
 import { adminClient } from '../_shared/supabase.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { decidirCancelacion } from './cancelacion.ts'
 
 const MP_API = 'https://api.mercadopago.com'
 const TIMEOUT_MP_MS = 10_000
@@ -301,7 +302,8 @@ async function procesar(
  * Cambió la suscripción en sí.
  *
  * `authorized` es la suscripción ya vinculada y cobrable; `cancelled` es la baja,
- * la haya hecho el usuario o Mercado Pago. `pending` (todavía no autorizada) y
+ * la haya hecho el usuario o Mercado Pago, y se resuelve en `manejarBaja` sin
+ * cortar el período ya pago. `pending` (todavía no autorizada) y
  * `paused` no mueven el estado: ninguno de los dos es un cobro fallido, y
  * mandarlos a GRACIA le pondría un reloj de vencimiento a alguien que no debe
  * nada.
@@ -326,21 +328,18 @@ async function manejarPreapproval(
   if (!inmobiliaria) return { tipo: TIPO_PREAPPROVAL, accion: 'inmobiliaria_desconocida' }
 
   if (estadoMp === 'authorized') {
-    await marcarActiva(admin, inmobiliaria, textoDe(preapproval.next_payment_date), preapproval)
+    // El estado se leyó recién de Mercado Pago: si dice `authorized`, esta
+    // suscripción cobra, así que una baja vieja que haya quedado marcada ya no
+    // aplica. Sin esto, quien vuelve a suscribirse después de cancelar arrastra
+    // `cancelacion_solicitada` y el cron lo cortaría en su próxima fecha de cobro.
+    await marcarActiva(admin, inmobiliaria, textoDe(preapproval.next_payment_date), preapproval, {
+      limpiarCancelacion: true,
+    })
     return { tipo: TIPO_PREAPPROVAL, accion: 'activada', inmobiliaria_id: inmobiliaria.id }
   }
 
   if (estadoMp === 'cancelled') {
-    await admin
-      .from('inmobiliarias')
-      .update({ estado_suscripcion: 'CANCELADA' })
-      .eq('id', inmobiliaria.id)
-
-    await registrarEvento(admin, inmobiliaria.id, 'suscripcion_cancelada', {
-      detalle: `Mercado Pago informó la suscripción ${preapprovalId} como cancelled`,
-      raw_payload: preapproval,
-    })
-    return { tipo: TIPO_PREAPPROVAL, accion: 'cancelada', inmobiliaria_id: inmobiliaria.id }
+    return await manejarBaja(admin, inmobiliaria, preapprovalId, preapproval)
   }
 
   await registrarEvento(admin, inmobiliaria.id, 'suscripcion_sin_cambio', {
@@ -348,6 +347,67 @@ async function manejarPreapproval(
     raw_payload: preapproval,
   })
   return { tipo: TIPO_PREAPPROVAL, accion: 'sin_cambio', inmobiliaria_id: inmobiliaria.id }
+}
+
+/**
+ * Mercado Pago informó la suscripción como `cancelled`.
+ *
+ * El aviso llega cuando se da de baja el cobro —desde `cancelar-suscripcion` o
+ * desde la cuenta de Mercado Pago del dueño—, no cuando se termina lo que pagó.
+ * Qué se hace con la cuenta lo decide `decidirCancelacion`; ver `cancelacion.ts`.
+ */
+async function manejarBaja(
+  admin: SupabaseClient,
+  inmobiliaria: InmobiliariaWebhook,
+  preapprovalId: string,
+  preapproval: Record<string, unknown>,
+): Promise<ResultadoProceso> {
+  const decision = decidirCancelacion(
+    inmobiliaria,
+    textoDe(preapproval.next_payment_date),
+    new Date(),
+  )
+
+  if (decision.accion === 'diferir') {
+    // El estado NO se toca: sigue ACTIVA hasta `fecha_proximo_cobro` y el paso a
+    // CANCELADA lo da el cron. La fecha se reescribe por si venía de Mercado
+    // Pago porque la base no la tenía; sin ella el cron nunca la cortaría.
+    const { error } = await admin
+      .from('inmobiliarias')
+      .update({ cancelacion_solicitada: true, fecha_proximo_cobro: decision.accesoHasta })
+      .eq('id', inmobiliaria.id)
+    if (error) throw new Error(`no se pudo registrar la baja: ${error.message}`)
+
+    await registrarEvento(admin, inmobiliaria.id, 'suscripcion_cancelada', {
+      detalle:
+        `Mercado Pago informó la suscripción ${preapprovalId} como cancelled. ` +
+        `Mantiene acceso hasta ${decision.accesoHasta}.`,
+      raw_payload: preapproval,
+    })
+    return { tipo: TIPO_PREAPPROVAL, accion: 'baja_diferida', inmobiliaria_id: inmobiliaria.id }
+  }
+
+  if (decision.accion === 'mantener_trial') {
+    await registrarEvento(admin, inmobiliaria.id, 'suscripcion_cancelada', {
+      detalle:
+        `Mercado Pago informó la suscripción ${preapprovalId} como cancelled. ` +
+        'La cuenta sigue en período de prueba hasta que venza.',
+      raw_payload: preapproval,
+    })
+    return { tipo: TIPO_PREAPPROVAL, accion: 'baja_en_trial', inmobiliaria_id: inmobiliaria.id }
+  }
+
+  const { error } = await admin
+    .from('inmobiliarias')
+    .update({ estado_suscripcion: 'CANCELADA' })
+    .eq('id', inmobiliaria.id)
+  if (error) throw new Error(`no se pudo cancelar la inmobiliaria: ${error.message}`)
+
+  await registrarEvento(admin, inmobiliaria.id, 'suscripcion_cancelada', {
+    detalle: `Mercado Pago informó la suscripción ${preapprovalId} como cancelled`,
+    raw_payload: preapproval,
+  })
+  return { tipo: TIPO_PREAPPROVAL, accion: 'cancelada', inmobiliaria_id: inmobiliaria.id }
 }
 
 /**
@@ -432,6 +492,7 @@ interface InmobiliariaWebhook {
   id: string
   plan: string | null
   estado_suscripcion: string
+  fecha_proximo_cobro: string | null
 }
 
 /**
@@ -445,13 +506,14 @@ async function marcarActiva(
   inmobiliaria: InmobiliariaWebhook,
   proximoCobro: string | null | undefined,
   payload: unknown,
-  extra?: { monto: number | null; mpPaymentId: string | null },
+  extra?: { monto?: number | null; mpPaymentId?: string | null; limpiarCancelacion?: boolean },
 ): Promise<void> {
   const cambios: Record<string, unknown> = {
     estado_suscripcion: 'ACTIVA',
     fecha_ultimo_pago_fallido: null,
   }
   if (proximoCobro) cambios.fecha_proximo_cobro = proximoCobro
+  if (extra?.limpiarCancelacion) cambios.cancelacion_solicitada = false
 
   const cupo = await limiteDelPlan(admin, inmobiliaria.plan)
   if (cupo.aplicar) cambios.limite_usuarios = cupo.limite
@@ -532,7 +594,7 @@ async function buscarInmobiliaria(
 
   const { data, error } = await admin
     .from('inmobiliarias')
-    .select('id, plan, estado_suscripcion')
+    .select('id, plan, estado_suscripcion, fecha_proximo_cobro')
     .eq('id', inmobiliariaId)
     .maybeSingle<InmobiliariaWebhook>()
 

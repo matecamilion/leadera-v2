@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import type { EstadoOperacion } from '../../lib/api/operaciones'
 import { IconoAlerta, IconoCheck } from '../leads/Iconos'
+import { TooltipAyuda } from '../comunes/TooltipAyuda'
 
 /** Los 4 pasos del pipeline, en orden. CANCELADA queda fuera a propósito. */
 const PASOS: { estado: EstadoOperacion; label: string }[] = [
@@ -50,8 +51,13 @@ export function StepperOperacion({ estado }: { estado: EstadoOperacion }) {
 
   return (
     <div className="mb-4 rounded-[14px] border border-border bg-surface px-6 py-5">
-      <p className="mb-4 text-xs font-bold tracking-[0.04em] text-ink-3 uppercase">
+      <p className="mb-4 flex items-center gap-1.5 text-xs font-bold tracking-[0.04em] text-ink-3 uppercase">
         Progreso de la operación
+        <TooltipAyuda etiqueta="los estados de la operación">
+          El recorrido va de Publicada a Reservada, En negociación y Cerrada
+          ganada. Cancelada no es un paso: es salirse del recorrido. Una vez
+          cerrada o cancelada, la operación no se edita.
+        </TooltipAyuda>
       </p>
 
       <ol className="flex items-start">

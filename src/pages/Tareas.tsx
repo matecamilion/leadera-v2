@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BannerConectarGoogle } from '../components/tareas/BannerConectarGoogle'
 import { CalendarioMes } from '../components/tareas/CalendarioMes'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
@@ -126,13 +127,16 @@ export default function Tareas() {
           <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
             Agenda
           </p>
-          <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-ink">Tareas</h1>
+          <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-ink">Calendario</h1>
+          {/* Las tres variantes nombran las visitas, no sólo una: agendar una
+              visita no tiene restricción de rol, así que la grilla las muestra
+              igual para el dueño, el agente y el asistente. */}
           <p className="mt-1 text-[0.9rem] text-ink-3">
             {esAgente
-              ? 'Lo que le asignaste a tu asistente y tus seguimientos de leads.'
+              ? 'Lo que le asignaste a tu asistente, tus visitas y tus seguimientos de leads.'
               : esDueno
-                ? 'Tu agenda: tus tareas y tus seguimientos de leads.'
-                : 'Lo que tenés asignado, día por día.'}
+                ? 'Tu agenda: tus tareas, tus visitas y tus seguimientos de leads.'
+                : 'Lo que tenés asignado y las visitas agendadas, día por día.'}
           </p>
         </div>
 
@@ -176,6 +180,8 @@ export default function Tareas() {
           </button>
         </div>
       </header>
+
+      <BannerConectarGoogle />
 
       {error && (
         <p

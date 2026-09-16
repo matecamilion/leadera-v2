@@ -11,7 +11,7 @@ import {
   IconoFlechaAtras,
   IconoLupa,
 } from '../components/leads/Iconos'
-import { useDetalleMatch } from '../hooks/useBusqueda'
+import { useCoincidenciasBusqueda, useDetalleMatch } from '../hooks/useBusqueda'
 import { compararCriterios, type FilaComparacion } from '../lib/api/detalleMatch'
 import { etiquetaTipo, formatearPrecio } from '../lib/api/propiedades'
 import { linkWhatsApp } from '../lib/telefono'
@@ -47,8 +47,31 @@ export default function DetalleMatch() {
   const { data, isPending, isError, error } = useDetalleMatch(busquedaId, propiedadId)
 
   const scoreCrudo = params.get('score')
-  const score = scoreCrudo != null && scoreCrudo !== '' ? Number(scoreCrudo) : null
-  const scoreValido = score != null && Number.isFinite(score)
+  const scoreDeLaUrl = scoreCrudo != null && scoreCrudo !== '' ? Number(scoreCrudo) : null
+  const scoreValido = scoreDeLaUrl != null && Number.isFinite(scoreDeLaUrl)
+
+  /*
+   * Fallback cuando la URL no trae `?score=`.
+   *
+   * La card de la operación de COMPRA sí lo pasa, pero la de Mi día no: su
+   * cruce lo arma `obtenerCoincidenciasDelDia` en el cliente y no tiene
+   * puntaje que pasar. Entrando por ahí —que es el camino normal— el badge se
+   * quedaba sin número y no se mostraba nada.
+   *
+   * Se le pregunta al MISMO RPC que puntúa las listas en vez de recalcular acá:
+   * el número sigue saliendo de una sola fuente, que es lo que este archivo
+   * venía cuidando. La query queda apagada si la URL ya trajo el score, así que
+   * el camino que ya andaba no paga un viaje de más.
+   *
+   * El RPC descarta lo que puntúa por debajo del 30%, así que una coincidencia
+   * muy floja puede no volver acá. No es un caso alcanzable desde las cards
+   * —tampoco aparece en ellas— y el badge simplemente no se pinta.
+   */
+  const coincidencias = useCoincidenciasBusqueda(scoreValido ? null : busquedaId)
+  const scoreDelRpc =
+    coincidencias.data?.find((p) => p.id === propiedadId)?.scorePct ?? null
+
+  const score = scoreValido ? scoreDeLaUrl : scoreDelRpc
 
   /** Vuelve de donde vino; sin historial, a Mi día. */
   function volver() {
@@ -126,37 +149,47 @@ export default function DetalleMatch() {
           <BadgeEstadoPropiedad estado={propiedad.estado} />
         </div>
 
-        {nombreLead && (
-          <p className="mt-1.5 text-[0.9rem] text-ink-3">
-            Para lo que busca {nombreLead}
-          </p>
-        )}
-      </header>
-
-      {/* ------------------------- COMPARACIÓN ------------------------- */}
-      <section className="mb-5 overflow-hidden rounded-[16px] border border-border bg-surface">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
-          <h2 className="m-0 text-xs font-bold tracking-[0.05em] text-primary uppercase">
-            Criterio por criterio
-          </h2>
-          {/* El mismo número que ya vio en la card que lo trajo hasta acá. */}
-          {scoreValido && (
+        {/* El score sube acá desde el header de la tabla: es el dato que
+            resume la pantalla entera, y adentro de la tabla competía con el
+            título de la sección en vez de encabezarla. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          {score != null && (
             <span
-              className={`rounded-full px-2.5 py-1 text-[0.78rem] font-bold ${estilosScore(score)}`}
+              className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[0.95rem] font-bold ${estilosScore(score)}`}
             >
               {score}% de coincidencia
             </span>
           )}
+          {nombreLead && (
+            <p className="m-0 text-[0.9rem] text-ink-3">Para lo que busca {nombreLead}</p>
+          )}
+        </div>
+      </header>
+
+      {/* ------------------------- COMPARACIÓN ------------------------- */}
+      <section className="mb-5 overflow-hidden rounded-[16px] border border-border bg-surface">
+        <header className="border-b border-border p-5">
+          <h2 className="m-0 text-xs font-bold tracking-[0.05em] text-primary uppercase">
+            Criterio por criterio
+          </h2>
         </header>
 
         {/* Encabezado de las dos columnas. Se esconde en pantallas angostas,
             donde cada fila se apila y las etiquetas de adentro alcanzan. */}
-        <div className="hidden border-b border-border bg-surface-2 px-5 py-2.5 min-[640px]:grid min-[640px]:grid-cols-[1fr_auto_1fr] min-[640px]:gap-4">
+        {/* La columna del medio va con ANCHO FIJO y no `auto`, y tiene que ser
+            el mismo valor que el de las filas (`COLUMNAS`). Con `auto` cada
+            fila es su propio grid y la dimensiona su etiqueta —"ZONA" mide
+            mucho menos que "METROS CUADRADOS"—, así que la tercera columna
+            arrancaba en un x distinto en cada fila y ninguna coincidía con
+            este encabezado. */}
+        <div
+          className={`hidden border-b border-border bg-surface-2 px-5 py-2.5 min-[640px]:grid min-[640px]:gap-4 ${COLUMNAS}`}
+        >
           <span className="flex items-center gap-1.5 text-[0.78rem] font-bold text-ink-3 uppercase">
             <IconoCasa className="size-3.5" />
             La propiedad
           </span>
-          <span className="w-6" />
+          <span aria-hidden />
           <span className="flex items-center gap-1.5 text-[0.78rem] font-bold text-ink-3 uppercase">
             <IconoLupa className="size-3.5" />
             Lo que busca
@@ -221,7 +254,7 @@ export default function DetalleMatch() {
       )}
 
       {/* ---------------------------- ACCIONES ---------------------------- */}
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap gap-2">
         <Link to={`/propiedades/${propiedad.id}`} className={CLASES_ACCION}>
           Ver propiedad completa
         </Link>
@@ -242,6 +275,18 @@ export default function DetalleMatch() {
     </div>
   )
 }
+
+/**
+ * Las tres columnas de la comparación, compartidas por el encabezado y por cada
+ * fila.
+ *
+ * Vive en una constante justamente para que no puedan divergir: son dos grids
+ * distintos —uno por fila, más el del header— y sólo se ven alineados si todos
+ * declaran exactamente los mismos tracks. El del medio es fijo porque ahí va la
+ * marca con el nombre del criterio debajo, y su ancho no puede depender de cuán
+ * largo sea ese nombre.
+ */
+const COLUMNAS = 'min-[640px]:grid-cols-[1fr_7.5rem_1fr]'
 
 const CLASES_ACCION = [
   'inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface',
@@ -265,7 +310,9 @@ function FilaCriterio({ fila }: { fila: FilaComparacion }) {
         <span className="text-[0.85rem] font-semibold text-ink-2">{fila.criterio}</span>
       </div>
 
-      <div className="grid gap-1.5 min-[640px]:grid-cols-[1fr_auto_1fr] min-[640px]:items-center min-[640px]:gap-4">
+      <div
+        className={`grid gap-1.5 min-[640px]:items-center min-[640px]:gap-4 ${COLUMNAS}`}
+      >
         <span className="min-w-0">
           <span className="text-[0.72rem] font-semibold text-ink-4 uppercase min-[640px]:hidden">
             La propiedad{' '}
@@ -275,7 +322,7 @@ function FilaCriterio({ fila }: { fila: FilaComparacion }) {
 
         <span className="hidden min-[640px]:flex min-[640px]:flex-col min-[640px]:items-center">
           <Marca cumple={fila.cumple} />
-          <span className="mt-0.5 text-[0.68rem] font-semibold text-ink-4 uppercase">
+          <span className="mt-1 text-center text-[0.68rem] leading-tight font-semibold text-ink-4 uppercase">
             {fila.criterio}
           </span>
         </span>

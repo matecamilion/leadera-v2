@@ -1,5 +1,6 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  desconectarGoogle,
   iniciarConexionGoogle,
   obtenerConexionGoogle,
   type ConexionGoogle,
@@ -40,6 +41,31 @@ export function useConectarGoogle() {
     mutationFn: iniciarConexionGoogle,
     onSuccess: (url) => {
       window.location.assign(url)
+    },
+  })
+}
+
+/**
+ * Desconecta el calendario del agente.
+ *
+ * A diferencia de conectar, acá la pestaña no navega a ningún lado: el estado
+ * lo tiene que actualizar esta app. Se hace en dos pasos y los dos hacen falta:
+ *
+ *  - `setQueryData(null)` deja el estado en "nunca conectó" en el mismo tick, así
+ *    el botón dice "Conectar" apenas cierra el modal. Con sólo invalidar, React
+ *    Query sirve el dato viejo mientras refetchea y el agente vería "Conectado"
+ *    un instante después de desconectar.
+ *  - `invalidateQueries` releé igual, para que lo que quede en pantalla sea lo
+ *    que dice la base y no lo que esta función asumió.
+ */
+export function useDesconectarGoogle() {
+  const queryClient = useQueryClient()
+
+  return useMutation<void, Error, void>({
+    mutationFn: desconectarGoogle,
+    onSuccess: () => {
+      queryClient.setQueryData(CLAVE_GOOGLE_CALENDAR, null)
+      queryClient.invalidateQueries({ queryKey: CLAVE_GOOGLE_CALENDAR })
     },
   })
 }

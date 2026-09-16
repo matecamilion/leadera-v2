@@ -2,7 +2,12 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
-import { useConectarGoogle, useConexionGoogle } from '../hooks/useGoogleCalendar'
+import {
+  useConectarGoogle,
+  useConexionGoogle,
+  useDesconectarGoogle,
+} from '../hooks/useGoogleCalendar'
+import { ModalDesconectarGoogle } from '../components/perfil/ModalDesconectarGoogle'
 import {
   actualizarDatosCuenta,
   cambiarPassword,
@@ -169,6 +174,8 @@ const MENSAJE_VUELTA: Record<string, string> = {
 function GoogleCalendar() {
   const conexion = useConexionGoogle()
   const conectar = useConectarGoogle()
+  const desconectar = useDesconectarGoogle()
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false)
   const [params, setParams] = useSearchParams()
 
   const vuelta = params.get('google')
@@ -241,17 +248,54 @@ function GoogleCalendar() {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => conectar.mutate()}
-        disabled={conectar.isPending || conexion.isPending}
-        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
-      >
-        {conectar.isPending && (
-          <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => conectar.mutate()}
+          disabled={conectar.isPending || conexion.isPending}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+        >
+          {conectar.isPending && (
+            <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />
+          )}
+          {conectado ? 'Volver a conectar' : necesitaReconectar ? 'Reconectar' : 'Conectar Google Calendar'}
+        </button>
+
+        {/* Sólo cuando hay una conexión andando. En "reconexión pendiente" la
+            fila todavía existe, pero al agente no le sirve desconectar: lo que
+            quiere ahí es volver a conectar, y reconectar pisa la fila igual. */}
+        {conectado && (
+          <button
+            type="button"
+            onClick={() => setConfirmandoBaja(true)}
+            disabled={desconectar.isPending}
+            className="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.85rem] font-semibold text-ink transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          >
+            Desconectar
+          </button>
         )}
-        {conectado ? 'Volver a conectar' : necesitaReconectar ? 'Reconectar' : 'Conectar Google Calendar'}
-      </button>
+      </div>
+
+      {confirmandoBaja && (
+        <ModalDesconectarGoogle
+          desconectando={desconectar.isPending}
+          // El error se muestra DENTRO del modal y no abajo de la tarjeta: si
+          // falló, el agente sigue con el diálogo abierto y tiene que poder
+          // decidir ahí mismo si reintenta o lo deja.
+          error={desconectar.isError ? desconectar.error.message : null}
+          onConfirmar={() =>
+            desconectar.mutate(undefined, {
+              onSuccess: () => setConfirmandoBaja(false),
+            })
+          }
+          onCancelar={() => {
+            // Limpia un error de un intento anterior: si vuelve a abrir el
+            // modal, arranca en cero y no con el cartel rojo de la vez pasada.
+            desconectar.reset()
+            setConfirmandoBaja(false)
+          }}
+        />
+      )}
 
       {conectar.isError && (
         <p className="mt-3">

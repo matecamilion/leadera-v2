@@ -13,6 +13,8 @@
 
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+/** Baja la concesión entera: el refresh_token y los access_tokens que salieron de él. */
+export const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
 
 /** El único scope que pide LeadEra: leer y escribir eventos, nada más. */
 export const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/calendar.events'

@@ -35,6 +35,17 @@ export function IconoMas({ className }: Props) {
   )
 }
 
+/** El "?" de la ayuda contextual. Lo usa `TooltipAyuda`. */
+export function IconoAyuda({ className }: Props) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.4a2.5 2.5 0 0 1 4.85.85c0 1.65-2.45 2.3-2.45 3.75" />
+      <path d="M12 17.3h.01" />
+    </svg>
+  )
+}
+
 export function IconoTabla({ className }: Props) {
   return (
     <svg {...base} className={className}>

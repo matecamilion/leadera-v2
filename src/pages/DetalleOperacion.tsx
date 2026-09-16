@@ -249,6 +249,14 @@ export default function DetalleOperacion() {
 
       {!vinculaBusqueda && operacion.propiedad && (
         <Seccion titulo="Propiedad vinculada">
+          {/* Espejo corto de la nota de la ficha de propiedad: acá se mira una
+              operación sola, así que alcanza con aclarar que la propiedad puede
+              tener otras y que su estado va por otro lado. */}
+          <p className="mb-3 text-[0.85rem] leading-relaxed text-ink-3">
+            La misma propiedad puede tener otras operaciones, y su estado
+            (Disponible, Reservada, Vendida…) se maneja por separado del de esta
+            operación.
+          </p>
           <ChipPropiedadVinculada propiedad={operacion.propiedad} />
         </Seccion>
       )}

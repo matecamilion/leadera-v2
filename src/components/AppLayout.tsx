@@ -77,7 +77,9 @@ const NAV: ItemNav[] = [
   },
   {
     to: '/tareas',
-    label: 'Tareas',
+    // La ruta sigue siendo /tareas: sólo cambia cómo se llama en el menú, así
+    // no se rompen los links guardados ni el historial.
+    label: 'Calendario',
     // El dueño entra para su agenda propia: crea tareas autoasignadas, no las
     // reparte. Asignar a otro sigue siendo cosa del agente con su asistente.
     roles: ['DUENO', 'AGENTE', 'ASISTENTE'],

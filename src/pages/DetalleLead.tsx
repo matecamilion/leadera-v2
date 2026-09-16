@@ -8,6 +8,7 @@ import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
+import { TooltipAyuda } from '../components/comunes/TooltipAyuda'
 import { useEquipo } from '../hooks/useEquipo'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
 import {
@@ -107,6 +108,14 @@ export default function DetalleLead() {
               <BadgeEstado estado={lead.estado} />
               <IconoLapiz className="size-3.5 text-ink-3" />
             </button>
+
+            {/* Hermano del botón y no hijo: un <button> adentro de otro es HTML
+                inválido y el click del tooltip abriría además el modal. */}
+            <TooltipAyuda etiqueta="los estados del lead">
+              Caliente, Tibio y Frío marcan qué tan cerca está de cerrar. Ganado
+              ya cerró, Inactivo dejó de responder, y Nuevo es el que todavía
+              nadie clasificó. Lo actualizás vos a mano: no se recalcula solo.
+            </TooltipAyuda>
           </div>
         </div>
 

@@ -14,6 +14,7 @@ import {
 } from './Iconos'
 import { ICONOS } from './iconosInteraccion'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
+import { TooltipAyuda } from '../comunes/TooltipAyuda'
 import { ItemTarea } from '../tareas/ItemTarea'
 import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { BadgeEstadoPropiedad } from '../propiedades/BadgeEstadoPropiedad'
@@ -187,6 +188,12 @@ function ColumnaIdentidad({
             <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">
               <IconoLink className="size-4 shrink-0" />
               {etiquetaOrigen(lead.origen)}
+              <TooltipAyuda etiqueta="el origen del lead">
+                El origen dice de dónde llegó el lead (Meta Ads, WhatsApp,
+                referido…), no si ya lo contactaste. El primer contacto se
+                completa solo cuando registrás la primera interacción; hasta
+                entonces el lead sigue contando como nuevo.
+              </TooltipAyuda>
             </span>
           )}
 
@@ -276,7 +283,16 @@ function ColumnaIdentidad({
             {formatearFecha(lead.fecha_ultimo_contacto_real)}
           </Fila>
 
-          <Fila label="Próximo seguimiento">
+          <Fila
+            label="Próximo seguimiento"
+            ayuda={
+              <TooltipAyuda etiqueta="el próximo seguimiento">
+                Es la fecha en la que te toca volver a contactarlo. Si la dejás
+                sin programar, el lead no aparece en los seguimientos de Mi día.
+                Cuando la fecha pasa, salta como prioritario.
+              </TooltipAyuda>
+            }
+          >
             {proximo == null ? (
               <span className="text-ink-3">Sin programar</span>
             ) : vencido ? (
@@ -647,10 +663,22 @@ function Titulo({
 }
 
 /** Una fila del `<dl>`: etiqueta a la izquierda, valor a la derecha. */
-function Fila({ label, children }: { label: string; children: ReactNode }) {
+function Fila({
+  label,
+  ayuda,
+  children,
+}: {
+  label: string
+  /** Un `TooltipAyuda` al lado de la etiqueta. Sólo donde hace falta aclarar. */
+  ayuda?: ReactNode
+  children: ReactNode
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
-      <dt className="text-[0.85rem] text-ink-3">{label}</dt>
+      <dt className="flex items-center gap-1.5 text-[0.85rem] text-ink-3">
+        {label}
+        {ayuda}
+      </dt>
       <dd className="m-0 text-[0.9rem] text-ink-2 tabular-nums">{children}</dd>
     </div>
   )

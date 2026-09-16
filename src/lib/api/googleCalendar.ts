@@ -69,6 +69,28 @@ export async function iniciarConexionGoogle(): Promise<string> {
   return data.url
 }
 
+/**
+ * Corta la conexión: revoca el permiso en Google y borra los tokens guardados.
+ *
+ * La Edge Function borra la fila entera en vez de bajar `conectado`, así que
+ * después de esto `obtenerConexionGoogle` devuelve null —"nunca conectó"— y la
+ * UI vuelve a ofrecer "Conectar" y no "Reconectar".
+ *
+ * No devuelve nada: al llamador sólo le importa si salió o no. Si Google no
+ * acepta la revocación —el permiso ya estaba dado de baja desde la cuenta del
+ * agente— la función igual limpia la base y esto resuelve bien, porque el
+ * agente quedó desconectado, que es lo que pidió.
+ */
+export async function desconectarGoogle(): Promise<void> {
+  const { error } = await supabase.functions.invoke('google-calendar-desconectar', {
+    body: {},
+  })
+
+  if (error) {
+    throw new Error(await mensajeDeFuncion(error, 'No se pudo desconectar Google Calendar.'))
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sincronización
 // ---------------------------------------------------------------------------

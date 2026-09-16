@@ -470,3 +470,10 @@ verify_jwt = false
 [functions.google-calendar-sync]
 enabled = true
 verify_jwt = true
+
+# google-calendar-desconectar la llama el agente logueado desde /perfil para
+# cortar la conexión. Exige JWT: revoca el permiso en Google y borra la fila de
+# tokens del agente del token, nunca la de otro.
+[functions.google-calendar-desconectar]
+enabled = true
+verify_jwt = true

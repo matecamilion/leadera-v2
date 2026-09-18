@@ -10,6 +10,13 @@ export {
   etiquetaEstado,
 } from '../etiquetasLead'
 import { interpretarErrorSupabase } from '../errores'
+import {
+  interaccionesDeHoy,
+  limitesDelDia,
+  soloPrioritarios,
+  soloSeguimientosDeHoy,
+  type QueryDeLeads,
+} from './dashboard'
 
 export type Lead = Database['public']['Tables']['leads']['Row']
 export type EstadoLead = Database['public']['Enums']['estado_lead']
@@ -18,8 +25,16 @@ export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
 /** Filtro de estado que acepta el listado. `undefined` = todos. */
 export type FiltroEstado = EstadoLead | 'nuevos'
 
+/**
+ * Las secciones de Mi día que no se pueden expresar con un estado: el destino
+ * de su "Ver todos (N)". Van en `?filtro=` y no en `?estado=` porque no son
+ * una temperatura sino un corte del día, y cuando están ganan sobre el estado.
+ */
+export type FiltroDelDia = 'prioritarios' | 'seguimientos'
+
 export interface ListarLeadsParams {
   estado?: FiltroEstado
+  delDia?: FiltroDelDia
   busqueda?: string
   /** 1-indexado. */
   page: number
@@ -38,20 +53,61 @@ export interface ListarLeadsResult {
  * —que cambia entre versiones— pedimos estructuralmente los tres métodos que
  * usamos, encadenables sobre sí mismos.
  */
-interface QueryFiltrable<Self> {
-  is(columna: 'fecha_primer_contacto_real', valor: null): Self
+interface QueryFiltrable<Self> extends QueryDeLeads<Self> {
   eq(columna: 'estado', valor: EstadoLead): Self
-  or(filtro: string): Self
+  not(columna: 'id', operador: 'in', valor: string): Self
+}
+
+/** Un `FiltroDelDia` con lo que hace falta para aplicarlo, ya resuelto. */
+interface CorteDelDia {
+  filtro: FiltroDelDia
+  inicioHoy: string
+  inicioManana: string
+  /** Leads con una interacción de hoy: Mi día ya no los cuenta. */
+  contactadosHoy: string[]
+}
+
+/**
+ * Resuelve lo asíncrono de un `FiltroDelDia` antes de armar el query.
+ *
+ * Mi día arma sus secciones con los predicados de `dashboard.ts` y después
+ * saca a los contactados hoy. Para que el listado muestre exactamente los N
+ * del "Ver todos (N)" hace falta el mismo recorte, y como la paginación es del
+ * server tiene que ir en el query: se piden los ids primero y se excluyen con
+ * `not in`. Son las interacciones de un día, un puñado de filas.
+ */
+async function resolverCorteDelDia(filtro: FiltroDelDia | undefined): Promise<CorteDelDia | undefined> {
+  if (!filtro) return undefined
+
+  const { inicioHoy, inicioManana } = limitesDelDia()
+  const { data, error } = await interaccionesDeHoy(inicioHoy, inicioManana)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads.'))
+
+  const contactadosHoy = [...new Set((data ?? []).map((i) => i.lead_id))]
+  return { filtro, inicioHoy, inicioManana, contactadosHoy }
 }
 
 function aplicarFiltros<Q extends QueryFiltrable<Q>>(
   query: Q,
   estado: FiltroEstado | undefined,
   busqueda: string | undefined,
+  delDia?: CorteDelDia,
 ): Q {
   let q = query
 
-  if (estado === 'nuevos') {
+  if (delDia) {
+    // Los mismos predicados que las secciones de Mi día, no una copia: si
+    // cambia qué es un prioritario, el listado cambia con ellos.
+    q =
+      delDia.filtro === 'prioritarios'
+        ? soloPrioritarios(q, delDia.inicioHoy)
+        : soloSeguimientosDeHoy(q, delDia.inicioHoy, delDia.inicioManana)
+
+    // Sin ids no hay nada que excluir, y `in.()` vacío no es un filtro válido.
+    if (delDia.contactadosHoy.length > 0) {
+      q = q.not('id', 'in', `(${delDia.contactadosHoy.join(',')})`)
+    }
+  } else if (estado === 'nuevos') {
     // Un lead es "nuevo" por no haber sido contactado nunca, no por su estado.
     q = q.is('fecha_primer_contacto_real', null)
   } else if (estado) {
@@ -86,6 +142,7 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
  */
 export async function listarLeads({
   estado,
+  delDia,
   busqueda,
   page,
   pageSize,
@@ -97,6 +154,7 @@ export async function listarLeads({
     supabase.from('leads').select('*', { count: 'exact' }),
     estado,
     busqueda,
+    await resolverCorteDelDia(delDia),
   )
 
   query = query
@@ -483,6 +541,7 @@ const TAMANO_LOTE = 1000
 
 export interface ExportarLeadsParams {
   estado?: FiltroEstado
+  delDia?: FiltroDelDia
   busqueda?: string
 }
 
@@ -500,15 +559,19 @@ export interface ExportarLeadsParams {
  */
 export async function listarLeadsParaExportar({
   estado,
+  delDia,
   busqueda,
 }: ExportarLeadsParams): Promise<LeadExportable[]> {
   const todos: LeadExportable[] = []
+  // Una vez y no por lote: todos los lotes tienen que excluir a los mismos.
+  const corte = await resolverCorteDelDia(delDia)
 
   for (let desde = 0; ; desde += TAMANO_LOTE) {
     const query = aplicarFiltros(
       supabase.from('leads').select(COLUMNAS_EXPORT),
       estado,
       busqueda,
+      corte,
     )
       .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
       .order('fecha_primer_contacto_real', { ascending: true, nullsFirst: true })

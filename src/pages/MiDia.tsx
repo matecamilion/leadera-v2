@@ -22,6 +22,20 @@ import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
 import type { Lead } from '../lib/api/leads'
 
+/**
+ * A dónde lleva cada categoría del día: la stat card de arriba y el "Ver todos
+ * (N)" de su sección. Una sola tabla para las dos, así el número y la lista a
+ * la que llevan no pueden volver a separarse.
+ *
+ * Prioritarios y seguimientos no son un estado: van por `?filtro=`, que en
+ * Leads aplica los mismos predicados de `dashboard.ts` que cuentan el N.
+ */
+const RUTA_LISTA = {
+  prioritarios: '/leads?filtro=prioritarios',
+  nuevos: '/leads?estado=nuevos',
+  seguimientos: '/leads?filtro=seguimientos',
+} as const
+
 export default function MiDia() {
   const { profile } = useAuth()
   const { data, isPending, isError, error } = useLeadsDelDia()
@@ -62,7 +76,7 @@ export default function MiDia() {
   const { prioritarios, nuevos, seguimientos } = data
 
   // Lo que se muestra en el hero es lo que hay para hacer hoy. Se suman los
-  // totales reales y no los recortes de 10, si no el número mentiría en cuanto
+  // totales reales y no los recortes de cinco, si no el número mentiría en cuanto
   // una categoría pasa el límite.
   const totalPendientes = prioritarios.total + nuevos.total + seguimientos.total
   const alDia = totalPendientes === 0
@@ -74,22 +88,26 @@ export default function MiDia() {
       {/* El título va en texto plano sobre el fondo de la página: la banda con
           gradiente y las cards montadas encima competían con las secciones de
           abajo, que son lo que se viene a leer. */}
-      <header className="mb-5">
-        <h1 className="m-0 text-[1.6rem] leading-tight font-bold text-balance text-ink">
-          {alDia ? (
-            <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
-          ) : (
-            <>
-              Hoy te quedan <span className="text-primary">{totalPendientes}</span>{' '}
-              {totalPendientes === 1 ? 'tarea' : 'tareas'}
-            </>
-          )}
-        </h1>
-        <p className="mt-1 text-[0.9rem] text-ink-3">
-          {alDia
-            ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
-            : 'Gestioná tus contactos y hacé crecer tu cartera'}
-        </p>
+      {/* Título y link en un renglón: el link a la derecha, alineado a la base
+          del subtítulo. En mobile, sin lugar al costado, cae abajo. */}
+      <header className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-1">
+        <div className="min-w-0">
+          <h1 className="m-0 text-[1.4rem] leading-tight font-bold text-balance text-ink">
+            {alDia ? (
+              <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
+            ) : (
+              <>
+                Hoy te quedan <span className="text-primary">{totalPendientes}</span>{' '}
+                {totalPendientes === 1 ? 'tarea' : 'tareas'}
+              </>
+            )}
+          </h1>
+          <p className="mt-0.5 text-[0.85rem] text-ink-3">
+            {alDia
+              ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
+              : 'Gestioná tus contactos y hacé crecer tu cartera'}
+          </p>
+        </div>
 
         {/* Link y no botón: los contactados de hoy son para mirar hacia atrás
             cuando hace falta, no la acción con la que se arranca la jornada.
@@ -97,7 +115,7 @@ export default function MiDia() {
             hacer, que es de lo que habla el resto de la pantalla. */}
         <Link
           to="/mi-dia/contactados"
-          className="mt-2 inline-block text-[0.85rem] font-semibold text-primary hover:underline"
+          className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline sm:ml-auto"
         >
           Ver contactados hoy →
         </Link>
@@ -106,27 +124,27 @@ export default function MiDia() {
       {/* Cuatro cards del mismo peso. El tono de cada una es el de la sección
           que le corresponde más abajo, así el número y su lista se reconocen
           como la misma cosa. Misma grilla que la fila de KPIs de Estadísticas. */}
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CardKpi
           label="Prioritarios"
           valor={String(prioritarios.total)}
           tono="caliente"
           icono={<IconoAlerta className="size-[18px]" />}
-          a="/leads?estado=CALIENTE"
+          a={RUTA_LISTA.prioritarios}
         />
         <CardKpi
           label="Nuevos"
           valor={String(nuevos.total)}
           tono="brand"
           icono={<IconoPersonaMas className="size-[18px]" />}
-          a="/leads?estado=nuevos"
+          a={RUTA_LISTA.nuevos}
         />
         <CardKpi
           label="Seguimientos"
           valor={String(seguimientos.total)}
           tono="tibio"
           icono={<IconoReloj className="size-[18px]" />}
-          a="/leads"
+          a={RUTA_LISTA.seguimientos}
         />
         <CardKpi
           label="Visitas hoy"
@@ -137,13 +155,9 @@ export default function MiDia() {
         />
       </div>
 
-      {listaCoincidencias.length > 0 && (
-        <SeccionCoincidencias coincidencias={listaCoincidencias} />
-      )}
-
       {/* Par 1: los dos frentes de leads que se atienden primero. */}
       {alDia ? (
-        <div className="mb-5 rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
+        <div className="mb-4 rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
           <span
             aria-hidden
             className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-badge-ganado-bg text-primary-dark"
@@ -158,7 +172,7 @@ export default function MiDia() {
           </p>
         </div>
       ) : (
-        <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+        <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
           <ListaLeads
             titulo="Leads prioritarios"
             subtitulo="Calientes o con el seguimiento vencido"
@@ -166,7 +180,7 @@ export default function MiDia() {
             variante="prioritarios"
             leads={prioritarios.leads}
             total={prioritarios.total}
-            verTodosRuta="/leads?estado=CALIENTE"
+            verTodosRuta={RUTA_LISTA.prioritarios}
             onRegistrar={setLeadARegistrar}
           />
 
@@ -177,7 +191,7 @@ export default function MiDia() {
             variante="nuevos"
             leads={nuevos.leads}
             total={nuevos.total}
-            verTodosRuta="/leads?estado=nuevos"
+            verTodosRuta={RUTA_LISTA.nuevos}
             onRegistrar={setLeadARegistrar}
           />
         </div>
@@ -187,7 +201,7 @@ export default function MiDia() {
           que hay que volver y la agenda del día—. Cuando no hay seguimientos
           la agenda se queda sola en la columna izquierda: es preferible a
           moverla de par según el estado de los leads. */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         {!alDia && (
           <ListaLeads
             titulo="Seguimientos"
@@ -196,7 +210,7 @@ export default function MiDia() {
             variante="seguimientos"
             leads={seguimientos.leads}
             total={seguimientos.total}
-            verTodosRuta="/leads"
+            verTodosRuta={RUTA_LISTA.seguimientos}
             onRegistrar={setLeadARegistrar}
           />
         )}
@@ -205,20 +219,29 @@ export default function MiDia() {
         <ResumenTareasHoy className={alDia ? 'lg:col-span-2' : ''} />
       </div>
 
+      {/* Las coincidencias van después de lo que hay que hacer hoy: son
+          oportunidades descubiertas, no pendientes. Arriba de todo empujaban
+          los leads urgentes debajo del pliegue. */}
+      {listaCoincidencias.length > 0 && (
+        <SeccionCoincidencias coincidencias={listaCoincidencias} />
+      )}
+
       {/* Par 3: el contexto de la cartera. Va fuera del ternario de `alDia`:
           estar al día con los leads no es motivo para esconder las propiedades
           ni el registro de lo hecho.
 
           Los cuatro pares usan el mismo `gap-4 lg:grid-cols-2` que Estadísticas
-          para sus pares de tarjetas, y el `[&>*]:mb-0` apaga el `mb-5` que
+          para sus pares de tarjetas, y el `[&>*]:mb-0` apaga el `mb-4` que
           cada sección trae para cuando va apilada: acá el aire entre columnas
-          lo pone el `gap`, y el de abajo el `mb-5` de la grilla. Alcanza a la
+          lo pone el `gap`, y el de abajo el `mb-4` de la grilla. Alcanza a la
           sección y a su skeleton, que es el otro nodo que cada hija devuelve.
+          `items-start`: cada card mide lo que su lista, en vez de estirarse
+          hasta la de al lado con un hueco blanco abajo.
 
           En mobile, con una sola columna, el orden de lectura sigue el del
-          markup: prioritarios → nuevos → seguimientos → agenda → propiedades
-          → actividad → operaciones. */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+          markup: prioritarios → nuevos → seguimientos → agenda → coincidencias
+          → propiedades → actividad → operaciones. */}
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <ListaPropiedadesRecientes />
         <ActividadReciente />
       </div>
@@ -229,7 +252,7 @@ export default function MiDia() {
           2 cuando no hay seguimientos—. Van últimas y no antes de la actividad
           porque son el estado de la cartera, el horizonte más largo de la
           pantalla: se lee después de lo que pasó hoy. */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <ListaOperacionesEnCurso className="lg:col-span-2" />
       </div>
 
@@ -256,7 +279,7 @@ function Skeleton() {
       <div className="mb-2 h-9 w-72 max-w-full animate-pulse rounded-lg bg-surface-2 motion-reduce:animate-none" />
       <div className="mb-6 h-5 w-96 max-w-full animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div
             key={i}
@@ -270,19 +293,19 @@ function Skeleton() {
           además su propio skeleton para cuando su query tarda más que la de
           leads; estos bloques cubren el rato anterior, en el que Mi día
           todavía no montó ninguna. */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <BloqueSeccion alto="h-[258px]" />
         <BloqueSeccion alto="h-[258px]" />
       </div>
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <BloqueSeccion alto="h-[258px]" />
         <BloqueSeccion alto="h-[219px]" />
       </div>
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <BloqueSeccion alto="h-[193px]" />
         <BloqueSeccion alto="h-[193px]" />
       </div>
-      <div className="mb-5 grid gap-4 lg:grid-cols-2 [&>*]:mb-0">
+      <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <BloqueSeccion alto="h-[193px]" className="lg:col-span-2" />
       </div>
     </div>
@@ -292,7 +315,7 @@ function Skeleton() {
 /** Título y cuerpo de una sección de lista, mientras carga. */
 function BloqueSeccion({ alto, className = '' }: { alto: string; className?: string }) {
   return (
-    <div className={`mb-5 ${className}`.trim()}>
+    <div className={`mb-4 ${className}`.trim()}>
       <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
       <div
         className={`${alto} animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none`}

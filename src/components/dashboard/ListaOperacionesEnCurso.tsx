@@ -30,7 +30,7 @@ export function ListaOperacionesEnCurso({ className = '' }: { className?: string
 
   return (
     <SeccionCard
-      icono={<IconoCajas className="size-[18px]" />}
+      icono={<IconoCajas className="size-4" />}
       tono="tibio"
       titulo="Operaciones en curso"
       subtitulo="Todavía no están cerradas ni canceladas"
@@ -73,17 +73,17 @@ function FilaOperacion({ operacion }: { operacion: OperacionListada }) {
         to={`/operaciones/${operacion.id}`}
         // El outline va hacia adentro: la `ul` recorta con `overflow-hidden` y
         // un offset positivo dejaría el foco de la primera fila invisible.
-        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+        className="flex items-center gap-2.5 px-4 py-2 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold text-ink">{titulo}</span>
-          <span className="mt-0.5 block truncate text-[0.78rem] text-ink-3">
+          <span className="block truncate text-[0.9rem] font-semibold text-ink">{titulo}</span>
+          <span className="mt-0.5 block truncate text-[0.74rem] text-ink-3">
             {contexto}
           </span>
         </span>
 
         <span className="shrink-0 text-right">
-          <span className="block text-[0.85rem] font-semibold whitespace-nowrap text-ink tabular-nums">
+          <span className="block text-[0.82rem] font-semibold whitespace-nowrap text-ink tabular-nums">
             {formatearMonto(operacion.monto, operacion.moneda)}
           </span>
           <span className="mt-1 block">

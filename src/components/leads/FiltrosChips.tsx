@@ -46,10 +46,11 @@ const OPCIONES: Opcion[] = [
 
 interface FiltrosChipsProps {
   /**
-   * `'nuevos'` no tiene chip propio: el listado queda filtrado pero ninguna
-   * opción se marca activa, que es más honesto que encender "Todos".
+   * `'nuevos'` y los cortes de Mi día (`'prioritarios'`, `'seguimientos'`)
+   * no tienen chip propio: el listado queda filtrado pero ninguna opción se
+   * marca activa, que es más honesto que encender "Todos".
    */
-  valor: ValorFiltro | 'nuevos'
+  valor: ValorFiltro | 'nuevos' | 'prioritarios' | 'seguimientos'
   onCambiar: (valor: ValorFiltro) => void
   /** Sólo el chip "Todos" muestra contador, como en el original. */
   total?: number

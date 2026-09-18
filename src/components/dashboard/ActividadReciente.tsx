@@ -80,7 +80,7 @@ export function ActividadReciente() {
 
   return (
     <SeccionCard
-      icono={<IconoReloj className="size-[18px]" />}
+      icono={<IconoReloj className="size-4" />}
       tono="neutro"
       titulo="Actividad reciente"
       subtitulo="Lo último que registraste"
@@ -110,23 +110,23 @@ function FilaActividad({ item }: { item: Actividad }) {
     <>
       <span
         aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-surface-2 text-ink-3"
+        className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-surface-2 text-ink-3"
       >
         {iconoDe(item)}
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-semibold text-ink">
+        <span className="block truncate text-[0.9rem] font-semibold text-ink">
           {tituloDeActividad(item)}
         </span>
         {item.descripcion && (
-          <span className="mt-0.5 block truncate text-[0.78rem] text-ink-3">
+          <span className="mt-0.5 block truncate text-[0.74rem] text-ink-3">
             {item.descripcion}
           </span>
         )}
       </span>
 
-      <span className="shrink-0 text-[0.78rem] whitespace-nowrap text-ink-3 tabular-nums">
+      <span className="shrink-0 text-[0.74rem] whitespace-nowrap text-ink-3 tabular-nums">
         {tiempoTranscurrido(item.fecha)}
       </span>
     </>
@@ -141,12 +141,12 @@ function FilaActividad({ item }: { item: Actividad }) {
           to={ruta}
           // El outline va hacia adentro, igual que en las otras listas: la
           // card recorta y un offset positivo dejaría el foco fuera de vista.
-          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          className="flex items-center gap-2.5 px-4 py-2 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
         >
           {contenido}
         </Link>
       ) : (
-        <div className="flex items-center gap-3 px-4 py-3">{contenido}</div>
+        <div className="flex items-center gap-2.5 px-4 py-2">{contenido}</div>
       )}
     </li>
   )

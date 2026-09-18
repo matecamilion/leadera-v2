@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   contarLeads,
   listarLeads,
+  type FiltroDelDia,
   type FiltroEstado,
   type ListarLeadsResult,
 } from '../lib/api/leads'
@@ -13,11 +14,15 @@ export function useLeads(
   estado: FiltroEstado | undefined,
   busqueda: string,
   page: number,
+  delDia?: FiltroDelDia,
 ) {
   return useQuery<ListarLeadsResult>({
-    queryKey: ['leads', estado ?? 'todos', busqueda, page],
+    // `delDia` gana sobre el estado (ver `aplicarFiltros`), así que ocupa su
+    // lugar en la clave. Sigue colgando de ['leads']: registrar una
+    // interacción invalida esto y el lead sale del corte, igual que en Mi día.
+    queryKey: ['leads', delDia ?? estado ?? 'todos', busqueda, page],
     queryFn: () =>
-      listarLeads({ estado, busqueda, page, pageSize: LEADS_POR_PAGINA }),
+      listarLeads({ estado, delDia, busqueda, page, pageSize: LEADS_POR_PAGINA }),
     // Al paginar o tipear mantenemos la tabla anterior visible en vez de volver
     // al skeleton: evita que la lista parpadee en cada tecla.
     placeholderData: (anterior) => anterior,

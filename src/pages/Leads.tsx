@@ -17,6 +17,7 @@ import {
 import {
   eliminarLead,
   listarLeadsParaExportar,
+  type FiltroDelDia,
   type FiltroEstado,
   type Lead,
 } from '../lib/api/leads'
@@ -35,6 +36,15 @@ const FILTROS_VALIDOS: FiltroEstado[] = [
   'nuevos',
 ]
 
+/** Los valores de `?filtro=`: los cortes de Mi día que no son un estado. */
+const FILTROS_DEL_DIA: FiltroDelDia[] = ['prioritarios', 'seguimientos']
+
+/** Lo que se agrega al contador para que se sepa qué se está viendo. */
+const ETIQUETA_DEL_DIA: Record<FiltroDelDia, string> = {
+  prioritarios: 'prioritarios de hoy',
+  seguimientos: 'con seguimiento para hoy',
+}
+
 export default function Leads() {
   // Filtro, búsqueda y página viven en la URL, no en estado local: así
   // sobreviven a entrar a una ficha y volver con el botón atrás, aguantan un
@@ -45,6 +55,7 @@ export default function Leads() {
   // default (sin filtro, sin búsqueda, página 1).
   const [searchParams, setSearchParams] = useSearchParams()
   const filtroEstado = FILTROS_VALIDOS.find((f) => f === searchParams.get('estado'))
+  const filtroDelDia = FILTROS_DEL_DIA.find((f) => f === searchParams.get('filtro'))
   const busqueda = searchParams.get('q') ?? ''
   const page = leerPagina(searchParams.get('page'))
 
@@ -57,7 +68,7 @@ export default function Leads() {
 
   const queryClient = useQueryClient()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
-  const { data, isPending, isError, error } = useLeads(filtroEstado, busqueda, page)
+  const { data, isPending, isError, error } = useLeads(filtroEstado, busqueda, page, filtroDelDia)
   const { data: total } = useTotalLeads(busqueda)
 
   const leads = useMemo(() => data?.data ?? [], [data])
@@ -95,6 +106,7 @@ export default function Leads() {
     try {
       const paraExportar = await listarLeadsParaExportar({
         estado: filtroEstado,
+        delDia: filtroDelDia,
         busqueda,
       })
 
@@ -130,6 +142,9 @@ export default function Leads() {
    * Lo que está en su valor por defecto no se escribe: la URL de "todos, sin
    * buscar, página 1" es `/leads` pelada y no `/leads?estado=&q=&page=1`.
    *
+   * `?filtro=` (el corte de Mi día) sobrevive a buscar y a paginar, pero se va
+   * al tocar un chip: elegir una temperatura es salir de ese corte.
+   *
    * Va con `replace` a propósito. Ajustar un filtro no es una navegación que
    * uno quiera deshacer: con `push`, salir del listado después de probar cinco
    * chips serían seis "atrás", y el debounce del buscador dejaría un escalón
@@ -140,6 +155,7 @@ export default function Leads() {
     estado: FiltroEstado | undefined,
     texto: string,
     pagina: number,
+    salirDelCorte = false,
   ) {
     setSearchParams(
       (previos) => {
@@ -147,6 +163,8 @@ export default function Leads() {
 
         if (estado) proximos.set('estado', estado)
         else proximos.delete('estado')
+
+        if (salirDelCorte) proximos.delete('filtro')
 
         if (texto) proximos.set('q', texto)
         else proximos.delete('q')
@@ -161,7 +179,9 @@ export default function Leads() {
   }
 
   function cambiarFiltro(valor: ValorFiltro) {
-    escribirFiltros(valor, busqueda, 1)
+    // Cualquier chip, "Todos" incluido: con el corte activo ninguno está
+    // encendido, así que tocar uno siempre es pedir otra cosa.
+    escribirFiltros(valor, busqueda, 1, true)
   }
 
   function cambiarBusqueda(valor: string) {
@@ -184,6 +204,7 @@ export default function Leads() {
           </h1>
           <span className="text-ink">
             {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
+            {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
           </span>
         </div>
 
@@ -221,7 +242,11 @@ export default function Leads() {
       )}
 
       <div className="mb-5">
-        <FiltrosChips valor={filtroEstado} onCambiar={cambiarFiltro} total={total} />
+        <FiltrosChips
+          valor={filtroDelDia ?? filtroEstado}
+          onCambiar={cambiarFiltro}
+          total={total}
+        />
       </div>
 
       {isPending ? (

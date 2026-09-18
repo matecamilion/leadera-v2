@@ -19,12 +19,22 @@ const ESTILOS: Record<Clave, string> = {
   NUEVO: 'bg-brand-soft text-primary',
 }
 
-export function BadgeEstado({ estado }: { estado: EstadoLead | null }) {
+interface BadgeEstadoProps {
+  estado: EstadoLead | null
+  /**
+   * Un escalón más chico, para las filas de una línea de Mi día: ahí el badge
+   * comparte renglón con las acciones y el botón de interacción. En el resto
+   * de las pantallas se queda en el tamaño del original.
+   */
+  chico?: boolean
+}
+
+export function BadgeEstado({ estado, chico = false }: BadgeEstadoProps) {
   const clave: Clave = estado ?? 'NUEVO'
 
   return (
     <span
-      className={`inline-block rounded-sm px-2.5 py-1 text-[10px] font-bold uppercase ${ESTILOS[clave]}`}
+      className={`inline-block rounded-sm font-bold uppercase ${chico ? 'px-2 py-0.5 text-[9.5px]' : 'px-2.5 py-1 text-[10px]'} ${ESTILOS[clave]}`}
     >
       {clave}
     </span>

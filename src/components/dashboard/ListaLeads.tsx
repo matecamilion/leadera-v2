@@ -68,7 +68,7 @@ export function ListaLeads({
 
   return (
     <SeccionCard
-      icono={<Icono className="size-[18px]" />}
+      icono={<Icono className="size-4" />}
       tono={TONO[variante]}
       titulo={titulo}
       subtitulo={subtitulo}
@@ -87,7 +87,7 @@ export function ListaLeads({
         // Sin borde ni radio propios: los pone la card que la envuelve.
         <ul className="@container divide-y divide-border">
           {leads.map((lead) => (
-            <FilaLead key={lead.id} lead={lead} onRegistrar={onRegistrar} />
+            <FilaLead key={lead.id} lead={lead} onRegistrar={onRegistrar} densa />
           ))}
         </ul>
       )}
@@ -123,11 +123,19 @@ interface FilaLeadProps {
    * lo que sí distingue una fila de la otra.
    */
   enLugarDelTiempo?: ReactNode
+  /**
+   * La fila de una línea de Mi día: el "hace cuánto" baja al renglón de
+   * contexto y el badge se achica, así entra entera en media columna. Sin esto
+   * es la fila ancha de siempre, que sigue usando Contactados hoy.
+   */
+  densa?: boolean
 }
 
 /** Una fila: quién es a la izquierda, en qué estado y qué hacer a la derecha. */
-export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps) {
+export function FilaLead({ lead, onRegistrar, enLugarDelTiempo, densa = false }: FilaLeadProps) {
   const nombreCompleto = `${lead.nombre} ${lead.apellido ?? ''}`.trim()
+
+  if (densa) return <FilaLeadDensa lead={lead} nombreCompleto={nombreCompleto} onRegistrar={onRegistrar} />
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2.5 px-4 py-3 transition-colors hover:bg-surface-2 motion-reduce:transition-none">
@@ -191,6 +199,74 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo }: FilaLeadProps)
           onClick={() => onRegistrar(lead)}
           aria-label={`Registrar una interacción con ${nombreCompleto}`}
           className="ml-auto rounded-lg bg-brand-soft px-3 py-2 text-[0.78rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[40rem]:ml-0"
+        >
+          Interacción
+        </button>
+      </div>
+    </li>
+  )
+}
+
+/**
+ * La variante de una línea de `FilaLead`, para las listas de Mi día.
+ *
+ * En media columna la fila ancha partía cada lead en dos renglones —su corte
+ * está en 40rem y la columna mide ~32rem en una laptop—, así que en pantalla
+ * entraba un lead por sección. Acá el corte baja a 28rem: el "hace cuánto"
+ * deja de ser una columna propia y pasa al renglón de contexto, que es lo que
+ * libera el ancho. Por debajo de 28rem (mobile, o la grilla de dos columnas en
+ * una pantalla chica) las acciones vuelven a caer abajo, igual que la ancha.
+ */
+function FilaLeadDensa({
+  lead,
+  nombreCompleto,
+  onRegistrar,
+}: {
+  lead: Lead
+  nombreCompleto: string
+  onRegistrar: (lead: Lead) => void
+}) {
+  // Sólo con un último contacto real: sin él, `tiempoTranscurrido` diría "Sin
+  // contacto" al lado de "Todavía sin contactar".
+  const hace = lead.fecha_ultimo_contacto_real
+    ? ` · ${tiempoTranscurrido(lead.fecha_ultimo_contacto_real)}`
+    : ''
+
+  return (
+    <li className="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-4 py-2 transition-colors hover:bg-surface-2 motion-reduce:transition-none">
+      <Link
+        to={`/leads/${lead.id}`}
+        className="flex min-w-0 shrink basis-full items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary @[28rem]:flex-1 @[28rem]:basis-0"
+      >
+        <AvatarLead
+          nombre={lead.nombre}
+          apellido={lead.apellido}
+          estado={lead.estado}
+          className="!size-8 !text-[0.8rem]"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[0.9rem] font-semibold text-ink">
+            {nombreCompleto}
+          </span>
+          <span className="block truncate text-[0.74rem] text-ink-3">
+            {contexto(lead)}
+            {hace}
+          </span>
+        </span>
+      </Link>
+
+      <div className="flex w-full items-center gap-2.5 @[28rem]:w-auto">
+        <BadgeEstado estado={lead.estado} chico />
+
+        {lead.telefono && (
+          <AccionesContacto telefono={lead.telefono} nombre={nombreCompleto} />
+        )}
+
+        <button
+          type="button"
+          onClick={() => onRegistrar(lead)}
+          aria-label={`Registrar una interacción con ${nombreCompleto}`}
+          className="ml-auto rounded-lg bg-brand-soft px-2.5 py-1.5 text-[0.74rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[28rem]:ml-0"
         >
           Interacción
         </button>

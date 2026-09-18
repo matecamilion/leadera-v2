@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { SeccionCard } from './SeccionCard'
 import { BadgeEstado } from '../leads/BadgeEstado'
 import { IconoCasa, IconoLupa } from '../leads/Iconos'
 import { etiquetaTipo, formatearPrecio } from '../../lib/api/propiedades'
@@ -47,78 +48,73 @@ interface Props {
 export function SeccionCoincidencias({ coincidencias }: Props) {
   const totalPares = coincidencias.reduce((suma, c) => suma + c.compradores.length, 0)
 
-  // Mismo `p-4`/`mb-5` que `SeccionCard`: esta sección no lo usa —su header
-  // tiene chip circular, subtítulo con markup y badge invertido— pero va en
-  // la misma pantalla, y a `p-5` se leería como una card de otro tamaño.
+  // Con `SeccionCard` como el resto de Mi día: al bajar debajo de los leads
+  // quedó entre dos secciones que la usan, y un header distinto se leía como
+  // otra pantalla. El ✦ entra como ícono del chip, en el tono tibio que ya
+  // tenía.
   return (
-    <section className="mb-5 min-w-0 rounded-2xl border border-border bg-surface p-4 shadow-sm">
-      <header className="mb-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span aria-hidden className="text-[1.1rem] text-tibio">
-            ✦
-          </span>
-          <h2 className="m-0 text-[0.95rem] font-bold text-ink">
-            Coincidencias encontradas
-          </h2>
-          <span className="rounded-full bg-primary px-2.5 py-0.5 text-[0.72rem] font-bold text-white">
-            {totalPares}
-          </span>
-        </div>
-        <p className="mt-1 text-[0.8rem] text-ink-3">
-          Interesados de tu cartera que buscan propiedades como las tuyas
-        </p>
-      </header>
-
-      <div className="flex flex-col">
+    <SeccionCard
+      icono={<span className="text-[0.95rem] leading-none">✦</span>}
+      tono="tibio"
+      titulo="Coincidencias encontradas"
+      subtitulo="Interesados de tu cartera que buscan propiedades como las tuyas"
+      badge={String(totalPares)}
+    >
+      <ul className="divide-y divide-border">
         {coincidencias.map((coincidencia) =>
           coincidencia.compradores.map((comprador) => {
             const rango = rangoPrecio(comprador.precioMin, comprador.precioMax)
 
             return (
-              <Link
-                key={`${coincidencia.propiedadId}-${comprador.busquedaId}`}
-                // Al detalle del match: los dos ids ya están en los datos,
-                // uno por cada lado del cruce.
-                to={`/coincidencias/${comprador.busquedaId}/${coincidencia.propiedadId}`}
-                className="-mx-3 flex flex-col gap-3 rounded-[10px] px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:flex-row md:items-start md:gap-5 [&+a]:border-t [&+a]:border-border"
-              >
-                {/* Propiedad */}
-                <div className="flex min-w-0 items-center gap-2.5 md:flex-[0_1_auto]">
-                  <span
-                    aria-hidden
-                    className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-brand-softer text-primary"
-                  >
-                    <IconoCasa className="size-5" />
-                  </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[0.9rem] font-semibold text-ink">
-                      {coincidencia.direccion}
+              <li key={`${coincidencia.propiedadId}-${comprador.busquedaId}`}>
+                <Link
+                  // Al detalle del match: los dos ids ya están en los datos,
+                  // uno por cada lado del cruce.
+                  to={`/coincidencias/${comprador.busquedaId}/${coincidencia.propiedadId}`}
+                  // Un par por renglón desde md: propiedad en una columna de
+                  // ancho fijo, así los interesados quedan a plomo entre filas.
+                  // Más angosto se apila, como antes.
+                  className="flex flex-col gap-2 px-4 py-2 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:grid md:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)_auto] md:items-center md:gap-3"
+                >
+                  {/* Propiedad */}
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      aria-hidden
+                      className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-brand-softer text-primary"
+                    >
+                      <IconoCasa className="size-4" />
                     </span>
-                    <span className="truncate text-[0.78rem] text-ink-3">
-                      {[coincidencia.zona, etiquetaTipo(coincidencia.tipo)]
-                        .filter(Boolean)
-                        .join(' · ')}
-                      {coincidencia.precio != null &&
-                        ` · ${formatearPrecio(coincidencia.precio, coincidencia.moneda)}`}
+                    <span className="min-w-0">
+                      <span className="block truncate text-[0.88rem] font-semibold text-ink">
+                        {coincidencia.direccion}
+                      </span>
+                      {/* Zona y precio, sin el tipo: en la columna de 15rem el
+                          tipo empujaba el precio al truncado. Casi siempre ya se lee
+                          en el chip de "Busca …" del interesado; el detalle del
+                          match lo muestra completo. */}
+                      <span className="block truncate text-[0.74rem] text-ink-3">
+                        {[
+                          coincidencia.zona,
+                          coincidencia.precio != null
+                            ? formatearPrecio(coincidencia.precio, coincidencia.moneda)
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || etiquetaTipo(coincidencia.tipo)}
+                      </span>
                     </span>
                   </span>
-                </div>
 
-                <IconoCruce
-                  className="hidden size-5 shrink-0 self-center text-ink-4 md:block"
-                />
+                  <IconoCruce className="hidden size-4 shrink-0 text-ink-4 md:block" />
 
-                {/* El interesado */}
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[0.9rem] font-semibold text-ink">
+                  {/* El interesado y lo que busca, en el mismo renglón */}
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <span className="text-[0.88rem] font-semibold text-ink">
                       {comprador.nombre} {comprador.apellido ?? ''}
                     </span>
-                    <BadgeEstado estado={comprador.estadoLead} />
-                  </div>
+                    <BadgeEstado estado={comprador.estadoLead} chico />
 
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[0.72rem] font-semibold text-ink-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-2">
                       <IconoLupa className="size-3 shrink-0 text-primary" />
                       {/* tipo null = le sirve cualquier tipo; el guión de
                           etiquetaTipo() no se lee bien dentro de la frase. */}
@@ -130,27 +126,27 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
                     </span>
 
                     {rango && (
-                      <span className="rounded-full bg-brand-soft px-2.5 py-1 text-[0.72rem] font-semibold text-primary">
+                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[0.7rem] font-semibold text-primary">
                         {rango}
                       </span>
                     )}
 
                     {comprador.ambientesMin != null && (
-                      <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[0.72rem] font-semibold text-ink-2">
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-2">
                         {comprador.ambientesMin}+ amb.
                       </span>
                     )}
-                  </div>
-                </div>
+                  </span>
 
-                <span className="shrink-0 self-center text-[0.8rem] font-semibold whitespace-nowrap text-primary">
-                  Ver →
-                </span>
-              </Link>
+                  <span className="text-[0.78rem] font-semibold whitespace-nowrap text-primary">
+                    Ver →
+                  </span>
+                </Link>
+              </li>
             )
           }),
         )}
-      </div>
-    </section>
+      </ul>
+    </SeccionCard>
   )
 }

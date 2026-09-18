@@ -6,7 +6,7 @@ import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 
 /** Cuántos leads se traen por categoría; el resto sale como "+N más". */
-export const LEADS_POR_SECCION = 10
+export const LEADS_POR_SECCION = 5
 
 /**
  * Límites del día en la zona horaria del navegador.
@@ -50,7 +50,7 @@ interface QueryConOr<Self> {
   or(filtro: string): Self
 }
 
-interface QueryDeLeads<Self> extends QueryConOr<Self> {
+export interface QueryDeLeads<Self> extends QueryConOr<Self> {
   is(columna: 'fecha_primer_contacto_real', valor: null): Self
   gte(columna: 'fecha_proximo_seguimiento', valor: string): Self
   lt(columna: 'fecha_proximo_seguimiento', valor: string): Self
@@ -71,7 +71,9 @@ function sinGanados<Q extends QueryConOr<Q>>(query: Q): Q {
 // Los tres predicados que definen las categorías del día.
 //
 // Viven en funciones y no inline porque definen qué leads son "del día" para
-// las tres vistas: las secciones, la barra de progreso y contactados. Copiarlos
+// todas las vistas: las secciones, la barra de progreso, contactados y los
+// filtros `?filtro=prioritarios|seguimientos` del listado de Leads, que es a
+// donde lleva el "Ver todos (N)". Copiarlos
 // haría que "prioritario" signifique dos cosas distintas en la misma pantalla
 // la primera vez que alguien ajuste una copia y se olvide de la otra.
 //
@@ -106,6 +108,25 @@ export function soloSeguimientosDeHoy<Q extends QueryDeLeads<Q>>(
     .lt('fecha_proximo_seguimiento', inicioManana)
 }
 
+/**
+ * Las interacciones de hoy: definen quién ya fue contactado en el día.
+ *
+ * Un lead con una de éstas sale de las secciones de Mi día aunque siga
+ * cumpliendo su predicado —un CALIENTE contactado a la mañana sigue siendo
+ * CALIENTE—. Por eso la comparten las secciones y el listado de Leads: si el
+ * listado no sacara a los mismos, el "Ver todos (N)" mostraría más de N.
+ *
+ * Ordenadas de la más nueva a la más vieja: `ultimaPorLead` depende de eso.
+ */
+export function interaccionesDeHoy(inicioHoy: string, inicioManana: string) {
+  return supabase
+    .from('interacciones')
+    .select('lead_id, tipo, fecha')
+    .gte('fecha', inicioHoy)
+    .lt('fecha', inicioManana)
+    .order('fecha', { ascending: false })
+}
+
 // ---------------------------------------------------------------------------
 // Candidatos del día: la lectura de la que salen las tres pantallas
 // ---------------------------------------------------------------------------
@@ -136,10 +157,10 @@ export interface CandidatosDelDia {
 /**
  * Los leads del día más las interacciones de hoy, en una sola ida.
  *
- * Se piden todas las filas y no las primeras 10: el recorte a
+ * Se piden todas las filas y no las primeras cinco: el recorte a
  * `LEADS_POR_SECCION` lo hace `separarLeadsDelDia` después de sacar a los
- * contactados, porque recortar antes dejaría secciones cortas —diez traídos,
- * tres ya contactados, siete mostrados— y el total del "Ver todos" mentiría.
+ * contactados, porque recortar antes dejaría secciones cortas —cinco traídos,
+ * tres ya contactados, dos mostrados— y el total del "Ver todos" mentiría.
  *
  * Las interacciones se piden sin acotar por lead: son las de hoy de toda la
  * inmobiliaria, un puñado de filas, y así entra en el mismo `Promise.all` en
@@ -166,12 +187,7 @@ export async function obtenerCandidatosDelDia(): Promise<CandidatosDelDia> {
       inicioManana,
     ).order('fecha_proximo_seguimiento', { ascending: true }),
 
-    supabase
-      .from('interacciones')
-      .select('lead_id, tipo, fecha')
-      .gte('fecha', inicioHoy)
-      .lt('fecha', inicioManana)
-      .order('fecha', { ascending: false }),
+    interaccionesDeHoy(inicioHoy, inicioManana),
   ])
 
   const fallo =
@@ -214,7 +230,7 @@ function horaLocal(iso: string): string {
  *
  * Un lead con una interacción de hoy ya no es trabajo pendiente, así que sale
  * de acá y pasa a la pantalla de contactados. El `total` se cuenta DESPUÉS de
- * ese filtro —es el número del "Ver todos (N)"— y recién ahí se recorta a diez.
+ * ese filtro —es el número del "Ver todos (N)"— y recién ahí se recorta a cinco.
  *
  * Las categorías NO son excluyentes entre sí: un lead CALIENTE sin primer
  * contacto aparece como prioritario y como nuevo. Es a propósito —así estaba

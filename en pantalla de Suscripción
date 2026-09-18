@@ -1,0 +1,41 @@
+warning: in the working copy of 'src/lib/api/suscripcion.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/lib/api/suscripcion.ts b/src/lib/api/suscripcion.ts[m
+[1mindex cbc57a9..c284810 100644[m
+[1m--- a/src/lib/api/suscripcion.ts[m
+[1m+++ b/src/lib/api/suscripcion.ts[m
+[36m@@ -39,12 +39,22 @@[m [mexport const DETALLE_PLAN: Record<Plan, DetallePlan> = {[m
+   SOLO: {[m
+     nombre: 'Solo',[m
+     bajada: 'Para el agente que trabaja por su cuenta.',[m
+[31m-    incluye: ['1 usuario', 'Leads, propiedades y operaciones', 'Agenda y tareas'],[m
+[32m+[m[32m    incluye: [[m
+[32m+[m[32m      '1 usuario',[m
+[32m+[m[32m      'Leads, propiedades y operaciones sin límite',[m
+[32m+[m[32m      'Agenda sincronizada con Google Calendar',[m
+[32m+[m[32m      'Matching automático entre compradores y propiedades',[m
+[32m+[m[32m    ],[m
+   },[m
+   AGENCIA_CHICA: {[m
+     nombre: 'Agencia Chica',[m
+     bajada: 'Para el equipo que recién arranca.',[m
+[31m-    incluye: ['Hasta 5 usuarios', 'Todo lo del plan Solo', 'Estadísticas del equipo'],[m
+[32m+[m[32m    incluye: [[m
+[32m+[m[32m      'Hasta 5 usuarios',[m
+[32m+[m[32m      'Todo lo del plan Solo',[m
+[32m+[m[32m      'Estadísticas de rendimiento por agente',[m
+[32m+[m[32m      'Cada agente con su propia carga de trabajo, ordenada',[m
+[32m+[m[32m    ],[m
+     destacado: true,[m
+   },[m
+   AGENCIA_GRANDE: {[m
+[36m@@ -52,8 +62,9 @@[m [mexport const DETALLE_PLAN: Record<Plan, DetallePlan> = {[m
+     bajada: 'Para la inmobiliaria con varios agentes.',[m
+     incluye: [[m
+       'Usuarios ilimitados',[m
+[31m-      'Todo lo del plan Agencia Chica',[m
+[32m+[m[32m      'Todo lo de Agencia Chica',[m
+       'Soporte prioritario',[m
+[32m+[m[32m      'Pensado para equipos con alto volumen de operaciones',[m
+     ],[m
+   },[m
+ }[m

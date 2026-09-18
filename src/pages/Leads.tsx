@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BuscadorLeads } from '../components/leads/BuscadorLeads'
 import { FiltrosChips, type ValorFiltro } from '../components/leads/FiltrosChips'
+import { FiltroRolChips } from '../components/leads/FiltroRolChips'
 import { IconoMas, IconoTabla } from '../components/leads/Iconos'
 import { LeadsCards } from '../components/leads/LeadsCards'
 import { LeadsTabla } from '../components/leads/LeadsTabla'
@@ -13,6 +14,7 @@ import { LEADS_POR_PAGINA, useLeads, useTotalLeads } from '../hooks/useLeads'
 import {
   useInteraccionesPorLead,
   useOperacionesPorLead,
+  useRolesPorLead,
 } from '../hooks/useOperacionesPorLead'
 import {
   eliminarLead,
@@ -21,6 +23,7 @@ import {
   type FiltroEstado,
   type Lead,
 } from '../lib/api/leads'
+import { FILTROS_ROL, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { leerPagina } from '../lib/parametrosDeUrl'
@@ -56,6 +59,7 @@ export default function Leads() {
   const [searchParams, setSearchParams] = useSearchParams()
   const filtroEstado = FILTROS_VALIDOS.find((f) => f === searchParams.get('estado'))
   const filtroDelDia = FILTROS_DEL_DIA.find((f) => f === searchParams.get('filtro'))
+  const filtroRol = FILTROS_ROL.find((f) => f === searchParams.get('rol'))
   const busqueda = searchParams.get('q') ?? ''
   const page = leerPagina(searchParams.get('page'))
 
@@ -68,14 +72,21 @@ export default function Leads() {
 
   const queryClient = useQueryClient()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
-  const { data, isPending, isError, error } = useLeads(filtroEstado, busqueda, page, filtroDelDia)
-  const { data: total } = useTotalLeads(busqueda)
+  const { data, isPending, isError, error } = useLeads(
+    filtroEstado,
+    busqueda,
+    page,
+    filtroDelDia,
+    filtroRol,
+  )
+  const { data: total } = useTotalLeads(busqueda, filtroRol)
 
   const leads = useMemo(() => data?.data ?? [], [data])
   const leadIds = useMemo(() => leads.map((l) => l.id), [leads])
 
   const operaciones = useOperacionesPorLead(leadIds)
   const interacciones = useInteraccionesPorLead(leadIds)
+  const roles = useRolesPorLead(leadIds)
 
   const borrado = useMutation({
     mutationFn: (id: string) => eliminarLead(id),
@@ -107,6 +118,7 @@ export default function Leads() {
       const paraExportar = await listarLeadsParaExportar({
         estado: filtroEstado,
         delDia: filtroDelDia,
+        rol: filtroRol,
         busqueda,
       })
 
@@ -184,6 +196,24 @@ export default function Leads() {
     escribirFiltros(valor, busqueda, 1, true)
   }
 
+  /**
+   * El rol es un eje aparte: se suma a la temperatura, a la búsqueda y al
+   * corte de Mi día en vez de reemplazarlos. Sólo vuelve a la página 1, por lo
+   * mismo que `escribirFiltros`.
+   */
+  function cambiarRol(valor: FiltroRol | undefined) {
+    setSearchParams(
+      (previos) => {
+        const proximos = new URLSearchParams(previos)
+        if (valor) proximos.set('rol', valor)
+        else proximos.delete('rol')
+        proximos.delete('page')
+        return proximos
+      },
+      { replace: true },
+    )
+  }
+
   function cambiarBusqueda(valor: string) {
     escribirFiltros(filtroEstado, valor, 1)
   }
@@ -205,6 +235,7 @@ export default function Leads() {
           <span className="text-ink">
             {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
             {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
+            {filtroRol && ` · ${filtroRol}`}
           </span>
         </div>
 
@@ -241,12 +272,15 @@ export default function Leads() {
         </p>
       )}
 
-      <div className="mb-5">
-        <FiltrosChips
-          valor={filtroDelDia ?? filtroEstado}
-          onCambiar={cambiarFiltro}
-          total={total}
-        />
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <FiltrosChips
+            valor={filtroDelDia ?? filtroEstado}
+            onCambiar={cambiarFiltro}
+            total={total}
+          />
+        </div>
+        <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
       </div>
 
       {isPending ? (
@@ -274,6 +308,7 @@ export default function Leads() {
             <LeadsTabla
               leads={leads}
               ultimaInteraccion={(id) => interacciones(id).ultimoDetalle}
+              rol={roles}
               onRegistrar={setLeadARegistrar}
               onEliminar={setLeadAEliminar}
             />
@@ -284,6 +319,7 @@ export default function Leads() {
               leads={leads}
               operaciones={operaciones}
               interacciones={interacciones}
+              rol={roles}
               onRegistrar={setLeadARegistrar}
               onEliminar={setLeadAEliminar}
             />

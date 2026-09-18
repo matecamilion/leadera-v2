@@ -17,6 +17,14 @@ import {
   soloSeguimientosDeHoy,
   type QueryDeLeads,
 } from './dashboard'
+import {
+  aplicarFiltroRol,
+  embebidosDeRol,
+  resolverCorteDeRol,
+  type CorteDeRol,
+  type FiltroRol,
+  type QueryConRol,
+} from './rolLead'
 
 export type Lead = Database['public']['Tables']['leads']['Row']
 export type EstadoLead = Database['public']['Enums']['estado_lead']
@@ -35,6 +43,8 @@ export type FiltroDelDia = 'prioritarios' | 'seguimientos'
 export interface ListarLeadsParams {
   estado?: FiltroEstado
   delDia?: FiltroDelDia
+  /** Comprador / vendedor. Se combina con el resto (AND), no los pisa. */
+  rol?: FiltroRol
   busqueda?: string
   /** 1-indexado. */
   page: number
@@ -53,7 +63,7 @@ export interface ListarLeadsResult {
  * —que cambia entre versiones— pedimos estructuralmente los tres métodos que
  * usamos, encadenables sobre sí mismos.
  */
-interface QueryFiltrable<Self> extends QueryDeLeads<Self> {
+interface QueryFiltrable<Self> extends QueryDeLeads<Self>, QueryConRol<Self> {
   eq(columna: 'estado', valor: EstadoLead): Self
   not(columna: 'id', operador: 'in', valor: string): Self
 }
@@ -92,8 +102,9 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
   estado: FiltroEstado | undefined,
   busqueda: string | undefined,
   delDia?: CorteDelDia,
+  rol?: CorteDeRol,
 ): Q {
-  let q = query
+  let q = aplicarFiltroRol(query, rol)
 
   if (delDia) {
     // Los mismos predicados que las secciones de Mi día, no una copia: si
@@ -134,6 +145,17 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
 }
 
 /**
+ * El `select` de leads con las relaciones que pida el filtro de rol.
+ *
+ * El `as` le miente a TypeScript a propósito: con un embebido el tipo de fila
+ * dejaría de ser `Lead`, pero esas relaciones viajan sólo para que PostgREST
+ * pueda filtrar (ver `embebidosDeRol`) y nadie las lee.
+ */
+function columnasConRol<C extends string>(columnas: C, rol: CorteDeRol | undefined): C {
+  return `${columnas}${embebidosDeRol(rol)}` as C
+}
+
+/**
  * Listado paginado de leads de la inmobiliaria del usuario.
  *
  * No filtramos por inmobiliaria_id acá: RLS ya lo hace en el server y
@@ -143,6 +165,7 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
 export async function listarLeads({
   estado,
   delDia,
+  rol,
   busqueda,
   page,
   pageSize,
@@ -150,11 +173,17 @@ export async function listarLeads({
   const desde = (page - 1) * pageSize
   const hasta = desde + pageSize - 1
 
+  const [corteDelDia, corteDeRol] = await Promise.all([
+    resolverCorteDelDia(delDia),
+    resolverCorteDeRol(rol),
+  ])
+
   let query = aplicarFiltros(
-    supabase.from('leads').select('*', { count: 'exact' }),
+    supabase.from('leads').select(columnasConRol('*', corteDeRol), { count: 'exact' }),
     estado,
     busqueda,
-    await resolverCorteDelDia(delDia),
+    corteDelDia,
+    corteDeRol,
   )
 
   query = query
@@ -176,12 +205,20 @@ export async function listarLeads({
   return { data: data ?? [], count: count ?? 0 }
 }
 
-/** Total sin filtro de estado — alimenta el contador del chip "Todos". */
-export async function contarLeads(busqueda?: string): Promise<number> {
+/**
+ * Total sin filtro de estado — alimenta el contador del chip "Todos".
+ *
+ * Respeta el rol igual que respeta la búsqueda: con "Compradores" elegido,
+ * "Todos (N)" son todos los compradores, cualquiera sea su temperatura.
+ */
+export async function contarLeads(busqueda?: string, rol?: FiltroRol): Promise<number> {
+  const corteDeRol = await resolverCorteDeRol(rol)
   const query = aplicarFiltros(
-    supabase.from('leads').select('id', { count: 'exact', head: true }),
+    supabase.from('leads').select(columnasConRol('id', corteDeRol), { count: 'exact', head: true }),
     undefined,
     busqueda,
+    undefined,
+    corteDeRol,
   )
 
   const { count, error } = await query
@@ -396,6 +433,27 @@ export async function actualizarContacto(
   return data
 }
 
+/** Mismo tope que el textarea del alta. */
+export const MAX_DESCRIPCION_LEAD = 500
+
+/**
+ * Sobreescribe la descripción inicial ("Sobre el lead"). Sin historial: se
+ * pisa igual que el contacto. Vacío la borra —vuelve a null, que es lo que
+ * deja el alta cuando no se carga nada—.
+ */
+export async function actualizarDescripcion(id: string, descripcion: string): Promise<Lead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .update({ descripcion_inicial: descripcion.trim() || null })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo guardar la descripción.'))
+  if (!data) throw new Error('No tenés permiso para editar este lead.')
+  return data
+}
+
 /** `null` devuelve el lead al estado "nuevo". */
 export async function actualizarEstado(
   id: string,
@@ -542,6 +600,7 @@ const TAMANO_LOTE = 1000
 export interface ExportarLeadsParams {
   estado?: FiltroEstado
   delDia?: FiltroDelDia
+  rol?: FiltroRol
   busqueda?: string
 }
 
@@ -560,18 +619,23 @@ export interface ExportarLeadsParams {
 export async function listarLeadsParaExportar({
   estado,
   delDia,
+  rol,
   busqueda,
 }: ExportarLeadsParams): Promise<LeadExportable[]> {
   const todos: LeadExportable[] = []
   // Una vez y no por lote: todos los lotes tienen que excluir a los mismos.
-  const corte = await resolverCorteDelDia(delDia)
+  const [corte, corteDeRol] = await Promise.all([
+    resolverCorteDelDia(delDia),
+    resolverCorteDeRol(rol),
+  ])
 
   for (let desde = 0; ; desde += TAMANO_LOTE) {
     const query = aplicarFiltros(
-      supabase.from('leads').select(COLUMNAS_EXPORT),
+      supabase.from('leads').select(columnasConRol(COLUMNAS_EXPORT, corteDeRol)),
       estado,
       busqueda,
       corte,
+      corteDeRol,
     )
       .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
       .order('fecha_primer_contacto_real', { ascending: true, nullsFirst: true })

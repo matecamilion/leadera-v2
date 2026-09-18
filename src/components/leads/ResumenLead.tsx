@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   IconoAlerta,
@@ -20,7 +20,7 @@ import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { BadgeEstadoPropiedad } from '../propiedades/BadgeEstadoPropiedad'
 import { useAuth } from '../../contexts/AuthContext'
 import { useInteraccionesPorLead } from '../../hooks/useInteracciones'
-import { useNombreAgente } from '../../hooks/useLead'
+import { useActualizarDescripcion, useNombreAgente } from '../../hooks/useLead'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
 import { useBusquedasDeLead } from '../../hooks/useOperaciones'
 import { usePropiedadesPorLead } from '../../hooks/usePropiedades'
@@ -33,7 +33,7 @@ import {
 import { useVisitasDeLead } from '../../hooks/useVisitas'
 import { esMomentoPasado } from '../../lib/calendario'
 import { formatearFecha } from '../../lib/formatoFecha'
-import { etiquetaOrigen } from '../../lib/api/leads'
+import { etiquetaOrigen, MAX_DESCRIPCION_LEAD } from '../../lib/api/leads'
 import { etiquetaTipoInteraccion } from '../../lib/api/interacciones'
 import {
   etiquetaTipoOperacion,
@@ -232,14 +232,7 @@ function ColumnaIdentidad({
         </button>
       </section>
 
-      {lead.descripcion_inicial?.trim() && (
-        <section className="border-t border-border p-5">
-          <Titulo>Sobre el lead</Titulo>
-          <p className="m-0 text-[0.9rem] leading-relaxed whitespace-pre-wrap text-ink-2">
-            {lead.descripcion_inicial}
-          </p>
-        </section>
-      )}
+      <SeccionSobreLead lead={lead} />
 
       {mostrarBusquedas && (
         <section className="border-t border-border p-5">
@@ -635,6 +628,107 @@ function FilaOperacion({ operacion }: { operacion: OperacionConVinculos }) {
         </span>
       </Link>
     </li>
+  )
+}
+
+/**
+ * "Sobre el lead": la descripción inicial, editable en el lugar.
+ *
+ * Inline y no en `ModalEditarContacto`: ese modal es el contacto (nombre,
+ * teléfono, email) y un texto libre de hasta 500 caracteres lo estiraba
+ * para algo que no tiene nada que ver. Acá se edita donde se lee.
+ *
+ * Antes la sección desaparecía si el campo estaba vacío, y con eso no había
+ * forma de cargarla después del alta. Ahora queda siempre, con un "Agregar"
+ * cuando no hay nada. Se sobreescribe sin historial, igual que el contacto.
+ */
+function SeccionSobreLead({ lead }: { lead: Lead }) {
+  const guardar = useActualizarDescripcion(lead.id)
+  const [editando, setEditando] = useState(false)
+  const [borrador, setBorrador] = useState('')
+  const actual = lead.descripcion_inicial?.trim() ?? ''
+
+  function abrir() {
+    setBorrador(lead.descripcion_inicial ?? '')
+    guardar.reset()
+    setEditando(true)
+  }
+
+  function manejarSubmit(e: FormEvent) {
+    e.preventDefault()
+    guardar.mutate(borrador, { onSuccess: () => setEditando(false) })
+  }
+
+  return (
+    <section className="border-t border-border p-5">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <Titulo sinMargen>Sobre el lead</Titulo>
+        {!editando && (
+          <button
+            type="button"
+            onClick={abrir}
+            aria-label={actual ? 'Editar la descripción del lead' : 'Agregar una descripción del lead'}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.78rem] font-semibold text-ink-3 transition-colors hover:bg-background hover:text-ink motion-reduce:transition-none"
+          >
+            <IconoLapiz className="size-3.5" />
+            {actual ? 'Editar' : 'Agregar'}
+          </button>
+        )}
+      </div>
+
+      {editando ? (
+        <form onSubmit={manejarSubmit} noValidate>
+          <textarea
+            value={borrador}
+            onChange={(e) => setBorrador(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && !guardar.isPending) setEditando(false)
+            }}
+            rows={4}
+            maxLength={MAX_DESCRIPCION_LEAD}
+            autoFocus
+            aria-label="Descripción del lead"
+            placeholder="Ej: Vino referido por Juan. Busca depto de 2 ambientes en zona céntrica."
+            className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-[0.9rem] leading-relaxed text-ink transition-colors focus:border-primary focus:outline-none motion-reduce:transition-none"
+          />
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="text-[0.75rem] text-ink-4">
+              {borrador.length}/{MAX_DESCRIPCION_LEAD}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setEditando(false)}
+                disabled={guardar.isPending}
+                className="rounded-lg border border-border bg-transparent px-3 py-1.5 text-[0.82rem] font-semibold text-ink-2 transition-colors hover:bg-background disabled:opacity-60 motion-reduce:transition-none"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={guardar.isPending}
+                className="rounded-lg border-none bg-primary px-3 py-1.5 text-[0.82rem] font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+              >
+                {guardar.isPending ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+          {guardar.isError && (
+            <p role="alert" className="mt-2 mb-0 text-[0.82rem] text-peligro-ink">
+              {guardar.error instanceof Error
+                ? guardar.error.message
+                : 'No se pudo guardar la descripción.'}
+            </p>
+          )}
+        </form>
+      ) : actual ? (
+        <p className="m-0 text-[0.9rem] leading-relaxed whitespace-pre-wrap text-ink-2">
+          {lead.descripcion_inicial}
+        </p>
+      ) : (
+        <p className="m-0 text-[0.85rem] text-ink-3 italic">Sin descripción cargada.</p>
+      )}
+    </section>
   )
 }
 

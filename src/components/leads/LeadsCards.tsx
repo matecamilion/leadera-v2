@@ -2,13 +2,16 @@ import { Link } from 'react-router-dom'
 import type { Lead, ResumenOperaciones } from '../../lib/api/leads'
 import { tiempoTranscurrido } from '../../lib/formatoFecha'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
+import type { RolLead } from '../../lib/api/rolLead'
 import { BadgeEstado } from './BadgeEstado'
+import { BadgeRol } from './BadgeRol'
 import { IconoChat, IconoMail, IconoReloj, IconoTacho, IconoTelefono } from './Iconos'
 
 interface LeadsCardsProps {
   leads: Lead[]
   operaciones: (leadId: string) => ResumenOperaciones
   interacciones: (leadId: string) => { cantidad: number; ultimoDetalle: string | null }
+  rol: (leadId: string) => RolLead | null
   /** Abre el alta de interacción. El modal lo monta la página. */
   onRegistrar: (lead: Lead) => void
   onEliminar: (lead: Lead) => void
@@ -19,6 +22,7 @@ export function LeadsCards({
   leads,
   operaciones,
   interacciones,
+  rol,
   onRegistrar,
   onEliminar,
 }: LeadsCardsProps) {
@@ -47,6 +51,7 @@ export function LeadsCards({
                   {lead.nombre} {lead.apellido ?? ''}
                 </h2>
                 <BadgeEstado estado={lead.estado} />
+                <BadgeRol rol={rol(lead.id)} />
 
                 <button
                   type="button"

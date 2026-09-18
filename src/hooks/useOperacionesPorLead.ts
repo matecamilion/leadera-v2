@@ -5,6 +5,7 @@ import {
   type ResumenInteracciones,
   type ResumenOperaciones,
 } from '../lib/api/leads'
+import { clasificarLeads, type RolLead } from '../lib/api/rolLead'
 
 const VACIO_OPERACIONES: ResumenOperaciones = { compra: 0, venta: 0 }
 const VACIO_INTERACCIONES: ResumenInteracciones = { cantidad: 0, ultimoDetalle: null }
@@ -55,4 +56,24 @@ export function useInteraccionesPorLead(leadIds: string[]) {
 
   return (leadId: string): ResumenInteracciones =>
     data?.get(leadId) ?? VACIO_INTERACCIONES
+}
+
+/**
+ * Comprador / vendedor de los leads ya cargados. `null` = sin señal todavía.
+ *
+ * Cuelga de `operaciones-por-lead` a propósito: el rol sale en buena parte de
+ * las operaciones, y así lo refresca la misma invalidación que ya disparan
+ * sus altas y ediciones. Lo que cambia por propiedades o búsquedas se ve al
+ * volver a montar la pantalla, porque la query no tiene `staleTime`.
+ */
+export function useRolesPorLead(leadIds: string[]) {
+  const clave = leadIds.join(',')
+
+  const { data } = useQuery({
+    queryKey: ['operaciones-por-lead', 'rol', clave],
+    queryFn: () => clasificarLeads(leadIds),
+    enabled: leadIds.length > 0,
+  })
+
+  return (leadId: string): RolLead | null => data?.get(leadId) ?? null
 }

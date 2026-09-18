@@ -6,6 +6,7 @@ import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../comunes/estilosForm
 import { FormularioBusqueda } from './FormularioBusqueda'
 import { useBusquedasDeLead } from '../../hooks/useOperaciones'
 import { useCriteriosBusqueda } from '../../hooks/useBusqueda'
+import { usePropietarioSugerido } from '../../hooks/usePropietarioSugerido'
 import { etiquetaTipo } from '../../lib/api/propiedades'
 import {
   cantidadInvalida,
@@ -20,6 +21,7 @@ import {
   type CriteriosBusqueda,
 } from '../../lib/api/busquedas'
 import {
+  etiquetaLeadDeOperacion,
   llevaCriteriosDeBusqueda,
   TIPOS_OPERACION,
   type CamposEditablesOperacion,
@@ -103,6 +105,10 @@ export function ModalEditarOperacion({
   const { data: criteriosGuardados } = useCriteriosBusqueda(
     llevaCriterios ? busquedaId : null,
   )
+  // Ver el hook: sólo completa un campo vacío, así que abrir una operación ya
+  // guardada no le cambia el lead.
+  usePropietarioSugerido({ tipo, propiedadId, leadId, setLeadId })
+
   /** Qué búsqueda refleja el borrador actual. `null` = formulario vacío. */
   const [busquedaEnBorrador, setBusquedaEnBorrador] = useState<string | null>(null)
 
@@ -238,7 +244,7 @@ export function ModalEditarOperacion({
             {errorTitulo && <ErrorCampo>{errorTitulo}</ErrorCampo>}
           </Campo>
 
-          <Campo label="Lead (opcional)" full>
+          <Campo label={`${etiquetaLeadDeOperacion(tipo)} (opcional)`} full>
             <ComboboxLead value={leadId} onChange={setLeadId} />
           </Campo>
 

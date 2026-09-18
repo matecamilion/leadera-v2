@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AvatarLead } from '../components/leads/AvatarLead'
 import { BadgeEstado } from '../components/leads/BadgeEstado'
+import { BadgeRol } from '../components/leads/BadgeRol'
 import { IconoCerrar, IconoLapiz, IconoTacho } from '../components/leads/Iconos'
 import { ModalCambiarEstado } from '../components/leads/ModalCambiarEstado'
 import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
@@ -10,6 +11,7 @@ import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { TooltipAyuda } from '../components/comunes/TooltipAyuda'
 import { useEquipo } from '../hooks/useEquipo'
+import { useRolesPorLead } from '../hooks/useOperacionesPorLead'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
 import {
   useActualizarContacto,
@@ -38,6 +40,11 @@ export default function DetalleLead() {
   const rol = profile?.rol
   const esAgente = rol === 'AGENTE'
   const equipo = useEquipo(esAgente ? rol : undefined, esAgente ? profile?.id : undefined)
+
+  // El mismo cálculo que el listado, para un solo lead. Antes de los returns
+  // tempranos: es un hook.
+  const rolDe = useRolesPorLead(id ? [id] : [])
+  const rolLead = rolDe(id)
 
   const cambioEstado = useActualizarEstado(id)
   const cambioContacto = useActualizarContacto(id)
@@ -116,6 +123,18 @@ export default function DetalleLead() {
               ya cerró, Inactivo dejó de responder, y Nuevo es el que todavía
               nadie clasificó. Lo actualizás vos a mano: no se recalcula solo.
             </TooltipAyuda>
+
+            {rolLead && (
+              <>
+                <BadgeRol rol={rolLead} />
+                <TooltipAyuda etiqueta="el rol del lead">
+                  Se calcula solo, no hace falta cargarlo. Es vendedor si es
+                  propietario de alguna propiedad o si alquila una. Es comprador
+                  si tiene una búsqueda cargada o si compra en una venta de otro
+                  propietario.
+                </TooltipAyuda>
+              </>
+            )}
           </div>
         </div>
 

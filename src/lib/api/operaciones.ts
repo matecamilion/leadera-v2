@@ -114,6 +114,25 @@ export function seVinculaConBusqueda(tipo: TipoOperacion): boolean {
   return tipo === 'COMPRA' || tipo === 'BUSQUEDA_ALQUILER'
 }
 
+/**
+ * Cómo se llama el lead de la operación según el tipo.
+ *
+ * El campo decía "Lead" a secas en los cuatro tipos, y en una VENTA no había
+ * forma de saber si iba el propietario o el comprador: se cargaba cualquiera
+ * de los dos. Nombrar el lado es lo que hace que el dato signifique algo (y
+ * de eso depende el rol comprador / vendedor, ver rolLead.ts).
+ */
+const ETIQUETA_LEAD: Record<TipoOperacion, string> = {
+  COMPRA: 'Comprador',
+  VENTA: 'Propietario (vendedor)',
+  ALQUILER: 'Propietario que alquila',
+  BUSQUEDA_ALQUILER: 'Inquilino que busca',
+}
+
+export function etiquetaLeadDeOperacion(tipo: TipoOperacion): string {
+  return ETIQUETA_LEAD[tipo]
+}
+
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
 export function formatearMonto(monto: number | null, moneda: string): string {

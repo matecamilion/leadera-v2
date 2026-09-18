@@ -9,6 +9,7 @@ import { FormularioBusqueda } from '../components/operaciones/FormularioBusqueda
 import { IconoCajas } from '../components/leads/Iconos'
 import { useBusquedasDeLead, useCrearOperacion } from '../hooks/useOperaciones'
 import { useCriteriosBusqueda, useGuardarBusqueda } from '../hooks/useBusqueda'
+import { usePropietarioSugerido } from '../hooks/usePropietarioSugerido'
 import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 import {
@@ -19,6 +20,7 @@ import {
   TOPE_PRECIO,
 } from '../lib/validaciones'
 import {
+  etiquetaLeadDeOperacion,
   llevaCriteriosDeBusqueda,
   TIPOS_OPERACION,
   type TipoOperacion,
@@ -72,6 +74,7 @@ export default function NuevaOperacion() {
     vinculaBusqueda ? leadId : null,
   )
   const guardarCriterios = useGuardarBusqueda()
+  usePropietarioSugerido({ tipo, propiedadId, leadId, setLeadId })
 
   // Si elige una búsqueda que ya existe, el formulario se precarga con sus
   // criterios: guardar la actualiza en vez de crear una nueva, y sin precargar
@@ -225,9 +228,13 @@ export default function NuevaOperacion() {
           </Campo>
 
           <Campo
-            label="Lead (opcional)"
+            label={`${etiquetaLeadDeOperacion(tipo)} (opcional)`}
             full
-            ayuda="Buscá un lead existente o creá uno nuevo sin salir de acá."
+            ayuda={
+              vinculaBusqueda
+                ? 'Buscá un lead existente o creá uno nuevo sin salir de acá.'
+                : 'Si la propiedad tiene propietario cargado, se completa solo. Podés cambiarlo.'
+            }
           >
             <ComboboxLead value={leadId} onChange={setLeadId} />
           </Campo>

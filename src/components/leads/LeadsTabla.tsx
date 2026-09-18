@@ -2,13 +2,17 @@ import { Link } from 'react-router-dom'
 import { etiquetaOrigen, type Lead } from '../../lib/api/leads'
 import { esVencido, formatearFecha, tiempoTranscurrido } from '../../lib/formatoFecha'
 import { AccionesContacto } from '../comunes/AccionesContacto'
+import type { RolLead } from '../../lib/api/rolLead'
 import { BadgeEstado } from './BadgeEstado'
+import { BadgeRol } from './BadgeRol'
 import { IconoTacho } from './Iconos'
 
 interface LeadsTablaProps {
   leads: Lead[]
   /** Detalle de la última interacción del lead, o null. */
   ultimaInteraccion: (leadId: string) => string | null
+  /** Comprador / vendedor inferido, o null sin señal. */
+  rol: (leadId: string) => RolLead | null
   /** Abre el alta de interacción. El modal lo monta la página. */
   onRegistrar: (lead: Lead) => void
   onEliminar: (lead: Lead) => void
@@ -27,6 +31,7 @@ const COLUMNAS = [
 export function LeadsTabla({
   leads,
   ultimaInteraccion,
+  rol,
   onRegistrar,
   onEliminar,
 }: LeadsTablaProps) {
@@ -84,8 +89,13 @@ export function LeadsTabla({
                 className="border-b border-border transition-colors last:border-b-0 hover:bg-background motion-reduce:transition-none"
               >
                 <td className="px-3.5 py-4 align-middle">
-                  <span className="block truncate font-bold text-ink">
-                    {lead.nombre} {lead.apellido ?? ''}
+                  {/* El nombre trunca y el badge no: si no entra, se achica
+                      el nombre, nunca el rol. */}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-bold text-ink">
+                      {lead.nombre} {lead.apellido ?? ''}
+                    </span>
+                    <BadgeRol rol={rol(lead.id)} />
                   </span>
                   <span className="mt-0.5 block truncate text-[0.78rem] text-ink-3">
                     {ultimaInteraccion(lead.id) ?? 'Sin interacciones registradas'}

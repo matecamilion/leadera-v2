@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   actualizarContacto,
+  actualizarDescripcion,
   actualizarEstado,
   crearLead,
   eliminarLead,
@@ -55,6 +56,19 @@ export function useActualizarContacto(id: string) {
     onSuccess: (lead) => {
       // El update ya devolvió la fila: la dejamos en cache para que la ficha
       // se actualice sin esperar al refetch.
+      queryClient.setQueryData(claveLead(id), lead)
+      invalidar(id)
+    },
+  })
+}
+
+export function useActualizarDescripcion(id: string) {
+  const queryClient = useQueryClient()
+  const invalidar = useInvalidarLead()
+
+  return useMutation({
+    mutationFn: (descripcion: string) => actualizarDescripcion(id, descripcion),
+    onSuccess: (lead) => {
       queryClient.setQueryData(claveLead(id), lead)
       invalidar(id)
     },

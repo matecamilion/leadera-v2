@@ -39,12 +39,22 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
   SOLO: {
     nombre: 'Solo',
     bajada: 'Para el agente que trabaja por su cuenta.',
-    incluye: ['1 usuario', 'Leads, propiedades y operaciones', 'Agenda y tareas'],
+    incluye: [
+      '1 usuario',
+      'Leads, propiedades y operaciones sin límite',
+      'Agenda sincronizada con Google Calendar',
+      'Matching automático entre compradores y propiedades',
+    ],
   },
   AGENCIA_CHICA: {
     nombre: 'Agencia Chica',
     bajada: 'Para el equipo que recién arranca.',
-    incluye: ['Hasta 5 usuarios', 'Todo lo del plan Solo', 'Estadísticas del equipo'],
+    incluye: [
+      'Hasta 5 usuarios',
+      'Todo lo del plan Solo',
+      'Estadísticas de rendimiento por agente',
+      'Cada agente con su propia carga de trabajo, ordenada',
+    ],
     destacado: true,
   },
   AGENCIA_GRANDE: {
@@ -52,8 +62,9 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para la inmobiliaria con varios agentes.',
     incluye: [
       'Usuarios ilimitados',
-      'Todo lo del plan Agencia Chica',
+      'Todo lo de Agencia Chica',
       'Soporte prioritario',
+      'Pensado para equipos con alto volumen de operaciones',
     ],
   },
 }

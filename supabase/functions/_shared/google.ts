@@ -20,6 +20,21 @@ export const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
 export const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
 /**
+ * Marca que llevan los eventos que LeadEra crea en Google.
+ *
+ * Va en `extendedProperties.private`, que sólo ve la app que la escribió: no
+ * aparece en la UI de Google ni la ven los invitados. Es lo que le permite a
+ * la importación (google-calendar-import) reconocer sus propios eventos al
+ * leerlos, sin depender de encontrar el `google_event_id` en la base — que
+ * falla en la ventana entre crear el evento y guardar su id, o si ese
+ * guardado falla.
+ *
+ * Una sola definición para las dos funciones: si el push escribiera una clave
+ * y la importación leyera otra, LeadEra re-importaría sus propios eventos.
+ */
+export const MARCA_ORIGEN = { clave: 'origen', valor: 'leadera' } as const
+
+/**
  * A dónde vuelve Google después del consentimiento.
  *
  * Se deriva de SUPABASE_URL y no de un secret propio: tiene que coincidir

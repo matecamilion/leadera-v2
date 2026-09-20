@@ -22,7 +22,7 @@
 import { preflight } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/http.ts'
 import { adminClient, bearerToken } from '../_shared/supabase.ts'
-import { GOOGLE_TOKEN_URL } from '../_shared/google.ts'
+import { GOOGLE_TOKEN_URL, MARCA_ORIGEN } from '../_shared/google.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars'
@@ -77,6 +77,8 @@ interface EventoGoogle {
   description?: string | null
   start: Momento
   end: Momento
+  /** La marca de origen, ver `MARCA_ORIGEN`. */
+  extendedProperties: { private: Record<string, string> }
 }
 
 /** Google distingue evento de día completo (`date`) de evento con hora (`dateTime`). */
@@ -420,6 +422,13 @@ async function leerRegistro(
 /**
  * Registro a evento de Google.
  *
+ * La marca de origen va en el mismo cuerpo que se manda al crear, no en un
+ * PATCH posterior: así no existe ningún momento en que el evento esté en
+ * Google sin marcar. Va también en cada edición aunque un PATCH de Google no
+ * borra `extendedProperties` si se omite —las claves no mandadas se
+ * conservan—: reenviarla es gratis y, de paso, marca los eventos creados antes
+ * de que existiera la marca la próxima vez que se editan.
+ *
  * Una visita cancelada se edita a "(Cancelada)" en vez de borrarse: el agente
  * probablemente ya tiene ese bloque horario en la cabeza o se lo mostró a
  * alguien, y que el evento desaparezca sin dejar rastro es peor que verlo caído.
@@ -433,6 +442,7 @@ function armarEvento(registro: Registro): EventoGoogle {
     summary,
     description: registro.descripcion,
     ...momentos(registro.fecha, registro.hora),
+    extendedProperties: { private: { [MARCA_ORIGEN.clave]: MARCA_ORIGEN.valor } },
   }
 }
 

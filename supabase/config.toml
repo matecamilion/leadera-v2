@@ -477,3 +477,10 @@ verify_jwt = true
 [functions.google-calendar-desconectar]
 enabled = true
 verify_jwt = true
+
+# google-calendar-import la dispara el cron (Fase 2: Google -> LeadEra) con la
+# service role key. verify_jwt frena a los anónimos; adentro además se exige
+# rol service_role, porque recorre las cuentas de todos los agentes.
+[functions.google-calendar-import]
+enabled = true
+verify_jwt = true

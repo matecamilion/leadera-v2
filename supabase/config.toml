@@ -484,3 +484,23 @@ verify_jwt = true
 [functions.google-calendar-import]
 enabled = true
 verify_jwt = true
+
+# calcular-reporte-semanal devuelve los números del reporte de un agente, sin
+# mandar nada. La llama el equipo a mano para revisar; adentro exige rol
+# service_role porque recibe el agente por parámetro.
+[functions.calcular-reporte-semanal]
+enabled = true
+verify_jwt = true
+
+# enviar-reportes-semanales la dispara el cron de los lunes con la service role
+# key. Recorre a todos los agentes que activaron el reporte.
+[functions.enviar-reportes-semanales]
+enabled = true
+verify_jwt = true
+
+# reporte-semanal-baja es el "Darme de baja" del pie del mail: se abre desde el
+# teléfono, casi siempre sin sesión. verify_jwt = false a propósito — la
+# autorización la da el token firmado del link, no un JWT de Supabase.
+[functions.reporte-semanal-baja]
+enabled = true
+verify_jwt = false

@@ -9,7 +9,12 @@ import {
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
 import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
+import { ModalActivarReporteSemanal } from '../components/reporte/ModalActivarReporteSemanal'
 import { ModalDesconectarGoogle } from '../components/perfil/ModalDesconectarGoogle'
+import {
+  useCambiarReporteSemanal,
+  useReporteSemanal,
+} from '../hooks/useReporteSemanal'
 import {
   actualizarDatosCuenta,
   cambiarPassword,
@@ -75,9 +80,99 @@ export default function Perfil() {
 
         <GoogleCalendar />
 
+        <ReporteSemanal />
+
         <CambiarPassword />
       </div>
     </div>
+  )
+}
+
+/**
+ * El opt-in del reporte semanal por email.
+ *
+ * Mismo patrón que el toggle de importación de Google Calendar: prender pasa
+ * por un modal, apagar es directo, y el switch pinta lo que dice la base en vez
+ * de un estado local que se pueda desincronizar.
+ *
+ * La sugerencia que invita a activarlo vive en Mi día (`AvisoReporteSemanal`);
+ * acá está el control permanente, que es donde alguien lo va a buscar para
+ * apagarlo.
+ */
+function ReporteSemanal() {
+  const { data: activo, isPending } = useReporteSemanal()
+  const cambiar = useCambiarReporteSemanal()
+  const [confirmando, setConfirmando] = useState(false)
+
+  const encendido = activo === true
+
+  function alternar() {
+    if (!encendido) {
+      cambiar.reset()
+      setConfirmando(true)
+      return
+    }
+    cambiar.mutate(false)
+  }
+
+  return (
+    <Tarjeta
+      titulo="Reporte semanal"
+      descripcion="Un resumen de tu actividad por email, todos los lunes a la mañana."
+    >
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0 max-w-[32rem]">
+          <p className="m-0 text-[0.9rem] font-semibold text-ink">
+            Recibir el reporte semanal
+          </p>
+          <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-3">
+            Te llega a tu email todos los lunes a las 9 de la mañana. Podés
+            desactivarlo cuando quieras.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={encendido}
+          aria-label="Recibir el reporte semanal"
+          onClick={alternar}
+          disabled={cambiar.isPending || isPending}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+            encendido ? 'bg-primary' : 'bg-ink-4'
+          }`}
+        >
+          <span
+            aria-hidden
+            className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none ${
+              encendido ? 'translate-x-[22px]' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* El error de apagar se muestra acá; el de prender vive dentro del
+          modal, que es donde el agente está mirando. */}
+      {cambiar.isError && !confirmando && (
+        <p className="mt-3">
+          <Aviso estado={{ tipo: 'error', mensaje: cambiar.error.message }} />
+        </p>
+      )}
+
+      {confirmando && (
+        <ModalActivarReporteSemanal
+          activando={cambiar.isPending}
+          error={cambiar.isError ? cambiar.error.message : null}
+          onConfirmar={() =>
+            cambiar.mutate(true, { onSuccess: () => setConfirmando(false) })
+          }
+          onCancelar={() => {
+            cambiar.reset()
+            setConfirmando(false)
+          }}
+        />
+      )}
+    </Tarjeta>
   )
 }
 

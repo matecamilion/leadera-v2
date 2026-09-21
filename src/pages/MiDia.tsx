@@ -7,6 +7,7 @@ import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacione
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
 import { ResumenTareasHoy } from '../components/dashboard/ResumenTareasHoy'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
+import { AvisoReporteSemanal } from '../components/reporte/AvisoReporteSemanal'
 import {
   IconoAlerta,
   IconoCasa,
@@ -120,6 +121,11 @@ export default function MiDia() {
           Ver contactados hoy →
         </Link>
       </header>
+
+      {/* Arriba de las cards y no al pie: es una sugerencia que se lee una vez
+          y se descarta, y abajo de todo no la vería nadie. Se esconde sola
+          cuando el reporte ya está activo o el agente lo descartó. */}
+      <AvisoReporteSemanal />
 
       {/* Cuatro cards del mismo peso. El tono de cada una es el de la sección
           que le corresponde más abajo, así el número y su lista se reconocen

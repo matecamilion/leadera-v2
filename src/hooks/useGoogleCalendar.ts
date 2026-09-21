@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  actualizarImportacionActiva,
   desconectarGoogle,
   iniciarConexionGoogle,
   obtenerConexionGoogle,
@@ -65,6 +66,28 @@ export function useDesconectarGoogle() {
     mutationFn: desconectarGoogle,
     onSuccess: () => {
       queryClient.setQueryData(CLAVE_GOOGLE_CALENDAR, null)
+      queryClient.invalidateQueries({ queryKey: CLAVE_GOOGLE_CALENDAR })
+    },
+  })
+}
+
+/**
+ * Prende o apaga la importación de Google -> LeadEra.
+ *
+ * El toggle de /perfil no guarda su propio estado: pinta `importacionActiva`
+ * de esta query. Al volver la mutación se escribe en el cache lo que devolvió
+ * la base —no lo que se pidió— y además se invalida, así lo que queda en
+ * pantalla es el valor real de la fila.
+ */
+export function useCambiarImportacionGoogle() {
+  const queryClient = useQueryClient()
+
+  return useMutation<boolean, Error, boolean>({
+    mutationFn: actualizarImportacionActiva,
+    onSuccess: (activa) => {
+      queryClient.setQueryData<ConexionGoogle | null>(CLAVE_GOOGLE_CALENDAR, (previo) =>
+        previo ? { ...previo, importacionActiva: activa } : previo,
+      )
       queryClient.invalidateQueries({ queryKey: CLAVE_GOOGLE_CALENDAR })
     },
   })

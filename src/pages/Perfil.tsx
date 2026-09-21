@@ -4,9 +4,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
 import {
   useConectarGoogle,
+  useCambiarImportacionGoogle,
   useConexionGoogle,
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
+import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
 import { ModalDesconectarGoogle } from '../components/perfil/ModalDesconectarGoogle'
 import {
   actualizarDatosCuenta,
@@ -175,7 +177,12 @@ function GoogleCalendar() {
   const conexion = useConexionGoogle()
   const conectar = useConectarGoogle()
   const desconectar = useDesconectarGoogle()
+  const cambiarImportacion = useCambiarImportacionGoogle()
   const [confirmandoBaja, setConfirmandoBaja] = useState(false)
+  /** El modal de prender la importación. Apagar no pasa por acá. */
+  const [confirmandoImportacion, setConfirmandoImportacion] = useState(false)
+  /** El aviso de "ya arranca", hasta que el agente lo cierre. */
+  const [avisoImportacion, setAvisoImportacion] = useState(false)
   const [params, setParams] = useSearchParams()
 
   const vuelta = params.get('google')
@@ -195,6 +202,23 @@ function GoogleCalendar() {
   const estado = conexion.data
   const conectado = estado?.conectado === true
   const necesitaReconectar = estado != null && !estado.conectado
+  // El toggle pinta lo que dice la base, no un estado local: así no puede
+  // quedar prendido en pantalla y apagado en la fila.
+  const importacionActiva = estado?.importacionActiva === true
+
+  /**
+   * Prender pasa por el modal; apagar es directo. El click no cambia nada por
+   * su cuenta: lo que manda es lo que devuelve la mutación.
+   */
+  function alternarImportacion() {
+    if (!importacionActiva) {
+      cambiarImportacion.reset()
+      setConfirmandoImportacion(true)
+      return
+    }
+    setAvisoImportacion(false)
+    cambiarImportacion.mutate(false)
+  }
 
   return (
     <Tarjeta
@@ -275,6 +299,88 @@ function GoogleCalendar() {
           </button>
         )}
       </div>
+
+      {/* Sólo con la conexión andando: sin token no hay nada que importar, y
+          en "reconexión pendiente" lo que el agente tiene que hacer es
+          reconectar. */}
+      {conectado && (
+        <div className="mt-5 border-t border-border pt-5">
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0 max-w-[32rem]">
+              <p className="m-0 text-[0.9rem] font-semibold text-ink">
+                Importar mi calendario a LeadEra
+              </p>
+              <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-3">
+                Vamos a traer los eventos de tu Google Calendar como tareas en
+                LeadEra. Los eventos con el título “Visita: &lt;dirección&gt;” se
+                cargan como visitas; el resto, como tareas. Podés desactivarlo
+                cuando quieras.
+              </p>
+            </div>
+
+            {/* `role="switch"` y no un checkbox: el control es el botón entero,
+                con el estado en `aria-checked`. */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={importacionActiva}
+              aria-label="Importar mi calendario a LeadEra"
+              onClick={alternarImportacion}
+              disabled={cambiarImportacion.isPending || conexion.isPending}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                importacionActiva ? 'bg-primary' : 'bg-ink-4'
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none ${
+                  importacionActiva ? 'translate-x-[22px]' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* El error de apagar se muestra acá; el de prender vive dentro del
+              modal, que es donde el agente está mirando. */}
+          {cambiarImportacion.isError && !confirmandoImportacion && (
+            <p className="mt-3">
+              <Aviso estado={{ tipo: 'error', mensaje: cambiarImportacion.error.message }} />
+            </p>
+          )}
+
+          {/* No es instantáneo: lo trae el cron, que corre cada pocos minutos. */}
+          {avisoImportacion && importacionActiva && (
+            <div className="mt-3">
+              <Aviso
+                estado={{
+                  tipo: 'ok',
+                  mensaje: 'Listo, la importación arranca en los próximos minutos.',
+                }}
+              />
+              <BotonEntendido onClick={() => setAvisoImportacion(false)} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {confirmandoImportacion && (
+        <ModalActivarImportacion
+          activando={cambiarImportacion.isPending}
+          error={cambiarImportacion.isError ? cambiarImportacion.error.message : null}
+          onConfirmar={() =>
+            cambiarImportacion.mutate(true, {
+              onSuccess: () => {
+                setConfirmandoImportacion(false)
+                setAvisoImportacion(true)
+              },
+            })
+          }
+          onCancelar={() => {
+            cambiarImportacion.reset()
+            setConfirmandoImportacion(false)
+          }}
+        />
+      )}
 
       {confirmandoBaja && (
         <ModalDesconectarGoogle

@@ -14,12 +14,21 @@ export interface ConexionGoogle {
   conectado: boolean
   /** Cuándo se guardó o refrescó el token por última vez. */
   actualizado: string | null
+  /**
+   * Si el cron trae los eventos de Google a LeadEra (Fase 2).
+   *
+   * Aparte de `conectado`: conectar es el push LeadEra -> Google y lo tiene
+   * cualquiera que conecte; esto es la dirección inversa y arranca apagada,
+   * porque trae también la agenda personal del agente.
+   */
+  importacionActiva: boolean
 }
 
 /** Fila de `google_calendar_tokens`, recortada a lo que puede ver el front. */
 interface FilaConexion {
   conectado: boolean
   updated_at: string | null
+  importacion_activa: boolean
 }
 
 /**
@@ -36,7 +45,7 @@ interface FilaConexion {
 export async function obtenerConexionGoogle(): Promise<ConexionGoogle | null> {
   const { data, error } = await (supabase as SupabaseClient)
     .from('google_calendar_tokens')
-    .select('conectado, updated_at')
+    .select('conectado, updated_at, importacion_activa')
     .maybeSingle()
 
   if (error) {
@@ -45,7 +54,63 @@ export async function obtenerConexionGoogle(): Promise<ConexionGoogle | null> {
   if (!data) return null
 
   const fila = data as FilaConexion
-  return { conectado: fila.conectado, actualizado: fila.updated_at }
+  return {
+    conectado: fila.conectado,
+    actualizado: fila.updated_at,
+    importacionActiva: fila.importacion_activa === true,
+  }
+}
+
+/**
+ * Prende o apaga la importación del calendario del agente.
+ *
+ * Es el único UPDATE que el cliente puede hacer sobre `google_calendar_tokens`:
+ * el grant está acotado a esta columna y la policy, a la fila del agente (ver
+ * la migración `..._google_calendar_importacion_toggle`). Un intento de tocar
+ * cualquier otra columna desde acá lo rechaza la base, no este código.
+ *
+ * Devuelve el valor que quedó guardado y no el que se mandó: lo que muestra la
+ * UI es lo que dice la base.
+ *
+ * Son dos viajes, y el segundo no es un lujo: el UPDATE se manda SIN pedir la
+ * fila de vuelta porque PostgREST, para devolverla, hace un `RETURNING *` que
+ * exige SELECT sobre TODAS las columnas, y el cliente sólo puede leer cuatro
+ * (ver `..._google_calendar_tokens_select_acotado`). Pidiéndola, el update
+ * entero falla con 42501 aunque el permiso de escritura esté bien. Así que se
+ * escribe a ciegas y después se relee lo único que interesa.
+ */
+export async function actualizarImportacionActiva(activa: boolean): Promise<boolean> {
+  const { data: userData, error: errorUser } = await supabase.auth.getUser()
+  if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
+
+  const cliente = supabase as SupabaseClient
+
+  // El filtro por agente es redundante con la policy, que ya acota a la fila
+  // propia; va igual para que un cambio futuro en las policies no convierta
+  // esto en un update masivo. Además, filtrar por `agente_id` exige poder
+  // leer esa columna, que es parte del grant acotado.
+  const { error } = await cliente
+    .from('google_calendar_tokens')
+    .update({ importacion_activa: activa })
+    .eq('agente_id', userData.user.id)
+
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo cambiar la importación.'))
+  }
+
+  const { data, error: errorLectura } = await cliente
+    .from('google_calendar_tokens')
+    .select('importacion_activa')
+    .eq('agente_id', userData.user.id)
+    .maybeSingle()
+
+  if (errorLectura) {
+    throw new Error(interpretarErrorSupabase(errorLectura, 'No se pudo leer la importación.'))
+  }
+  // Sin fila: o no conectó nunca, o RLS la tapa. Para el usuario es lo mismo.
+  if (!data) throw new Error('No encontramos tu conexión con Google Calendar.')
+
+  return (data as { importacion_activa: boolean }).importacion_activa === true
 }
 
 /**

@@ -112,22 +112,45 @@ Deno.serve(async (req) => {
     const admin = adminClient()
 
     // --- 2. Idempotencia --------------------------------------------------
-    // La marca se pone ANTES de procesar: si el procesamiento falla a la mitad,
-    // no queremos que el reintento de Mercado Pago vuelva a correr algo que
-    // pudo haber quedado hecho a medias. El precio de esa decisión es que un
-    // fallo hay que resolverlo mirando eventos_facturacion, no esperando el
-    // reintento; por eso todo error se registra ahí.
-    const { error: errorMarca } = await admin
-      .from('eventos_mp_procesados')
-      .insert({ mp_data_id: notificacion.dataId, tipo: notificacion.tipo })
+    //
+    // IMPORTANTE:
+    // Mercado Pago reutiliza el mismo data.id para los cambios de estado de un
+    // preapproval. Por ejemplo, una misma suscripción puede notificar:
+    //
+    //   subscription_preapproval + abc123 -> authorized
+    //   subscription_preapproval + abc123 -> cancelled
+    //
+    // Por eso NO se puede descartar un subscription_preapproval solamente porque
+    // ya exista el mismo (data.id, tipo). Siempre hay que consultar nuevamente
+    // Mercado Pago y reconciliar su estado actual.
+    //
+    // En cambio, subscription_authorized_payment representa un cobro concreto y
+    // su data.id sí identifica ese evento de pago, por lo que ahí mantenemos la
+    // idempotencia actual.
+    if (notificacion.tipo !== TIPO_PREAPPROVAL) {
+      const { error: errorMarca } = await admin
+        .from('eventos_mp_procesados')
+        .insert({
+          mp_data_id: notificacion.dataId,
+          tipo: notificacion.tipo,
+        })
 
-    if (errorMarca) {
-      // 23505 = unique_violation: ya lo habíamos procesado.
-      if (errorMarca.code === '23505') {
-        return json({ ok: true, repetido: true })
+      if (errorMarca) {
+        // 23505 = ese evento concreto ya fue procesado.
+        if (errorMarca.code === '23505') {
+          return json({ ok: true, repetido: true })
+        }
+
+        console.error(
+          'webhook-mercadopago: no se pudo marcar el evento',
+          errorMarca,
+        )
+
+        return json({
+          ok: true,
+          error_interno: 'no se pudo marcar el evento',
+        })
       }
-      console.error('webhook-mercadopago: no se pudo marcar el evento', errorMarca)
-      return json({ ok: true, error_interno: 'no se pudo marcar el evento' })
     }
 
     // --- 3. Procesamiento -------------------------------------------------
@@ -527,15 +550,21 @@ async function marcarActiva(
       ? 'sin tope'
       : String(cupo.limite)
 
-  await registrarEvento(admin, inmobiliaria.id, 'pago_aprobado', {
-    detalle:
-      `Suscripción activa. Plan ${inmobiliaria.plan ?? 'sin definir'}, ` +
-      `cupo ${cupoDescripto}` +
-      (proximoCobro ? `, próximo cobro ${proximoCobro}` : ''),
-    monto: extra?.monto ?? null,
-    mpPaymentId: extra?.mpPaymentId ?? null,
-    raw_payload: payload,
-  })
+  // Sólo con un pago real detrás. Activar y cobrar son dos momentos distintos
+  // —la activación del preapproval llega antes que el cobro—, y registrar el
+  // evento en los dos dejaba una fila fantasma de "pago aprobado" sin monto,
+  // que en el historial se veía como "$—".
+  if (extra?.mpPaymentId) {
+    await registrarEvento(admin, inmobiliaria.id, 'pago_aprobado', {
+      detalle:
+        `Suscripción activa. Plan ${inmobiliaria.plan ?? 'sin definir'}, ` +
+        `cupo ${cupoDescripto}` +
+        (proximoCobro ? `, próximo cobro ${proximoCobro}` : ''),
+      monto: extra.monto ?? null,
+      mpPaymentId: extra.mpPaymentId,
+      raw_payload: payload,
+    })
+  }
 }
 
 /**

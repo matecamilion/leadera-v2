@@ -6,11 +6,20 @@ import { DETALLE_MINIMO } from '../../lib/validaciones'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
-import { IconoCalendario } from './Iconos'
 
 /** Lo mismo que pide la página: un detalle de una palabra no sirve de historial. */
 
-/** Atajos de agenda: hoy + N días, respetando la hora actual. */
+/**
+ * Atajos de agenda: hoy + N días, a las 09:00.
+ *
+ * La hora es fija y no la del click: "Mañana" tocado a las 23:40 no tiene por
+ * qué agendar a las 23:40. Tampoco medianoche, porque el listado y la ficha
+ * marcan "Vencido" contra el reloj y el lead quedaría vencido todo el día.
+ * Solo aplica a los atajos: lo que el agente elige a mano en el picker se
+ * respeta tal cual.
+ */
+const HORA_ATAJOS = '09:00'
+
 const ATAJOS = [
   { dias: 1, label: 'Mañana' },
   { dias: 3, label: 'En 3 días' },
@@ -28,7 +37,7 @@ function enDias(dias: number): string {
   const f = new Date()
   f.setDate(f.getDate() + dias)
   const p = (n: number) => String(n).padStart(2, '0')
-  return `${f.getFullYear()}-${p(f.getMonth() + 1)}-${p(f.getDate())}T${p(f.getHours())}:${p(f.getMinutes())}`
+  return `${f.getFullYear()}-${p(f.getMonth() + 1)}-${p(f.getDate())}T${HORA_ATAJOS}`
 }
 
 interface ModalNuevaInteraccionProps {
@@ -240,18 +249,18 @@ export function ModalNuevaInteraccion({
             ))}
           </div>
 
-          <div className="relative flex items-center">
-            <IconoCalendario className="pointer-events-none absolute right-3 size-5 text-ink-3" />
-            <input
-              type="datetime-local"
-              aria-label="Fecha del próximo contacto"
-              value={proximo}
-              min={hoyComoMinimoLocal()}
-              onChange={(e) => setProximo(e.target.value)}
-              aria-invalid={proximoPasado || undefined}
-              className={`${CLASES_CONTROL} ${proximoPasado ? 'border-peligro-ink' : ''}`}
-            />
-          </div>
+          {/* Sin ícono propio encima: el control nativo ya dibuja el suyo a la
+              derecha y superponerle un SVG los mostraba duplicados. Es lo que
+              hacen los demás campos de fecha de la app. */}
+          <input
+            type="datetime-local"
+            aria-label="Fecha del próximo contacto"
+            value={proximo}
+            min={hoyComoMinimoLocal()}
+            onChange={(e) => setProximo(e.target.value)}
+            aria-invalid={proximoPasado || undefined}
+            className={`${CLASES_CONTROL} ${proximoPasado ? 'border-peligro-ink' : ''}`}
+          />
           {proximoPasado && (
             <ErrorCampo>El próximo contacto no puede ser una fecha pasada.</ErrorCampo>
           )}

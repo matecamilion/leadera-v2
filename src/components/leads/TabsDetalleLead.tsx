@@ -5,6 +5,7 @@ import {
   useEliminarInteraccion,
   useInteraccionesPorLead,
 } from '../../hooks/useInteracciones'
+import { BarraTabs } from '../comunes/BarraTabs'
 import { useAuth } from '../../contexts/AuthContext'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
 import {
@@ -87,39 +88,13 @@ export function TabsDetalleLead({
 
   return (
     <section>
-      {/* Scrollea de costado en pantallas angostas en vez de estirar la
-          página: las cuatro tabs suman más de 390px y, al ser items de un
-          flex, no encogen. Mismo recurso —y misma forma de esconder la
-          barra— que los chips de filtro del listado de leads. */}
-      <div
-        role="tablist"
-        aria-label="Secciones del lead"
-        className="mb-5 flex overflow-x-auto border-b-2 border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {tabs.map((tab) => {
-          const activo = activa === tab.id
-          return (
-            <button
-              key={tab.id}
-              role="tab"
-              type="button"
-              aria-selected={activo}
-              onClick={() => setActiva(tab.id)}
-              className={[
-                '-mb-0.5 shrink-0 border-b-2 px-4.5 py-2.5 text-[0.83rem] font-semibold',
-                'transition-colors motion-reduce:transition-none',
-                'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary',
-                activo
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-ink-3 hover:text-ink',
-              ].join(' ')}
-            >
-              {tab.label}
-              {tab.n !== undefined && ` (${tab.n})`}
-            </button>
-          )
-        })}
-      </div>
+      {/* La barra es la misma que usa Perfil: vive en `comunes/BarraTabs`. */}
+      <BarraTabs
+        etiqueta="Secciones del lead"
+        tabs={tabs}
+        activa={activa}
+        onCambiar={setActiva}
+      />
 
       <div className="min-h-[200px]">
         {activa === 'resumen' && (

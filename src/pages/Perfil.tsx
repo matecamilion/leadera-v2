@@ -8,6 +8,7 @@ import {
   useConexionGoogle,
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
+import { BarraTabs } from '../components/comunes/BarraTabs'
 import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
 import { ModalActivarReporteSemanal } from '../components/reporte/ModalActivarReporteSemanal'
 import { ModalDesconectarGoogle } from '../components/perfil/ModalDesconectarGoogle'
@@ -32,8 +33,15 @@ const ETIQUETA_ROL: Record<string, string> = {
   ASISTENTE: 'Asistente',
 }
 
+type TabPerfil = 'cuenta' | 'plan' | 'integraciones' | 'notificaciones'
+
 export default function Perfil() {
   const { user, profile, refrescarPerfil } = useAuth()
+
+  // Estado interno y no en la URL, igual que la ficha de lead: /perfil siempre
+  // abre en "Mi cuenta", que es a lo que se entra a mirar la mayoría de las
+  // veces.
+  const [activa, setActiva] = useState<TabPerfil>('cuenta')
 
   const nombre = profile?.nombre ?? ''
   const apellido = profile?.apellido ?? ''
@@ -63,28 +71,159 @@ export default function Perfil() {
         </div>
       </header>
 
+      {/* La pestaña de Plan sólo existe para el dueño: el plan es de la
+          inmobiliaria entera y un agente no lo contrata ni lo cambia. Se arma
+          la lista acá, así la barra no tiene que saber de roles. */}
+      <BarraTabs
+        etiqueta="Secciones del perfil"
+        tabs={[
+          { id: 'cuenta' as const, label: 'Mi cuenta' },
+          ...(esDueno ? [{ id: 'plan' as const, label: 'Plan y facturación' }] : []),
+          { id: 'integraciones' as const, label: 'Integraciones' },
+          { id: 'notificaciones' as const, label: 'Notificaciones' },
+        ]}
+        activa={activa}
+        onCambiar={setActiva}
+      />
+
+      {/* Cada pestaña monta sólo lo suyo: lo que no se ve no pide datos ni
+          queda con estado a medio llenar. El `space-y-4` es el mismo aire que
+          tenían las tarjetas cuando iban apiladas. */}
       <div className="space-y-4">
-        {/* El borrador del form arranca del profile; el key lo remonta cuando
-            el profile cambia de verdad, así un refetch no pisa lo tipeado. */}
-        <DatosDeCuenta
-          key={`${nombre}|${apellido}`}
-          nombreActual={nombre}
-          apellidoActual={apellido}
-          email={user?.email ?? ''}
-          rol={rol}
-          deshabilitado={profile == null}
-          alGuardar={refrescarPerfil}
-        />
+        {activa === 'cuenta' && (
+          <>
+            {/* El borrador del form arranca del profile; el key lo remonta
+                cuando el profile cambia de verdad, así un refetch no pisa lo
+                tipeado. */}
+            <DatosDeCuenta
+              key={`${nombre}|${apellido}`}
+              nombreActual={nombre}
+              apellidoActual={apellido}
+              email={user?.email ?? ''}
+              rol={rol}
+              deshabilitado={profile == null}
+              alGuardar={refrescarPerfil}
+            />
 
-        {esDueno && <PlanYFacturacion />}
+            <CambiarPassword />
+          </>
+        )}
 
-        <GoogleCalendar />
+        {activa === 'plan' && esDueno && <PlanYFacturacion />}
 
-        <ReporteSemanal />
+        {activa === 'integraciones' && <GoogleCalendar />}
 
-        <CambiarPassword />
+        {activa === 'notificaciones' && <NotificacionesPorEmail />}
       </div>
     </div>
+  )
+}
+
+/**
+ * El switch de prender y apagar, con la misma forma en todas partes.
+ *
+ * Estaba duplicado entre la importación de Calendar y el reporte semanal, y
+ * cada notificación nueva iba a sumar otra copia de las mismas veinte clases.
+ */
+function Interruptor({
+  encendido,
+  etiqueta,
+  deshabilitado = false,
+  onAlternar,
+}: {
+  encendido: boolean
+  /** Lo que lee un lector de pantalla: el switch no tiene texto propio. */
+  etiqueta: string
+  deshabilitado?: boolean
+  onAlternar: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={encendido}
+      aria-label={etiqueta}
+      onClick={onAlternar}
+      disabled={deshabilitado}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+        encendido ? 'bg-primary' : 'bg-ink-4'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none ${
+          encendido ? 'translate-x-[22px]' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  )
+}
+
+/**
+ * Una fila de la tarjeta de notificaciones: qué es, qué implica y su switch.
+ *
+ * Sumar otra notificación es agregar una fila más adentro de
+ * `NotificacionesPorEmail`; no hay que tocar el layout. Las filas se separan
+ * con una línea, y el `first`/`last` saca el aire de los extremos, que ya lo
+ * pone la tarjeta.
+ */
+function FilaNotificacion({
+  titulo,
+  detalle,
+  encendido,
+  deshabilitado,
+  onAlternar,
+  error,
+}: {
+  titulo: string
+  detalle: string
+  encendido: boolean
+  deshabilitado: boolean
+  onAlternar: () => void
+  error?: string | null
+}) {
+  return (
+    <div className="py-4 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0 max-w-[32rem]">
+          <p className="m-0 text-[0.9rem] font-semibold text-ink">{titulo}</p>
+          <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-3">{detalle}</p>
+        </div>
+
+        <Interruptor
+          encendido={encendido}
+          etiqueta={titulo}
+          deshabilitado={deshabilitado}
+          onAlternar={onAlternar}
+        />
+      </div>
+
+      {error && (
+        <p className="mt-3">
+          <Aviso estado={{ tipo: 'error', mensaje: error }} />
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Las notificaciones que llegan por mail.
+ *
+ * Hoy hay una sola —el reporte semanal—, pero la tarjeta ya es una lista: la
+ * próxima entra como otra `FilaNotificacion` y nada más. Si algún día hay
+ * notificaciones que no son por mail, van en otra tarjeta de este mismo grupo.
+ */
+function NotificacionesPorEmail() {
+  return (
+    <Tarjeta
+      titulo="Por email"
+      descripcion="Elegí qué querés recibir en tu casilla de correo."
+    >
+      <div className="divide-y divide-border">
+        <FilaReporteSemanal />
+      </div>
+    </Tarjeta>
   )
 }
 
@@ -99,7 +238,7 @@ export default function Perfil() {
  * acá está el control permanente, que es donde alguien lo va a buscar para
  * apagarlo.
  */
-function ReporteSemanal() {
+function FilaReporteSemanal() {
   const { data: activo, isPending } = useReporteSemanal()
   const cambiar = useCambiarReporteSemanal()
   const [confirmando, setConfirmando] = useState(false)
@@ -116,48 +255,17 @@ function ReporteSemanal() {
   }
 
   return (
-    <Tarjeta
-      titulo="Reporte semanal"
-      descripcion="Un resumen de tu actividad por email, todos los lunes a la mañana."
-    >
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0 max-w-[32rem]">
-          <p className="m-0 text-[0.9rem] font-semibold text-ink">
-            Recibir el reporte semanal
-          </p>
-          <p className="mt-1 text-[0.85rem] leading-relaxed text-ink-3">
-            Te llega a tu email todos los lunes a las 9 de la mañana. Podés
-            desactivarlo cuando quieras.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          role="switch"
-          aria-checked={encendido}
-          aria-label="Recibir el reporte semanal"
-          onClick={alternar}
-          disabled={cambiar.isPending || isPending}
-          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
-            encendido ? 'bg-primary' : 'bg-ink-4'
-          }`}
-        >
-          <span
-            aria-hidden
-            className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none ${
-              encendido ? 'translate-x-[22px]' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
-      </div>
-
-      {/* El error de apagar se muestra acá; el de prender vive dentro del
-          modal, que es donde el agente está mirando. */}
-      {cambiar.isError && !confirmando && (
-        <p className="mt-3">
-          <Aviso estado={{ tipo: 'error', mensaje: cambiar.error.message }} />
-        </p>
-      )}
+    <>
+      <FilaNotificacion
+        titulo="Recibir el reporte semanal"
+        detalle="Te llega a tu email todos los lunes a las 9 de la mañana. Podés desactivarlo cuando quieras."
+        encendido={encendido}
+        deshabilitado={cambiar.isPending || isPending}
+        onAlternar={alternar}
+        // El error de apagar se muestra en la fila; el de prender vive dentro
+        // del modal, que es donde el agente está mirando.
+        error={cambiar.isError && !confirmando ? cambiar.error.message : null}
+      />
 
       {confirmando && (
         <ModalActivarReporteSemanal
@@ -172,7 +280,7 @@ function ReporteSemanal() {
           }}
         />
       )}
-    </Tarjeta>
+    </>
   )
 }
 

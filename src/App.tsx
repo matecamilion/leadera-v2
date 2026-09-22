@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AdminGuard } from './components/AdminGuard'
 import { AppLayout } from './components/AppLayout'
+import { AdminLayout } from './components/admin/AdminLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Spinner } from './components/Spinner'
 import { SuscripcionGuard } from './components/SuscripcionGuard'
@@ -30,6 +32,8 @@ const DetalleOperacion = lazy(() => import('./pages/DetalleOperacion'))
 const Estadisticas = lazy(() => import('./pages/Estadisticas'))
 const Perfil = lazy(() => import('./pages/Perfil'))
 const Suscripcion = lazy(() => import('./pages/Suscripcion'))
+const Admin = lazy(() => import('./pages/Admin'))
+const AdminDetalleCuenta = lazy(() => import('./pages/AdminDetalleCuenta'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +112,21 @@ export default function App() {
                   <Route path="/equipo" element={<Equipo />} />
                   <Route path="/tareas" element={<Tareas />} />
                   <Route path="/suscripcion" element={<Suscripcion />} />
+                </Route>
+              </Route>
+
+              {/* Panel interno de LeadEra, sólo superadmin. Por fuera del
+                  SuscripcionGuard —el estado de la cuenta propia no tiene que
+                  ver con administrar las demás— y con su propio layout, sin el
+                  sidebar del CRM. Para cualquier otro usuario AdminGuard
+                  redirige a /mi-dia como si la ruta no existiera.
+                  Sin ProtectedRoute a propósito: ése manda al login
+                  recordando `from: '/admin'`, y AdminGuard ya cubre la falta
+                  de sesión mandando a /mi-dia, que hace el resto. */}
+              <Route element={<AdminGuard />}>
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin/inmobiliarias/:id" element={<AdminDetalleCuenta />} />
                 </Route>
               </Route>
 

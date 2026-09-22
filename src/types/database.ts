@@ -639,6 +639,7 @@ export type Database = {
           asiste_a: string | null
           created_at: string
           email: string
+          es_superadmin: boolean
           id: string
           inmobiliaria_id: string
           meta_mensual_ganados: number
@@ -651,6 +652,7 @@ export type Database = {
           asiste_a?: string | null
           created_at?: string
           email: string
+          es_superadmin?: boolean
           id: string
           inmobiliaria_id: string
           meta_mensual_ganados?: number
@@ -663,6 +665,7 @@ export type Database = {
           asiste_a?: string | null
           created_at?: string
           email?: string
+          es_superadmin?: boolean
           id?: string
           inmobiliaria_id?: string
           meta_mensual_ganados?: number
@@ -1099,6 +1102,20 @@ export type Database = {
       }
     }
     Functions: {
+      admin_metricas_inmobiliaria: {
+        Args: { p_inmobiliaria_id: string }
+        Returns: {
+          agentes_activos: number
+          agentes_total: number
+          interacciones_total: number
+          leads_nuevos_30d: number
+          leads_total: number
+          operaciones_ganadas: number
+          operaciones_total: number
+          propiedades_total: number
+          ultima_actividad: string | null
+        }[]
+      }
       buscar_coincidencias_busqueda: {
         Args: { p_busqueda_id: string }
         Returns: {

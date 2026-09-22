@@ -19,6 +19,14 @@ interface AuthContextValue {
   profile: Profile | null
   /** true hasta que se resuelve el primer chequeo de sesión. */
   loading: boolean
+  /**
+   * true cuando la lectura del perfil de ESTE usuario ya volvió, haya traído
+   * fila o no. Separa "todavía no sé" de "no hay / no se pudo leer", que
+   * `profile === null` sola no distingue. Lo necesita quien decide un acceso
+   * por un campo del perfil (AdminGuard): sin esto, un refresh rebotaría antes
+   * de que llegue el perfil.
+   */
+  perfilListo: boolean
   /** Vuelve a leer el profile de la base. Para después de editarlo. */
   refrescarPerfil: () => Promise<void>
   signOut: () => Promise<void>
@@ -101,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPerfilCargado({ userId, profile: data })
   }, [user?.id])
 
-  const profile =
-    user && perfilCargado?.userId === user.id ? perfilCargado.profile : null
+  const perfilListo = user != null && perfilCargado?.userId === user.id
+  const profile = perfilListo ? perfilCargado.profile : null
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
@@ -116,8 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // `profile` se deriva en render pero es estable mientras `perfilCargado` y
   // `user` no cambien, así que entra como dependencia sin recrear nada.
   const value = useMemo(
-    () => ({ user, profile, loading, refrescarPerfil, signOut }),
-    [user, profile, loading, refrescarPerfil, signOut],
+    () => ({ user, profile, loading, perfilListo, refrescarPerfil, signOut }),
+    [user, profile, loading, perfilListo, refrescarPerfil, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

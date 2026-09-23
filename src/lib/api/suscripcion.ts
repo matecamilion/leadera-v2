@@ -9,6 +9,32 @@ export type EstadoSuscripcion = Database['public']['Enums']['estado_suscripcion'
 /** Orden en el que se muestran los planes: del más chico al más grande. */
 export const PLANES: Plan[] = ['SOLO', 'AGENCIA_CHICA', 'AGENCIA_GRANDE']
 
+/**
+ * Cómo paga la inmobiliaria.
+ *
+ * MERCADO_PAGO es la suscripción automática; MANUAL es la transferencia que
+ * registra el superadmin desde /admin. Vive en este módulo y no en `admin.ts`
+ * porque lo necesitan las dos puntas: el panel interno y la propia app del
+ * cliente, que con una cuenta manual no puede ofrecer el checkout de MP.
+ */
+export type MetodoCobro = 'MERCADO_PAGO' | 'MANUAL'
+
+export const ETIQUETA_METODO: Record<MetodoCobro, string> = {
+  MERCADO_PAGO: 'Mercado Pago',
+  MANUAL: 'Manual',
+}
+
+/**
+ * Días que una cuenta manual sigue entrando después de que se le venció el
+ * acceso. Es la regla 5 de `procesar_transiciones_suscripcion()` (migración
+ * 20260923120000): si acá dijera otro número, el aviso prometería un plazo
+ * que la base no respeta.
+ */
+export const DIAS_GRACIA_MANUAL = 3
+
+/** Desde acá se avisa que el vencimiento de una cuenta manual está cerca. */
+export const DIAS_AVISO_VENCIMIENTO_MANUAL = 7
+
 interface DetallePlan {
   nombre: string
   bajada: string
@@ -34,6 +60,13 @@ interface DetallePlan {
  * `inmobiliarias.limite_usuarios` que hace cumplir `hayCupo`: si la tarjeta
  * promete más de lo que el backend deja invitar, el dueño paga y después choca
  * contra el tope.
+ *
+ * Lo mismo vale para los topes de leads, propiedades y operaciones activas:
+ * están en `planes_limites_recursos` y los hacen cumplir triggers que abortan
+ * el INSERT con "Llegaste al límite de…". Estas viñetas decían "sin límite"
+ * para Solo —y Agencia Chica lo heredaba con "Todo lo del plan Solo"—, lo que
+ * contradecía a los indicadores de uso de la misma pantalla, que siempre
+ * mostraron el tope real. Si los números de la tabla cambian, cambian acá.
  */
 export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
   SOLO: {
@@ -41,7 +74,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para el agente que trabaja por su cuenta.',
     incluye: [
       '1 usuario',
-      'Leads, propiedades y operaciones sin límite',
+      'Hasta 200 leads, 60 propiedades y 100 operaciones activas',
       'Agenda sincronizada con Google Calendar',
       'Matching automático entre compradores y propiedades',
     ],
@@ -51,7 +84,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para el equipo que recién arranca.',
     incluye: [
       'Hasta 5 usuarios',
-      'Todo lo del plan Solo',
+      'Hasta 1.000 leads, 300 propiedades y 300 operaciones activas',
       'Estadísticas de rendimiento por agente',
       'Cada agente con su propia carga de trabajo, ordenada',
     ],
@@ -62,6 +95,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para la inmobiliaria con varios agentes.',
     incluye: [
       'Usuarios ilimitados',
+      'Leads, propiedades y operaciones sin límite',
       'Todo lo de Agencia Chica',
       'Soporte prioritario',
       'Pensado para equipos con alto volumen de operaciones',
@@ -110,8 +144,13 @@ export async function listarPreciosPlanes(): Promise<PrecioPlan[]> {
 }
 
 export interface EstadoDeMiSuscripcion {
+  /** Para el mensaje de WhatsApp: de qué inmobiliaria escribe el dueño. */
+  nombre: string | null
   plan: Plan | null
   estado: EstadoSuscripcion
+  metodoCobro: MetodoCobro
+  /** Sólo en cuentas manuales: hasta cuándo cubre el último pago. */
+  accesoPagadoHasta: string | null
   tieneSuscripcionEnMp: boolean
   fecha_fin_trial: string | null
   fecha_proximo_cobro: string | null
@@ -137,7 +176,7 @@ export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion 
   const { data, error } = await supabase
     .from('inmobiliarias')
     .select(
-      'plan, estado_suscripcion, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
+      'nombre, plan, estado_suscripcion, metodo_cobro, acceso_pagado_hasta, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
     )
     .maybeSingle()
 
@@ -148,8 +187,11 @@ export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion 
   if (!data) return null
 
   return {
+    nombre: data.nombre,
     plan: data.plan,
     estado: data.estado_suscripcion,
+    metodoCobro: data.metodo_cobro === 'MANUAL' ? 'MANUAL' : 'MERCADO_PAGO',
+    accesoPagadoHasta: data.acceso_pagado_hasta,
     tieneSuscripcionEnMp: data.mp_preapproval_id !== null,
     fecha_fin_trial: data.fecha_fin_trial,
     fecha_proximo_cobro: data.fecha_proximo_cobro,
@@ -344,6 +386,10 @@ export function diasDeTrialRestantes(fechaFinTrial: string | null): number | nul
 export type AvisoSuscripcion =
   | { tipo: 'trial_por_terminar'; dias: number }
   | { tipo: 'gracia' }
+  /** Cuenta manual a la que le quedan pocos días de acceso pagado. */
+  | { tipo: 'manual_por_vencer'; vence: string }
+  /** Cuenta manual ya vencida, dentro de los días de gracia. */
+  | { tipo: 'manual_vencido'; vencio: string; limite: string }
 
 /**
  * Qué avisarle al dueño sobre su suscripción.
@@ -353,8 +399,30 @@ export type AvisoSuscripcion =
  */
 export function avisoDeSuscripcion(
   estado: EstadoDeMiSuscripcion | null | undefined,
+  ahora: Date = new Date(),
 ): AvisoSuscripcion | null {
   if (!estado) return null
+
+  // Las cuentas manuales tienen sus propios avisos: no hay medio de pago que
+  // arreglar ni reintento de Mercado Pago, hay que renovar escribiendo. El
+  // trial se deja afuera de esta rama a propósito: una cuenta manual en trial
+  // todavía no pagó nada y le sirve el aviso de siempre.
+  if (estado.metodoCobro === 'MANUAL' && estado.estado !== 'TRIAL') {
+    const vence = estado.accesoPagadoHasta
+    if (!vence) return null
+
+    if (estado.estado === 'GRACIA') {
+      const limite = new Date(new Date(vence).getTime() + DIAS_GRACIA_MANUAL * UN_DIA_EN_MS)
+      return { tipo: 'manual_vencido', vencio: vence, limite: limite.toISOString() }
+    }
+
+    if (estado.estado === 'ACTIVA') {
+      const dias = Math.ceil((new Date(vence).getTime() - ahora.getTime()) / UN_DIA_EN_MS)
+      if (dias <= DIAS_AVISO_VENCIMIENTO_MANUAL) return { tipo: 'manual_por_vencer', vence }
+    }
+
+    return null
+  }
 
   if (estado.estado === 'GRACIA') return { tipo: 'gracia' }
 
@@ -372,18 +440,31 @@ export function avisoDeSuscripcion(
 // Historial de pagos
 // ---------------------------------------------------------------------------
 
-export type ResultadoPago = 'aprobado' | 'rechazado'
+export type ResultadoPago = 'aprobado' | 'rechazado' | 'manual'
 
 /**
  * Los tipos de `eventos_facturacion` que son el resultado de un cobro.
  *
- * Los escribe `webhook-mercadopago`. La tabla guarda además eventos que no son
- * pagos —`suscripcion_cancelada`, `cancelacion_solicitada`— y que no van al
- * historial: acá se lista plata que se cobró o se intentó cobrar.
+ * Los dos primeros los escribe `webhook-mercadopago`; `pago_manual` lo escribe
+ * el RPC `admin_registrar_pago_manual` cuando el superadmin registra una
+ * transferencia. La tabla guarda además eventos que no son pagos
+ * —`suscripcion_cancelada`, `cancelacion_solicitada`, `ajuste_vencimiento`— y
+ * que no van al historial: acá se lista plata que se cobró o se intentó cobrar.
+ *
+ * El pago manual sí va: es plata que el cliente pagó, y no verlo en su propio
+ * historial sería decirle que no pagó nada.
  */
 const RESULTADO_POR_TIPO: Record<string, ResultadoPago> = {
   pago_aprobado: 'aprobado',
   pago_rechazado: 'rechazado',
+  pago_manual: 'manual',
+}
+
+/** Cómo se lee cada resultado en el historial. */
+export const ETIQUETA_RESULTADO: Record<ResultadoPago, string> = {
+  aprobado: 'Aprobado',
+  rechazado: 'Rechazado',
+  manual: 'Transferencia',
 }
 
 export interface PagoDelHistorial {

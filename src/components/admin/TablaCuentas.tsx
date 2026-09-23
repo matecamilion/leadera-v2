@@ -1,15 +1,20 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { EmailLink } from '../comunes/AccionesContacto'
 import { DETALLE_PLAN } from '../../lib/api/suscripcion'
 import {
+  alertaDeCobro,
   diasDesde,
+  diasHastaVencimiento,
+  ETIQUETA_ALERTA,
   ETIQUETA_ESTADO,
-  estaPorVencer,
-  proximoHito,
+  ETIQUETA_METODO,
+  ETIQUETA_TIPO_CUENTA,
+  fechaDeVencimiento,
   type CuentaAdmin,
 } from '../../lib/api/admin'
 import { formatearFecha } from '../../lib/formatoFecha'
-import { BADGE_ESTADO } from './estilosEstado'
+import { BADGE_ALERTA, BADGE_ESTADO } from './estilosEstado'
 
 /**
  * Una fila por inmobiliaria. Viene ya ordenada: GRACIA arriba.
@@ -24,37 +29,65 @@ import { BADGE_ESTADO } from './estilosEstado'
  * es lo que se alcanza con Tab y lo que anuncia un lector de pantalla, porque
  * un <tr> con onClick no es navegable por teclado. Un click sobre otro link
  * de la fila (el mail) no navega: hace lo suyo.
+ *
+ * Por defecto se listan sólo las cuentas CLIENTE, que son las que importan
+ * para decidir algo. Las internas y de testing están detrás de un toggle: no
+ * se ocultan del todo —hay que poder entrar a su detalle— pero tampoco
+ * compiten con los clientes en la lista que se mira todos los días.
  */
 export function TablaCuentas({ cuentas }: { cuentas: CuentaAdmin[] }) {
   const navigate = useNavigate()
+  const [mostrarNoClientes, setMostrarNoClientes] = useState(false)
+
+  const noClientes = cuentas.filter((c) => c.tipoCuenta !== 'CLIENTE').length
+  const visibles = mostrarNoClientes
+    ? cuentas
+    : cuentas.filter((c) => c.tipoCuenta === 'CLIENTE')
 
   return (
     <section aria-labelledby="titulo-cuentas" className="rounded-2xl border border-border bg-surface shadow-sm">
-      <div className="flex items-baseline justify-between gap-3 px-4 pt-4 pb-3 sm:px-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 pt-4 pb-3 sm:px-5">
         <h2 id="titulo-cuentas" className="m-0 text-[0.95rem] font-bold text-ink">
           Inmobiliarias
         </h2>
-        <span className="text-[0.82rem] text-ink-3 tabular-nums">{cuentas.length}</span>
+
+        <div className="ml-auto flex items-center gap-4">
+          {noClientes > 0 && (
+            <label className="flex cursor-pointer items-center gap-2 text-[0.8rem] text-ink-3">
+              <input
+                type="checkbox"
+                checked={mostrarNoClientes}
+                onChange={(e) => setMostrarNoClientes(e.target.checked)}
+                className="size-3.5 accent-primary"
+              />
+              Mostrar internas y testing ({noClientes})
+            </label>
+          )}
+          <span className="text-[0.82rem] text-ink-3 tabular-nums">{visibles.length}</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-left text-[0.84rem]">
+        <table className="w-full min-w-[920px] border-collapse text-left text-[0.84rem]">
           <thead>
             <tr className="border-y border-border bg-surface-2 text-[0.74rem] font-semibold text-ink-3 uppercase">
               <th scope="col" className="px-4 py-2.5 sm:pl-5">Inmobiliaria</th>
               <th scope="col" className="px-3 py-2.5">Plan</th>
               <th scope="col" className="px-3 py-2.5">Estado</th>
+              <th scope="col" className="px-3 py-2.5">Método</th>
               <th scope="col" className="px-3 py-2.5 text-right">Alta</th>
-              <th scope="col" className="px-3 py-2.5">Próxima fecha</th>
+              <th scope="col" className="px-3 py-2.5">Vence</th>
+              <th scope="col" className="px-3 py-2.5">Restan</th>
               <th scope="col" className="px-4 py-2.5 sm:pr-5">Dueño</th>
             </tr>
           </thead>
           <tbody>
-            {cuentas.map((c) => {
+            {visibles.map((c) => {
               const gracia = c.estado === 'GRACIA'
-              const hito = proximoHito(c)
-              const trialPorVencer = c.estado === 'TRIAL' && estaPorVencer(c)
-              const dias = diasDesde(c.creadaEl)
+              const vence = fechaDeVencimiento(c)
+              const dias = diasHastaVencimiento(c)
+              const alerta = alertaDeCobro(c)
+              const alta = diasDesde(c.creadaEl)
 
               return (
                 <tr
@@ -76,6 +109,11 @@ export function TablaCuentas({ cuentas }: { cuentas: CuentaAdmin[] }) {
                     >
                       {c.nombre}
                     </Link>
+                    {c.tipoCuenta !== 'CLIENTE' && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-surface-2 px-2 py-0.5 text-[0.68rem] font-bold text-ink-3 uppercase">
+                        {ETIQUETA_TIPO_CUENTA[c.tipoCuenta]}
+                      </span>
+                    )}
                     {c.cancelacionSolicitada && (
                       <span className="mt-0.5 block text-[0.72rem] font-semibold text-badge-tibio-ink">
                         Pidió cancelar
@@ -92,24 +130,46 @@ export function TablaCuentas({ cuentas }: { cuentas: CuentaAdmin[] }) {
                       {ETIQUETA_ESTADO[c.estado]}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-right whitespace-nowrap text-ink-2 tabular-nums" title={formatearFecha(c.creadaEl)}>
-                    {dias === 1 ? '1 día' : `${dias} días`}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span
+                      className={`text-[0.78rem] font-semibold ${
+                        c.metodoCobro === 'MANUAL' ? 'text-ink-2' : 'text-ink-3'
+                      }`}
+                    >
+                      {c.metodoCobro === 'MANUAL' ? 'Manual' : 'MP'}
+                    </span>
+                  </td>
+                  <td
+                    className="px-3 py-3 text-right whitespace-nowrap text-ink-2 tabular-nums"
+                    title={formatearFecha(c.creadaEl)}
+                  >
+                    {alta === 1 ? '1 día' : `${alta} días`}
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
-                    {hito ? (
-                      <span className="flex flex-col">
-                        <span
-                          className={`tabular-nums ${trialPorVencer ? 'font-semibold text-badge-tibio-ink' : 'text-ink-2'}`}
-                        >
-                          {formatearFecha(hito.fecha)}
-                        </span>
-                        <span className="text-[0.72rem] text-ink-3">{hito.etiqueta}</span>
-                      </span>
+                    {vence ? (
+                      <span className="text-ink-2 tabular-nums">{formatearFecha(vence)}</span>
                     ) : (
-                      <span className="text-ink-4">—</span>
+                      <span className="text-ink-4" title={ETIQUETA_METODO[c.metodoCobro]}>
+                        —
+                      </span>
                     )}
                   </td>
-                  <td className="max-w-64 px-4 py-3 sm:pr-5">
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {alerta ? (
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.74rem] font-semibold ${BADGE_ALERTA[alerta]}`}
+                      >
+                        {ETIQUETA_ALERTA[alerta]}
+                      </span>
+                    ) : dias === null ? (
+                      <span className="text-ink-4">—</span>
+                    ) : (
+                      <span className="text-ink-2 tabular-nums">
+                        {dias === 1 ? '1 día' : `${dias} días`}
+                      </span>
+                    )}
+                  </td>
+                  <td className="max-w-56 px-4 py-3 sm:pr-5">
                     {c.dueno ? (
                       <span className="flex min-w-0 flex-col text-ink-2">
                         <span className="truncate">{c.dueno.nombre}</span>

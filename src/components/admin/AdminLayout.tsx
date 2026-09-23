@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { AvisoFlash } from '../AvisoFlash'
 import { Marca } from '../Marca'
 import { Spinner } from '../Spinner'
 
@@ -47,6 +48,11 @@ export function AdminLayout() {
           </div>
         </div>
       </header>
+
+      {/* El mismo aviso flotante que el resto de la app. Lo dibuja cada shell
+          por su cuenta: `AppLayout` no envuelve a estas rutas, así que sin
+          esto las confirmaciones del panel no se verían. */}
+      <AvisoFlash />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <Suspense fallback={<Spinner />}>

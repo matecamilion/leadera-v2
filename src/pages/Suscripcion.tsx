@@ -13,10 +13,12 @@ import {
   usePreciosPlanes,
 } from '../hooks/useSuscripcion'
 import { useUsoRecursos } from '../hooks/useUsoRecursos'
+import { linkDeCobros, mensajeDeRenovacion } from '../lib/config'
 import { formatearFecha } from '../lib/formatoFecha'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import {
   DETALLE_PLAN,
+  ETIQUETA_RESULTADO,
   interpretarVuelta,
   type EstadoDeMiSuscripcion,
   type PagoDelHistorial,
@@ -49,6 +51,12 @@ interface DistintivoEstado {
  * fecha de corte, pero para quien la mira lo que importa es que ya dio de baja.
  */
 function distintivoDeEstado(estado: EstadoDeMiSuscripcion): DistintivoEstado {
+  // En una cuenta manual, GRACIA no es un cobro que falló: es un plan que se
+  // venció y todavía no se renovó.
+  if (estado.metodoCobro === 'MANUAL' && estado.estado === 'GRACIA') {
+    return { texto: 'Vencido', clases: 'bg-warm-soft text-badge-tibio-ink' }
+  }
+
   if (estado.cancelacionSolicitada) {
     return { texto: 'Cancelada', clases: 'bg-surface-2 text-ink-2' }
   }
@@ -69,6 +77,17 @@ function distintivoDeEstado(estado: EstadoDeMiSuscripcion): DistintivoEstado {
 
 /** Qué le pasa a la cuenta, en una línea. */
 function explicacionDeEstado(estado: EstadoDeMiSuscripcion): string {
+  if (estado.metodoCobro === 'MANUAL' && estado.estado !== 'TRIAL') {
+    switch (estado.estado) {
+      case 'ACTIVA':
+        return 'Tu plan está al día. Lo renovás por transferencia cuando se acerque el vencimiento.'
+      case 'GRACIA':
+        return 'Se te venció el plan. Renovalo por transferencia para no perder el acceso.'
+      default:
+        return 'Se te terminó el acceso. Escribinos para renovar por transferencia.'
+    }
+  }
+
   if (estado.cancelacionSolicitada) {
     return 'Cancelaste la suscripción. No se te va a cobrar de nuevo.'
   }
@@ -173,7 +192,13 @@ export default function Suscripcion() {
   // Sin plan asignado no hay cuenta que mostrar: la única pantalla útil es el
   // catálogo. Con plan, se entra por la cuenta y el catálogo queda a un click.
   const planActual = miEstado?.plan ?? null
-  const vista: Vista = vistaManual ?? (planActual ? 'cuenta' : 'elegir')
+  // Una cuenta manual no ve el catálogo: sus botones llevan a Mercado Pago, que
+  // para ella no aplica. Se fuerza la vista de cuenta aunque `vistaManual` diga
+  // otra cosa, que es lo que pasa si queda de una visita anterior.
+  const cobroManual = miEstado?.metodoCobro === 'MANUAL'
+  const vista: Vista = cobroManual
+    ? 'cuenta'
+    : (vistaManual ?? (planActual ? 'cuenta' : 'elegir'))
 
   return (
     <div className="mx-auto max-w-[1120px]">
@@ -318,7 +343,15 @@ function HistorialDePagos() {
 }
 
 function FilaDePago({ pago }: { pago: PagoDelHistorial }) {
-  const aprobado = pago.resultado === 'aprobado'
+  const rechazado = pago.resultado === 'rechazado'
+  // La transferencia lleva su propio color: es plata cobrada igual que un pago
+  // con tarjeta, pero conviene que el cliente distinga cuál fue cuál.
+  const tonoBadge =
+    pago.resultado === 'rechazado'
+      ? 'bg-peligro-soft text-peligro-ink'
+      : pago.resultado === 'manual'
+        ? 'bg-cool-soft text-frio'
+        : 'bg-brand-soft text-primary'
 
   return (
     <li className="flex items-center gap-4 px-5 py-3.5">
@@ -328,18 +361,16 @@ function FilaDePago({ pago }: { pago: PagoDelHistorial }) {
 
       <span
         className={`ml-auto text-[0.9rem] font-semibold tabular-nums ${
-          aprobado ? 'text-ink' : 'text-ink-4 line-through'
+          rechazado ? 'text-ink-4 line-through' : 'text-ink'
         }`}
       >
         {pago.monto === null ? '—' : `$${MONTOS.format(pago.monto)}`}
       </span>
 
       <span
-        className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold uppercase ${
-          aprobado ? 'bg-brand-soft text-primary' : 'bg-peligro-soft text-peligro-ink'
-        }`}
+        className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold uppercase ${tonoBadge}`}
       >
-        {aprobado ? 'Aprobado' : 'Rechazado'}
+        {ETIQUETA_RESULTADO[pago.resultado]}
       </span>
     </li>
   )
@@ -371,13 +402,21 @@ function VistaCuenta({ estado, precios, esDueno, onCambiarPlan }: VistaCuentaPro
   // Sólo se ofrece la baja sobre una suscripción que se está cobrando. En
   // GRACIA el cobro ya falló y el camino es arreglar el medio de pago, no
   // cancelar; el backend además la rechazaría por no estar ACTIVA.
-  const puedeCancelar = !cancelada && estado.estado === 'ACTIVA'
+  const puedeCancelar = !cancelada && estado.estado === 'ACTIVA' && estado.metodoCobro !== 'MANUAL'
 
   const distintivo = distintivoDeEstado(estado)
   const precio = precios.find((p) => p.plan === estado.plan) ?? null
   const accesoHasta = estado.fecha_proximo_cobro
     ? formatearFecha(estado.fecha_proximo_cobro)
     : null
+
+  // Una cuenta que paga por transferencia no tiene nada que hacer con el
+  // checkout de Mercado Pago: ni contratar, ni cambiar de plan, ni dar de baja
+  // una suscripción que no existe. Todo eso pasa por WhatsApp.
+  const manual = estado.metodoCobro === 'MANUAL'
+  const whatsapp = linkDeCobros(
+    mensajeDeRenovacion(estado.nombre, detalle ? detalle.nombre : null),
+  )
 
   function confirmarBaja() {
     cancelar.mutate(undefined, { onSuccess: () => setModalAbierto(false) })
@@ -411,7 +450,48 @@ function VistaCuenta({ estado, precios, esDueno, onCambiarPlan }: VistaCuentaPro
 
         <p className="mt-1.5 text-[0.9rem] text-ink-3">{explicacionDeEstado(estado)}</p>
 
-        <FechaRelevante estado={estado} accesoHasta={accesoHasta} />
+        {manual ? (
+          <>
+            {estado.accesoPagadoHasta && (
+              <p className="mt-4 text-[0.9rem] text-ink-2">
+                {estado.estado === 'ACTIVA' ? (
+                  <>
+                    Tenés acceso hasta el{' '}
+                    <strong className="font-semibold text-ink">
+                      {formatearFecha(estado.accesoPagadoHasta)}
+                    </strong>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Tu plan venció el{' '}
+                    <strong className="font-semibold text-ink">
+                      {formatearFecha(estado.accesoPagadoHasta)}
+                    </strong>
+                    .
+                  </>
+                )}
+              </p>
+            )}
+
+            {whatsapp ? (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+              >
+                Renovar por WhatsApp
+              </a>
+            ) : (
+              <p className="mt-4 mb-0 text-[0.85rem] text-ink-3">
+                Escribinos para renovar tu plan por transferencia.
+              </p>
+            )}
+          </>
+        ) : (
+          <FechaRelevante estado={estado} accesoHasta={accesoHasta} />
+        )}
       </div>
 
       {/* Los dos reusados tal cual: el trial ya tiene topes que rigen, y los
@@ -422,7 +502,7 @@ function VistaCuenta({ estado, precios, esDueno, onCambiarPlan }: VistaCuentaPro
       {/* Las dos salidas de la pantalla, juntas y al pie: cambiar de plan es
           poco frecuente, y dar de baja todavía menos. Ninguna compite con la
           información de arriba, que es a lo que se entra. */}
-      {esDueno && (
+      {esDueno && !manual && (
         <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-5">
           <button
             type="button"

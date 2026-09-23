@@ -29,12 +29,20 @@ export default function Admin() {
     if (!panel.data) return null
     const ahora = new Date()
     const { cuentas, pagos } = panel.data
-    const porVencer = cuentas.filter((c) => estaPorVencer(c, ahora))
+
+    // Todo lo que es una métrica mira sólo a los clientes: una cuenta interna
+    // o de testing no es plata ni es un cliente, y contarla haría que los
+    // números de esta pantalla no sirvan para decidir nada. `pagos` ya viene
+    // filtrado de `obtenerPanelAdmin`.
+    const clientes = cuentas.filter((c) => c.tipoCuenta === 'CLIENTE')
+    const porVencer = clientes.filter((c) => estaPorVencer(c, ahora))
     return {
+      // El listado recibe todas: tiene su propio toggle.
       cuentas: ordenarCuentas(cuentas),
-      enGracia: ordenarCuentas(cuentas.filter((c) => c.estado === 'GRACIA')),
-      porEstado: contarPorEstado(cuentas),
-      porPlan: contarPorPlan(cuentas),
+      totalClientes: clientes.length,
+      enGracia: ordenarCuentas(clientes.filter((c) => c.estado === 'GRACIA')),
+      porEstado: contarPorEstado(clientes),
+      porPlan: contarPorPlan(clientes),
       ingreso30: ingresoUltimos30Dias(pagos, ahora),
       meses: ingresosPorMes(pagos, ahora),
       porVencerTrial: porVencer.filter((c) => c.estado === 'TRIAL').length,
@@ -87,7 +95,7 @@ export default function Admin() {
         <CardKpi
           label="Cuentas pagando"
           valor={String(resumen.porEstado.ACTIVA)}
-          contexto={`de ${resumen.cuentas.length} cuentas`}
+          contexto={`de ${resumen.totalClientes} cuentas`}
         />
       </div>
 

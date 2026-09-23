@@ -21,3 +21,15 @@ export const SOLIDO_ESTADO: Record<EstadoSuscripcion, string> = {
   VENCIDA: 'bg-tibio',
   CANCELADA: 'bg-ink-4',
 }
+
+/**
+ * Colores del aviso de cobro (`alertaDeCobro`). Deliberadamente distintos de
+ * los del estado: uno dice en qué estado está la cuenta y el otro, qué hay que
+ * hacer con ella. Si compartieran paleta, la fila en gracia mostraría el mismo
+ * rojo dos veces y ninguno de los dos se leería.
+ */
+export const BADGE_ALERTA: Record<'vencida' | 'gracia' | 'por_vencer', string> = {
+  vencida: 'bg-surface-2 text-ink-3',
+  gracia: 'bg-peligro-soft text-peligro-ink',
+  por_vencer: 'bg-warm-soft text-badge-tibio-ink',
+}

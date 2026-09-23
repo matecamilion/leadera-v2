@@ -100,6 +100,7 @@ export type Database = {
         Row: {
           created_at: string
           detalle: string | null
+          evento_relacionado_id: string | null
           id: string
           inmobiliaria_id: string
           moneda: string | null
@@ -111,6 +112,7 @@ export type Database = {
         Insert: {
           created_at?: string
           detalle?: string | null
+          evento_relacionado_id?: string | null
           id?: string
           inmobiliaria_id: string
           moneda?: string | null
@@ -122,6 +124,7 @@ export type Database = {
         Update: {
           created_at?: string
           detalle?: string | null
+          evento_relacionado_id?: string | null
           id?: string
           inmobiliaria_id?: string
           moneda?: string | null
@@ -234,6 +237,7 @@ export type Database = {
       }
       inmobiliarias: {
         Row: {
+          acceso_pagado_hasta: string | null
           cancelacion_solicitada: boolean
           created_at: string
           estado_suscripcion: Database["public"]["Enums"]["estado_suscripcion"]
@@ -243,11 +247,14 @@ export type Database = {
           fecha_ultimo_pago_fallido: string | null
           id: string
           limite_usuarios: number | null
+          metodo_cobro: string
           mp_preapproval_id: string | null
           nombre: string
           plan: Database["public"]["Enums"]["plan_leadera"] | null
+          tipo_cuenta: string
         }
         Insert: {
+          acceso_pagado_hasta?: string | null
           cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
@@ -257,11 +264,14 @@ export type Database = {
           fecha_ultimo_pago_fallido?: string | null
           id?: string
           limite_usuarios?: number | null
+          metodo_cobro?: string
           mp_preapproval_id?: string | null
           nombre: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
+          tipo_cuenta?: string
         }
         Update: {
+          acceso_pagado_hasta?: string | null
           cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
@@ -271,9 +281,11 @@ export type Database = {
           fecha_ultimo_pago_fallido?: string | null
           id?: string
           limite_usuarios?: number | null
+          metodo_cobro?: string
           mp_preapproval_id?: string | null
           nombre?: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
+          tipo_cuenta?: string
         }
         Relationships: []
       }
@@ -1102,6 +1114,22 @@ export type Database = {
       }
     }
     Functions: {
+      admin_anular_pago: {
+        Args: { p_evento_id: string; p_nota: string }
+        Returns: undefined
+      }
+      admin_ajustar_vencimiento: {
+        Args: {
+          p_inmobiliaria_id: string
+          p_nota: string
+          p_nuevo_hasta: string
+        }
+        Returns: undefined
+      }
+      admin_extender_trial: {
+        Args: { p_dias: number; p_inmobiliaria_id: string; p_nota: string }
+        Returns: string
+      }
       admin_metricas_inmobiliaria: {
         Args: { p_inmobiliaria_id: string }
         Returns: {
@@ -1115,6 +1143,26 @@ export type Database = {
           propiedades_total: number
           ultima_actividad: string | null
         }[]
+      }
+      admin_registrar_pago_manual: {
+        Args: {
+          p_fecha_pago: string
+          p_inmobiliaria_id: string
+          p_meses: number
+          p_metodo: string
+          p_monto: number
+          p_nota: string
+          p_plan: Database["public"]["Enums"]["plan_leadera"]
+        }
+        Returns: string
+      }
+      admin_set_tipo_cuenta: {
+        Args: { p_inmobiliaria_id: string; p_tipo: string }
+        Returns: undefined
+      }
+      admin_suspender_cuenta: {
+        Args: { p_inmobiliaria_id: string; p_nota: string }
+        Returns: undefined
       }
       buscar_coincidencias_busqueda: {
         Args: { p_busqueda_id: string }

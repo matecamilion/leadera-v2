@@ -392,6 +392,17 @@ async function manejarBaja(
   )
 
   if (decision.accion === 'diferir') {
+    if (inmobiliaria.metodo_cobro === 'MANUAL') {
+      await ignorarPorCuentaManual(
+        admin,
+        inmobiliaria,
+        `Hubiera marcado la baja diferida de la suscripción ${preapprovalId}, ` +
+          `con acceso hasta ${decision.accesoHasta}.`,
+        { raw_payload: preapproval },
+      )
+      return { tipo: TIPO_PREAPPROVAL, accion: 'ignorada_cuenta_manual', inmobiliaria_id: inmobiliaria.id }
+    }
+
     // El estado NO se toca: sigue ACTIVA hasta `fecha_proximo_cobro` y el paso a
     // CANCELADA lo da el cron. La fecha se reescribe por si venía de Mercado
     // Pago porque la base no la tenía; sin ella el cron nunca la cortaría.
@@ -418,6 +429,16 @@ async function manejarBaja(
       raw_payload: preapproval,
     })
     return { tipo: TIPO_PREAPPROVAL, accion: 'baja_en_trial', inmobiliaria_id: inmobiliaria.id }
+  }
+
+  if (inmobiliaria.metodo_cobro === 'MANUAL') {
+    await ignorarPorCuentaManual(
+      admin,
+      inmobiliaria,
+      `Hubiera pasado la cuenta a CANCELADA por la baja de la suscripción ${preapprovalId}.`,
+      { raw_payload: preapproval },
+    )
+    return { tipo: TIPO_PREAPPROVAL, accion: 'ignorada_cuenta_manual', inmobiliaria_id: inmobiliaria.id }
   }
 
   const { error } = await admin
@@ -494,6 +515,21 @@ async function manejarPagoRecurrente(
 
   // Todo lo que no es aprobado se trata como cobro fallido: la cuenta entra en
   // gracia y el cron aparte decide cuándo vence.
+  if (inmobiliaria.metodo_cobro === 'MANUAL') {
+    await ignorarPorCuentaManual(
+      admin,
+      inmobiliaria,
+      `Hubiera pasado la cuenta a GRACIA por el cobro ${pagoId} en estado ` +
+        `'${estadoPago ?? 'desconocido'}'.`,
+      { monto, mpPaymentId, raw_payload: pago },
+    )
+    return {
+      tipo: TIPO_PAGO_RECURRENTE,
+      accion: 'ignorada_cuenta_manual',
+      inmobiliaria_id: inmobiliaria.id,
+    }
+  }
+
   await admin
     .from('inmobiliarias')
     .update({
@@ -516,6 +552,33 @@ interface InmobiliariaWebhook {
   plan: string | null
   estado_suscripcion: string
   fecha_proximo_cobro: string | null
+  /** 'MERCADO_PAGO' o 'MANUAL'. Una cuenta manual no se toca desde acá. */
+  metodo_cobro: string
+}
+
+/**
+ * Una cuenta que cobra por transferencia no se maneja desde este webhook.
+ *
+ * Pasa cuando queda una suscripción vieja viva en Mercado Pago y la cuenta ya
+ * se pasó a cobro manual: MP sigue notificando, y aplicar esas notificaciones
+ * le pisaría el estado y el vencimiento que administra el panel de /admin.
+ *
+ * No se descarta en silencio: queda el evento con lo que se hubiera hecho, que
+ * es la pista para darse cuenta de que hay una suscripción de MP sin cancelar.
+ */
+async function ignorarPorCuentaManual(
+  admin: SupabaseClient,
+  inmobiliaria: InmobiliariaWebhook,
+  queHubieraHecho: string,
+  datos?: { mpPaymentId?: string | null; monto?: number | null; raw_payload?: unknown },
+): Promise<void> {
+  await registrarEvento(admin, inmobiliaria.id, 'webhook_ignorado_cuenta_manual', {
+    detalle:
+      `La cuenta cobra de forma manual: no se aplicó el cambio de Mercado Pago. ${queHubieraHecho}`,
+    monto: datos?.monto ?? null,
+    mpPaymentId: datos?.mpPaymentId ?? null,
+    raw_payload: datos?.raw_payload ?? null,
+  })
 }
 
 /**
@@ -531,6 +594,18 @@ async function marcarActiva(
   payload: unknown,
   extra?: { monto?: number | null; mpPaymentId?: string | null; limpiarCancelacion?: boolean },
 ): Promise<void> {
+  if (inmobiliaria.metodo_cobro === 'MANUAL') {
+    await ignorarPorCuentaManual(
+      admin,
+      inmobiliaria,
+      'Hubiera pasado la cuenta a ACTIVA' +
+        (proximoCobro ? ` con próximo cobro ${proximoCobro}` : '') +
+        ' y sincronizado el cupo del plan.',
+      { monto: extra?.monto, mpPaymentId: extra?.mpPaymentId, raw_payload: payload },
+    )
+    return
+  }
+
   const cambios: Record<string, unknown> = {
     estado_suscripcion: 'ACTIVA',
     fecha_ultimo_pago_fallido: null,
@@ -623,7 +698,7 @@ async function buscarInmobiliaria(
 
   const { data, error } = await admin
     .from('inmobiliarias')
-    .select('id, plan, estado_suscripcion, fecha_proximo_cobro')
+    .select('id, plan, estado_suscripcion, fecha_proximo_cobro, metodo_cobro')
     .eq('id', inmobiliariaId)
     .maybeSingle<InmobiliariaWebhook>()
 

@@ -157,6 +157,15 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
+            <div className="-mt-3 text-right">
+              <Link
+                to="/recuperar-contrasena"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+
             <div className="pt-1">
               <BotonPrimario cargando={enviando}>
                 {enviando ? 'Entrando…' : 'Entrar'}

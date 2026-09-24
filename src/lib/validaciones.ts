@@ -131,3 +131,12 @@ export function urlInvalida(valor: string): boolean {
 /** Lo que se le dice al usuario cuando el link no parece un link. */
 export const MENSAJE_URL_INVALIDA =
   'Ingresá un link válido (tiene que empezar con http:// o https://).'
+
+/**
+ * Largo mínimo de una contraseña.
+ *
+ * Es el mismo que exige el alta (el `minLength` de Signup y la Edge Function
+ * `signup`); vive acá para que el cambio de contraseña no se desfase de esa
+ * regla.
+ */
+export const PASSWORD_MINIMO = 8

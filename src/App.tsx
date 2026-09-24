@@ -14,6 +14,8 @@ import { esPaginaFueraDeRango } from './lib/mensajesDeError'
 // resolver la sesión y pintar el shell. El resto llega al navegar.
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
+const RecuperarContrasena = lazy(() => import('./pages/RecuperarContrasena'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const MiDia = lazy(() => import('./pages/MiDia'))
 const ContactadosHoy = lazy(() => import('./pages/ContactadosHoy'))
 const Leads = lazy(() => import('./pages/Leads'))
@@ -76,6 +78,10 @@ export default function App() {
               {/* Públicas */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/recuperar-contrasena" element={<RecuperarContrasena />} />
+              {/* Sin guard y sin redirect por sesión: el link del mail crea una
+                  sesión de recuperación real, y esta ruta tiene que mostrarse igual. */}
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Protegidas: sesión + suscripción vigente + shell con sidebar.
                   El guard va por fuera del AppLayout porque la pantalla de

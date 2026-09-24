@@ -56,10 +56,18 @@ interface DetallePlan {
  * Vive en el front y no en la base porque `planes_precio` guarda plata, no
  * copy: cambiar una viñeta no debería ser un update en producción.
  *
- * Los números de usuarios de acá tienen que coincidir con el
- * `inmobiliarias.limite_usuarios` que hace cumplir `hayCupo`: si la tarjeta
- * promete más de lo que el backend deja invitar, el dueño paga y después choca
- * contra el tope.
+ * Los números de agentes y asistentes de acá tienen que coincidir con los tres
+ * topes de `planes_cupo` —`limite_usuarios` (techo total), `max_agentes` y
+ * `max_asistentes_por_agente`, donde NULL es "sin tope"—, que hace cumplir
+ * `hayCupo` en `supabase/functions/_shared/supabase.ts`. Si la tarjeta promete
+ * más de lo que el backend deja invitar, el dueño paga y después choca contra
+ * el tope.
+ *
+ * Ojo con una cuenta que el copy no puede dar por obvia: el dueño cuenta como
+ * agente. En Solo, `max_agentes = 1` es él, y el plan no admite ningún agente
+ * más; sus dos asistentes son los del único agente que hay. Por eso las
+ * viñetas dicen "1 agente + hasta 2 asistentes" y no "3 usuarios": el total
+ * coincide, pero la forma de repartirlo no es libre.
  *
  * Lo mismo vale para los topes de leads, propiedades y operaciones activas:
  * están en `planes_limites_recursos` y los hacen cumplir triggers que abortan
@@ -73,7 +81,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     nombre: 'Solo',
     bajada: 'Para el agente que trabaja por su cuenta.',
     incluye: [
-      '1 usuario',
+      '1 agente + hasta 2 asistentes',
       'Hasta 200 leads, 60 propiedades y 100 operaciones activas',
       'Agenda sincronizada con Google Calendar',
       'Matching automático entre compradores y propiedades',
@@ -83,7 +91,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     nombre: 'Agencia Chica',
     bajada: 'Para el equipo que recién arranca.',
     incluye: [
-      'Hasta 5 usuarios',
+      'Hasta 5 agentes, con hasta 2 asistentes cada uno',
       'Hasta 1.000 leads, 300 propiedades y 300 operaciones activas',
       'Estadísticas de rendimiento por agente',
       'Cada agente con su propia carga de trabajo, ordenada',
@@ -94,7 +102,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     nombre: 'Agencia Grande',
     bajada: 'Para la inmobiliaria con varios agentes.',
     incluye: [
-      'Usuarios ilimitados',
+      'Agentes y asistentes sin límite',
       'Leads, propiedades y operaciones sin límite',
       'Todo lo de Agencia Chica',
       'Soporte prioritario',

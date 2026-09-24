@@ -79,7 +79,8 @@ const TITULOS: Record<Exclude<IdPaso, 'listo'>, { titulo: string; descripcion: s
   },
   agentes: {
     titulo: '¿Cuántos agentes son en total?',
-    descripcion: 'Contando a todos los que van a cargar leads y propiedades, vos incluido.',
+    descripcion:
+      'Contá solo a los agentes, vos incluido. Los asistentes no ocupan lugar de agente: en Agencia Chica, cada agente puede sumar hasta 2.',
   },
   plan: {
     titulo: 'Te sugerimos este plan',

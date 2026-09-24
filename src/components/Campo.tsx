@@ -1,4 +1,5 @@
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes } from 'react'
+import { PasswordInput } from './ui/PasswordInput'
 
 interface CampoProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string
@@ -8,24 +9,30 @@ interface CampoProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
 export function Campo({ label, className = '', ...props }: CampoProps) {
   const id = useId()
 
+  const clases = [
+    'block w-full rounded-md border border-border bg-surface px-3 py-2',
+    'text-sm text-ink placeholder:text-ink-subtle',
+    'transition-colors motion-reduce:transition-none',
+    'hover:border-ink-subtle',
+    'focus:border-primary focus:outline-2 focus:outline-offset-0 focus:outline-primary',
+    'disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-subtle',
+    className,
+  ].join(' ')
+
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
       </label>
-      <input
-        id={id}
-        className={[
-          'mt-1.5 block w-full rounded-md border border-border bg-surface px-3 py-2',
-          'text-sm text-ink placeholder:text-ink-subtle',
-          'transition-colors motion-reduce:transition-none',
-          'hover:border-ink-subtle',
-          'focus:border-primary focus:outline-2 focus:outline-offset-0 focus:outline-primary',
-          'disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-ink-subtle',
-          className,
-        ].join(' ')}
-        {...props}
-      />
+      {props.type === 'password' ? (
+        // El margen va en el wrapper y no en el input: adentro del `relative`
+        // de PasswordInput correría el ojito de su centro.
+        <div className="mt-1.5">
+          <PasswordInput id={id} className={clases} {...props} />
+        </div>
+      ) : (
+        <input id={id} className={`mt-1.5 ${clases}`} {...props} />
+      )}
     </div>
   )
 }

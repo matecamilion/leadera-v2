@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
@@ -9,6 +9,7 @@ import {
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
 import { BarraTabs } from '../components/comunes/BarraTabs'
+import { PasswordInput } from '../components/ui/PasswordInput'
 import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
 import { ModalActivarReporteSemanal } from '../components/reporte/ModalActivarReporteSemanal'
 import { ModalDesconectarGoogle } from '../components/perfil/ModalDesconectarGoogle'
@@ -860,31 +861,47 @@ function CampoTexto({
   invalido,
   error,
 }: CampoTextoProps) {
+  const id = useId()
+
+  const propsInput = {
+    id,
+    value,
+    autoComplete,
+    required,
+    disabled,
+    minLength,
+    'aria-invalid': invalido || undefined,
+    onChange: (e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+    className: [
+      'w-full rounded-xl border bg-surface-2 px-4 py-3 text-base text-ink',
+      'transition-colors focus:bg-surface focus:shadow-focus focus:outline-none',
+      'disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none',
+      invalido ? 'border-peligro-ink' : 'border-border focus:border-primary',
+    ].join(' '),
+  }
+
+  // Label explícita y no envolvente: si envolviera a PasswordInput, el botón
+  // del ojito quedaría adentro y su "Mostrar contraseña" se sumaría al nombre
+  // accesible del input.
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[0.85rem] font-semibold text-ink-2">{label}</span>
-      <input
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        required={required}
-        disabled={disabled}
-        minLength={minLength}
-        aria-invalid={invalido || undefined}
-        onChange={(e) => onChange(e.target.value)}
-        className={[
-          'w-full rounded-xl border bg-surface-2 px-4 py-3 text-base text-ink',
-          'transition-colors focus:bg-surface focus:shadow-focus focus:outline-none',
-          'disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none',
-          invalido ? 'border-peligro-ink' : 'border-border focus:border-primary',
-        ].join(' ')}
-      />
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[0.85rem] font-semibold text-ink-2">
+        {label}
+      </label>
+      {type === 'password' ? (
+        // `block`: adentro del wrapper de PasswordInput el input ya no es un
+        // flex item, y como inline dejaría el hueco de la línea de base abajo,
+        // descentrando el ojito.
+        <PasswordInput {...propsInput} className={`block ${propsInput.className}`} />
+      ) : (
+        <input type={type} {...propsInput} />
+      )}
       {error && (
         <span role="alert" className="text-xs text-peligro-ink">
           {error}
         </span>
       )}
-    </label>
+    </div>
   )
 }
 

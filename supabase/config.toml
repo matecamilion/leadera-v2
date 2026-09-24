@@ -498,6 +498,12 @@ verify_jwt = true
 enabled = true
 verify_jwt = true
 
+# avisos-vencimiento la dispara el cron diario (10:00 de Argentina) con la
+# service role key. Le escribe al dueño de cada cuenta manual por vencer.
+[functions.avisos-vencimiento]
+enabled = true
+verify_jwt = true
+
 # reporte-semanal-baja es el "Darme de baja" del pie del mail: se abre desde el
 # teléfono, casi siempre sin sesión. verify_jwt = false a propósito — la
 # autorización la da el token firmado del link, no un JWT de Supabase.

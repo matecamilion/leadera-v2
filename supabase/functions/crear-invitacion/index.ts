@@ -13,6 +13,7 @@ import {
   adminClient,
   bearerToken,
   hayCupo,
+  mensajeSinCupo,
   type PerfilBasico,
   type RolAgente,
 } from '../_shared/supabase.ts'
@@ -22,6 +23,9 @@ const ROLES_INVITABLES: RolAgente[] = ['AGENTE', 'ASISTENTE']
 
 /** Roles que pueden invitar. Un ASISTENTE no puede sumar gente. */
 const ROLES_QUE_INVITAN: RolAgente[] = ['DUENO', 'AGENTE']
+
+/** A quién puede asistir un ASISTENTE. Otro asistente no es un agente. */
+const ROLES_ASISTIBLES: RolAgente[] = ['DUENO', 'AGENTE']
 
 interface CrearInvitacionInput {
   rol?: unknown
@@ -93,29 +97,58 @@ Deno.serve(async (req) => {
     }
     const rolInvitado = rol as RolAgente
 
+    // Un AGENTE sólo suma asistentes para sí mismo. Sumar otro agente es
+    // agrandar el equipo —y el plan que se paga—, y esa es decisión del dueño.
+    if (perfil.rol === 'AGENTE' && rolInvitado !== 'ASISTENTE') {
+      return errorResponse(
+        req,
+        'Sólo el dueño puede invitar agentes. Vos podés sumar asistentes para vos.',
+        403,
+        'SIN_PERMISO',
+      )
+    }
+
     let asisteA: string | null = null
     if (rolInvitado === 'ASISTENTE') {
-      if (typeof body.asiste_a !== 'string' || !body.asiste_a) {
+      if (perfil.rol === 'AGENTE') {
+        // Se fuerza, no se valida: un AGENTE no elige a quién asiste su
+        // invitado. Lo que venga en el body se ignora.
+        asisteA = caller.id
+      } else if (typeof body.asiste_a !== 'string' || !body.asiste_a) {
         return errorResponse(
           req,
           'Para invitar un ASISTENTE tenés que indicar a qué agente asiste',
           400,
           'INPUT_INVALIDO',
         )
+      } else {
+        asisteA = body.asiste_a
       }
-      asisteA = body.asiste_a
 
-      // Sólo puede asistir a alguien de la misma inmobiliaria (o al propio caller).
+      // Tiene que ser alguien de la misma inmobiliaria Y que sea agente: un
+      // ASISTENTE no puede asistir a otro ASISTENTE. Sin el chequeo de rol, esa
+      // cadena rompe el conteo de `max_asistentes_por_agente`, que cuenta
+      // asistentes por agente y no sabe qué hacer con uno colgado de otro
+      // asistente.
       const { data: asistido } = await admin
         .from('profiles')
-        .select('id, inmobiliaria_id')
+        .select('id, rol, inmobiliaria_id')
         .eq('id', asisteA)
-        .maybeSingle<{ id: string; inmobiliaria_id: string }>()
+        .maybeSingle<{ id: string; rol: RolAgente; inmobiliaria_id: string }>()
 
       if (!asistido || asistido.inmobiliaria_id !== perfil.inmobiliaria_id) {
         return errorResponse(
           req,
           'El agente asistido no pertenece a tu inmobiliaria',
+          400,
+          'INPUT_INVALIDO',
+        )
+      }
+
+      if (!ROLES_ASISTIBLES.includes(asistido.rol)) {
+        return errorResponse(
+          req,
+          'Un asistente sólo puede estar asignado al dueño o a un agente',
           400,
           'INPUT_INVALIDO',
         )
@@ -126,14 +159,14 @@ Deno.serve(async (req) => {
     }
 
     // --- 4. Cupo ---------------------------------------------------------
-    const cupo = await hayCupo(admin, perfil.inmobiliaria_id)
+    // Con el rol y el asistido, porque los tres topes del plan se miden
+    // distinto según qué entra: total, agentes, y asistentes de ESE agente.
+    const cupo = await hayCupo(admin, perfil.inmobiliaria_id, {
+      rol: rolInvitado,
+      asisteA,
+    })
     if (!cupo.ok) {
-      return errorResponse(
-        req,
-        `Alcanzaste el límite de usuarios de tu plan (${cupo.usados}/${cupo.limite})`,
-        403,
-        'SIN_CUPO',
-      )
+      return errorResponse(req, mensajeSinCupo(cupo, 'propia'), 403, 'SIN_CUPO')
     }
 
     // --- 5. Crear la invitación -----------------------------------------

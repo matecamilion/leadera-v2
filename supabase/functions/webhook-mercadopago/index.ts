@@ -613,7 +613,7 @@ async function marcarActiva(
   if (proximoCobro) cambios.fecha_proximo_cobro = proximoCobro
   if (extra?.limpiarCancelacion) cambios.cancelacion_solicitada = false
 
-  const cupo = await limiteDelPlan(admin, inmobiliaria.plan)
+  const cupo = await limiteDelPlan(admin, inmobiliaria.plan, inmobiliaria.id)
   if (cupo.aplicar) cambios.limite_usuarios = cupo.limite
 
   const { error } = await admin.from('inmobiliarias').update(cambios).eq('id', inmobiliaria.id)
@@ -652,10 +652,21 @@ async function marcarActiva(
  *     valor real que se escribe, no una ausencia)
  *   - `{ aplicar: false }`              → no sabemos; se deja el cupo como
  *     estaba, que es mejor que bajárselo a alguien que acaba de pagar
+ *
+ * Cuando el plan tiene tope, lo que se escribe es el máximo entre ese tope y la
+ * gente que la inmobiliaria ya tiene cargada. Sin ese `max`, un pago puede
+ * dejar el límite por debajo del propio equipo: nadie pierde el acceso —el cupo
+ * sólo se chequea al agregar— pero la cuenta queda congelada sin que nadie se
+ * entere. Es el mismo criterio que `admin_registrar_pago_manual`, que hace el
+ * `greatest` en SQL (migración 20260924140000).
  */
 type CupoDelPlan = { aplicar: true; limite: number | null } | { aplicar: false }
 
-async function limiteDelPlan(admin: SupabaseClient, plan: string | null): Promise<CupoDelPlan> {
+async function limiteDelPlan(
+  admin: SupabaseClient,
+  plan: string | null,
+  inmobiliariaId: string,
+): Promise<CupoDelPlan> {
   if (!plan) return { aplicar: false }
 
   const { data, error } = await admin
@@ -671,11 +682,28 @@ async function limiteDelPlan(admin: SupabaseClient, plan: string | null): Promis
 
   // NULL en `planes_cupo` significa "sin tope", y ahora `inmobiliarias` también
   // lo admite, así que se copia tal cual. `hayCupo` lee ese NULL como "siempre
-  // hay lugar" sin comparar contra ningún número.
-  return {
-    aplicar: true,
-    limite: data.limite_usuarios === null ? null : Number(data.limite_usuarios),
+  // hay lugar" sin comparar contra ningún número. No pasa por el `max`: NULL ya
+  // es el techo más alto que existe.
+  if (data.limite_usuarios === null) return { aplicar: true, limite: null }
+
+  const tope = Number(data.limite_usuarios)
+
+  // Cliente admin, así que este conteo no lo acota RLS. No filtra por `activo`,
+  // igual que `hayCupo`: un miembro desactivado sigue ocupando su lugar.
+  const { count, error: errCount } = await admin
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('inmobiliaria_id', inmobiliariaId)
+
+  if (errCount) {
+    console.error(
+      `webhook-mercadopago: no se pudieron contar los usuarios de ${inmobiliariaId}`,
+      errCount,
+    )
+    return { aplicar: false }
   }
+
+  return { aplicar: true, limite: Math.max(tope, count ?? 0) }
 }
 
 /**

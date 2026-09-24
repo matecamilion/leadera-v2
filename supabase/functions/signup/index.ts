@@ -16,7 +16,16 @@
  */
 import { preflight } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/http.ts'
-import { adminClient, anonClient, hayCupo, type RolAgente } from '../_shared/supabase.ts'
+import {
+  adminClient,
+  anonClient,
+  hayCupo,
+  mensajeSinCupo,
+  type RolAgente,
+} from '../_shared/supabase.ts'
+
+/** A quién puede asistir un ASISTENTE. Igual que en `crear-invitacion`. */
+const ROLES_ASISTIBLES: RolAgente[] = ['DUENO', 'AGENTE']
 
 interface DatosPersonales {
   email: string
@@ -194,16 +203,50 @@ async function signupInvitado(
     )
   }
 
-  // --- d/e. Re-validar cupo al momento del canje ---------------------------
-  // Puede haberse llenado entre que se generó el link y se usó.
-  const cupo = await hayCupo(admin, invitacion.inmobiliaria_id)
+  // --- d. El agente asistido tiene que seguir siendo agente ----------------
+  // Entre que se generó el link y se usó, el asistido pudo desaparecer. El
+  // profile se crea con `asiste_a` apuntándole, y un asistente colgado de
+  // alguien que ya no es agente queda fuera de todo conteo por agente. Se
+  // chequea ANTES de crear el usuario: después habría que borrarlo.
+  if (invitacion.rol === 'ASISTENTE') {
+    if (!invitacion.asiste_a) {
+      return errorResponse(
+        req,
+        'La invitación no dice a qué agente asistís. Pedí un link nuevo a tu inmobiliaria.',
+        400,
+        'INPUT_INVALIDO',
+      )
+    }
+
+    const { data: asistido } = await admin
+      .from('profiles')
+      .select('id, rol, inmobiliaria_id')
+      .eq('id', invitacion.asiste_a)
+      .maybeSingle<{ id: string; rol: RolAgente; inmobiliaria_id: string }>()
+
+    if (
+      !asistido ||
+      asistido.inmobiliaria_id !== invitacion.inmobiliaria_id ||
+      !ROLES_ASISTIBLES.includes(asistido.rol)
+    ) {
+      return errorResponse(
+        req,
+        'El agente al que ibas a asistir ya no está disponible. Pedí un link nuevo a tu inmobiliaria.',
+        400,
+        'INPUT_INVALIDO',
+      )
+    }
+  }
+
+  // --- e. Re-validar cupo al momento del canje -----------------------------
+  // Puede haberse llenado entre que se generó el link y se usó, y el tope que
+  // aplica depende del rol que trae la invitación.
+  const cupo = await hayCupo(admin, invitacion.inmobiliaria_id, {
+    rol: invitacion.rol,
+    asisteA: invitacion.asiste_a,
+  })
   if (!cupo.ok) {
-    return errorResponse(
-      req,
-      `La inmobiliaria alcanzó el límite de usuarios de su plan (${cupo.usados}/${cupo.limite})`,
-      403,
-      'SIN_CUPO',
-    )
+    return errorResponse(req, mensajeSinCupo(cupo, 'ajena'), 403, 'SIN_CUPO')
   }
 
   // --- f. Crear el usuario con los datos DE LA INVITACIÓN ------------------

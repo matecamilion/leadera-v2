@@ -39,6 +39,18 @@ export function mensajeDeRenovacion(inmobiliaria: string | null, plan: string | 
   return `Hola! Quiero renovar mi suscripción a LeadEra${cual}.${quien}. ¿Me pasan los datos para la transferencia?`
 }
 
+/**
+ * El mensaje de quien todavía no contrató y quiere pagar por transferencia.
+ *
+ * Separado de `mensajeDeRenovacion` porque no es lo mismo: el que renueva ya es
+ * cliente y sabe qué plan tiene; éste está mirando las tarjetas y puede no
+ * haber elegido todavía. No lleva el nombre de la inmobiliaria porque la
+ * pantalla de planes se abre también sin cuenta armada.
+ */
+export function mensajeDeActivacion(): string {
+  return 'Hola! Quiero contratar LeadEra y pagar por transferencia. ¿Me pasan los datos?'
+}
+
 // ---------------------------------------------------------------------------
 // Datos de la cuenta bancaria, para el mensaje de cobro del panel /admin
 // ---------------------------------------------------------------------------

@@ -69,6 +69,11 @@ const TOPE_AGENCIA_CHICA = 5
 
 function planSugerido(modo: Modo, agentes: number): Plan {
   if (modo === 'solo') return 'SOLO'
+  // Eligió "somos varios" pero después escribió 1: le sirve Solo, que admite un
+  // agente con sus asistentes. Sugerirle Agencia Chica sería venderle cuatro
+  // lugares de agente que no va a usar, y el paso anterior ya no alcanza para
+  // decidir porque acá cambió de idea.
+  if (agentes <= 1) return 'SOLO'
   return agentes > TOPE_AGENCIA_CHICA ? 'AGENCIA_GRANDE' : 'AGENCIA_CHICA'
 }
 
@@ -233,14 +238,14 @@ function AltaIndependiente({ onRegistrado }: { onRegistrado: () => void }) {
       {paso === 'modo' && (
         <div className="space-y-3">
           <OpcionModo
-            titulo="Solo yo"
-            detalle="Trabajo por mi cuenta, sin equipo."
+            titulo="Soy el único agente"
+            detalle="Puedo sumar hasta 2 asistentes."
             seleccionado={modo === 'solo'}
             onClick={() => elegirModo('solo')}
           />
           <OpcionModo
-            titulo="Con mi equipo"
-            detalle="Somos varios cargando leads y propiedades."
+            titulo="Somos varios agentes"
+            detalle="Cada uno con su propia cartera de leads y propiedades."
             seleccionado={modo === 'equipo'}
             onClick={() => elegirModo('equipo')}
           />

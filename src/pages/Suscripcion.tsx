@@ -13,7 +13,7 @@ import {
   usePreciosPlanes,
 } from '../hooks/useSuscripcion'
 import { useUsoRecursos } from '../hooks/useUsoRecursos'
-import { linkDeCobros, mensajeDeRenovacion } from '../lib/config'
+import { linkDeCobros, mensajeDeActivacion, mensajeDeRenovacion } from '../lib/config'
 import { formatearFecha } from '../lib/formatoFecha'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import {
@@ -200,6 +200,10 @@ export default function Suscripcion() {
     ? 'cuenta'
     : (vistaManual ?? (planActual ? 'cuenta' : 'elegir'))
 
+  // El mismo WhatsApp de cobros que usan la vista de cuenta y el banner, con el
+  // mensaje de quien todavía no contrató. Null si no hay número configurado.
+  const linkTransferencia = linkDeCobros(mensajeDeActivacion())
+
   return (
     <div className="mx-auto max-w-[1120px]">
       <header className="mb-6">
@@ -284,6 +288,27 @@ export default function Suscripcion() {
             Los precios están fijados en dólares y se convierten a pesos con la cotización del
             dólar MEP, que se actualiza una vez por semana.
           </p>
+
+          {/* Hoy el cobro con tarjeta está cortado del lado de la cuenta
+              vendedora, así que la transferencia no es una alternativa sino el
+              camino real. Se ofrece acá, debajo de los precios, que es donde
+              alguien decide. Si no hay número configurado, `linkDeCobros`
+              devuelve null y la línea entera no se muestra: sin canal, el texto
+              invitaría a escribir a ningún lado. */}
+          {linkTransferencia && (
+            <p className="mt-2 text-[0.8rem] text-ink-3">
+              ¿Preferís pagar por transferencia?{' '}
+              <a
+                href={linkTransferencia}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+              >
+                Escribinos
+              </a>{' '}
+              y te activamos la cuenta.
+            </p>
+          )}
         </>
       )}
     </div>
@@ -649,7 +674,7 @@ function TarjetaPlan({
     >
       {destacado && (
         <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[0.75rem] leading-none font-semibold whitespace-nowrap text-white">
-          Más elegido
+          Recomendado
         </span>
       )}
       <h2 className="m-0 text-[1.05rem] font-bold text-ink">{detalle.nombre}</h2>

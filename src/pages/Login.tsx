@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { BotonPrimario, MensajeError } from '../components/Campo'
 import { Marca } from '../components/Marca'
 import { Spinner } from '../components/Spinner'
+import { PasswordInput } from '../components/ui/PasswordInput'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import fotoHero from '../assets/login-hero.jpg'
@@ -175,6 +176,13 @@ export default function Login() {
   )
 }
 
+const CLASES_INPUT = [
+  'block w-full rounded-md border border-border bg-surface px-3 py-2.5',
+  'text-sm text-ink placeholder:text-ink-subtle',
+  'transition-colors motion-reduce:transition-none',
+  'focus:border-primary focus:outline-none',
+].join(' ')
+
 /**
  * Campo del login con el glow que sigue al cursor por el borde.
  *
@@ -224,16 +232,11 @@ function CampoConGlow({
           'motion-reduce:before:transition-none motion-reduce:after:transition-none',
         ].join(' ')}
       >
-        <input
-          id={id}
-          className={[
-            'block w-full rounded-md border border-border bg-surface px-3 py-2.5',
-            'text-sm text-ink placeholder:text-ink-subtle',
-            'transition-colors motion-reduce:transition-none',
-            'focus:border-primary focus:outline-none',
-          ].join(' ')}
-          {...props}
-        />
+        {props.type === 'password' ? (
+          <PasswordInput id={id} className={CLASES_INPUT} {...props} />
+        ) : (
+          <input id={id} className={CLASES_INPUT} {...props} />
+        )}
       </div>
     </div>
   )

@@ -85,6 +85,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
       'Hasta 200 leads, 60 propiedades y 100 operaciones activas',
       'Agenda sincronizada con Google Calendar',
       'Matching automático entre compradores y propiedades',
+      'Reporte semanal por email para arrancar la semana ordenado',
     ],
   },
   AGENCIA_CHICA: {
@@ -95,6 +96,7 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
       'Hasta 1.000 leads, 300 propiedades y 300 operaciones activas',
       'Estadísticas de rendimiento por agente',
       'Cada agente con su propia carga de trabajo, ordenada',
+      'Reporte semanal por email para arrancar la semana ordenado',
     ],
     destacado: true,
   },

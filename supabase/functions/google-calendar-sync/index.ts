@@ -164,14 +164,6 @@ Deno.serve(async (req) => {
         return errorResponse(req, 'Google rechazó el borrado del evento', 502, 'GOOGLE_API_ERROR')
       }
 
-      // Defensivo: si la fila todavía existe —un cancelar que no borra, un
-      // reintento— se le limpia el id, que ya no apunta a nada. Si no existe,
-      // el update afecta 0 filas y no es un error.
-      await admin
-        .from(entrada.tipo === 'tarea' ? 'tareas' : 'visitas')
-        .update({ google_event_id: null })
-        .eq('id', entrada.registro_id)
-
       return jsonResponse(req, { synced: true, google_event_id: null })
     }
 

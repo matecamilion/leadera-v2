@@ -6,8 +6,8 @@ import {
   obtenerConexionGoogle,
   type ConexionGoogle,
 } from '../lib/api/googleCalendar'
-
-export const CLAVE_GOOGLE_CALENDAR = ['google-calendar'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Estado de la conexión con Google Calendar del agente logueado.
@@ -20,9 +20,11 @@ export const CLAVE_GOOGLE_CALENDAR = ['google-calendar'] as const
  *    refresh_token.
  */
 export function useConexionGoogle() {
+  const uid = useUid()
   return useQuery<ConexionGoogle | null>({
-    queryKey: CLAVE_GOOGLE_CALENDAR,
+    queryKey: claves.googleCalendar.conexion(uid),
     queryFn: obtenerConexionGoogle,
+    enabled: !!uid,
   })
 }
 
@@ -61,12 +63,13 @@ export function useConectarGoogle() {
  */
 export function useDesconectarGoogle() {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation<void, Error, void>({
     mutationFn: desconectarGoogle,
     onSuccess: () => {
-      queryClient.setQueryData(CLAVE_GOOGLE_CALENDAR, null)
-      queryClient.invalidateQueries({ queryKey: CLAVE_GOOGLE_CALENDAR })
+      queryClient.setQueryData(claves.googleCalendar.conexion(uid), null)
+      queryClient.invalidateQueries({ queryKey: claves.googleCalendar.conexion(uid) })
     },
   })
 }
@@ -81,14 +84,16 @@ export function useDesconectarGoogle() {
  */
 export function useCambiarImportacionGoogle() {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation<boolean, Error, boolean>({
     mutationFn: actualizarImportacionActiva,
     onSuccess: (activa) => {
-      queryClient.setQueryData<ConexionGoogle | null>(CLAVE_GOOGLE_CALENDAR, (previo) =>
-        previo ? { ...previo, importacionActiva: activa } : previo,
+      queryClient.setQueryData<ConexionGoogle | null>(
+        claves.googleCalendar.conexion(uid),
+        (previo) => (previo ? { ...previo, importacionActiva: activa } : previo),
       )
-      queryClient.invalidateQueries({ queryKey: CLAVE_GOOGLE_CALENDAR })
+      queryClient.invalidateQueries({ queryKey: claves.googleCalendar.conexion(uid) })
     },
   })
 }

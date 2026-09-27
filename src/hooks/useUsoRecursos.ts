@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { obtenerUsoRecursos, type UsoDeRecursos } from '../lib/api/uso'
 import type { Plan } from '../lib/api/suscripcion'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Cuánto del plan está usado.
@@ -13,8 +15,10 @@ import type { Plan } from '../lib/api/suscripcion'
  * lleva `staleTime` propio; alcanza con el de la app.
  */
 export function useUsoRecursos(plan: Plan | null) {
+  const uid = useUid()
   return useQuery<UsoDeRecursos>({
-    queryKey: ['uso-recursos', plan],
+    queryKey: claves.usoRecursos.dePlan(uid, plan),
     queryFn: () => obtenerUsoRecursos(plan),
+    enabled: !!uid,
   })
 }

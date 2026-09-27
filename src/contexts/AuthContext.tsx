@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/database'
@@ -37,19 +39,49 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+
+  // --- Cache ---------------------------------------------------------------
+  // El cache de React Query vive en memoria y sobrevive a un cambio de sesión
+  // en la misma pestaña. Cuando cambia el usuario —logout, login con otra
+  // cuenta, sesión cerrada desde otra pestaña o por ResetPassword— se vacía
+  // entero: nada de lo que quedó es del que entra.
+  //
+  // Primero se cancelan las queries en vuelo, así ninguna que haya salido con
+  // la sesión anterior termina escribiendo en el cache nuevo. Las que igual
+  // resuelvan después escriben en entradas que `clear` ya sacó, y lo que puedan
+  // escribir las mutaciones que terminan tarde queda bajo el uid anterior (ver
+  // `lib/queryKeys`), que el nuevo usuario nunca lee.
+  //
+  // `undefined` = todavía no se resolvió la primera sesión.
+  const uidAnterior = useRef<string | null | undefined>(undefined)
+
+  const limpiarCache = useCallback(() => {
+    void queryClient.cancelQueries()
+    queryClient.clear()
+  }, [queryClient])
 
   // --- Sesión --------------------------------------------------------------
   useEffect(() => {
     let activo = true
 
+    function aplicarSesion(siguiente: User | null) {
+      const uid = siguiente?.id ?? null
+      if (uidAnterior.current !== undefined && uidAnterior.current !== uid) {
+        limpiarCache()
+      }
+      uidAnterior.current = uid
+      setUser(siguiente)
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!activo) return
-      setUser(data.session?.user ?? null)
+      aplicarSesion(data.session?.user ?? null)
       setLoading(false)
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      aplicarSesion(session?.user ?? null)
       // Si getSession todavía no volvió, esto ya nos deja el estado resuelto.
       setLoading(false)
     })
@@ -58,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activo = false
       sub.subscription.unsubscribe()
     }
-  }, [])
+  }, [limpiarCache])
 
   // --- Perfil --------------------------------------------------------------
   // Guardamos junto al id del usuario al que pertenece, y derivamos `profile`
@@ -114,8 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
+    // El SIGNED_OUT de onAuthStateChange ya limpia; se repite acá para no
+    // depender de que el evento llegue antes de que la app siga.
+    limpiarCache()
+    uidAnterior.current = null
     setUser(null)
-  }, [])
+  }, [limpiarCache])
 
   // Memoizado y no un objeto literal: el literal es una referencia nueva en
   // cada render del provider, así que TODO lo que use `useAuth()` —el layout,

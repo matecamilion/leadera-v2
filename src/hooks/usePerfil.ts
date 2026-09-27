@@ -4,13 +4,15 @@ import {
   obtenerMetricasPerfil,
   type MetricasPerfil,
 } from '../lib/api/perfil'
-
-export const CLAVE_PERFIL = ['perfil', 'metricas'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 export function useMetricasPerfil() {
+  const uid = useUid()
   return useQuery<MetricasPerfil>({
-    queryKey: CLAVE_PERFIL,
+    queryKey: claves.perfil.metricas(uid),
     queryFn: obtenerMetricasPerfil,
+    enabled: !!uid,
   })
 }
 
@@ -23,11 +25,12 @@ export function useMetricasPerfil() {
  */
 export function useGuardarMeta() {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation<number, Error, number>({
     mutationFn: actualizarMetaMensual,
     onSuccess: (metaGuardada) => {
-      queryClient.setQueryData<MetricasPerfil>(CLAVE_PERFIL, (actual) =>
+      queryClient.setQueryData<MetricasPerfil>(claves.perfil.metricas(uid), (actual) =>
         actual ? { ...actual, metaMensualGanados: metaGuardada } : actual,
       )
     },

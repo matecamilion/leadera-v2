@@ -6,12 +6,15 @@ import {
   type ResumenOperaciones,
 } from '../lib/api/leads'
 import { clasificarLeads, type RolLead } from '../lib/api/rolLead'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 const VACIO_OPERACIONES: ResumenOperaciones = { compra: 0, venta: 0 }
 const VACIO_INTERACCIONES: ResumenInteracciones = { cantidad: 0, ultimoDetalle: null }
 
-/**
- * Segmento que separa estas claves de las de la ficha.
+/*
+ * Las claves de este archivo llevan la subclave `'resumen'` / `'rol'` (ver
+ * `claves.operacionesPorLead`), que las separa de las de la ficha.
  *
  * `useOperacion.useOperacionesPorLead` —mismo nombre, otro archivo, otra forma:
  * devuelve el array de operaciones de UN lead— cachea bajo
@@ -22,21 +25,21 @@ const VACIO_INTERACCIONES: ResumenInteracciones = { cantidad: 0, ultimoDetalle: 
  * `data.get is not a function`, dejando la pantalla en blanco.
  *
  * El prefijo se mantiene a propósito: `useOperaciones` invalida
- * `['operaciones-por-lead']` entero y tiene que seguir alcanzando a estos.
+ * `claves.operacionesPorLead.raiz` entera y tiene que seguir alcanzando a estos.
  */
-const RESUMEN = 'resumen'
 
 /**
  * Resumen de operaciones de los leads ya cargados.
  * Depende del listado: sin ids no dispara.
  */
 export function useOperacionesPorLead(leadIds: string[]) {
+  const uid = useUid()
   const clave = leadIds.join(',')
 
   const { data } = useQuery({
-    queryKey: ['operaciones-por-lead', RESUMEN, clave],
+    queryKey: claves.operacionesPorLead.resumen(uid, clave),
     queryFn: () => contarOperacionesPorLead(leadIds),
-    enabled: leadIds.length > 0,
+    enabled: !!uid && leadIds.length > 0,
   })
 
   return (leadId: string): ResumenOperaciones => data?.get(leadId) ?? VACIO_OPERACIONES
@@ -44,14 +47,15 @@ export function useOperacionesPorLead(leadIds: string[]) {
 
 /** Ídem para interacciones: cantidad y detalle de la última. */
 export function useInteraccionesPorLead(leadIds: string[]) {
+  const uid = useUid()
   const clave = leadIds.join(',')
 
   const { data } = useQuery({
     // Esta no colisiona hoy —nadie más usa la raíz `interacciones-por-lead`—
     // pero va segmentada igual, para que las dos del archivo se lean parejas.
-    queryKey: ['interacciones-por-lead', RESUMEN, clave],
+    queryKey: claves.interaccionesPorLead.resumen(uid, clave),
     queryFn: () => contarInteraccionesPorLead(leadIds),
-    enabled: leadIds.length > 0,
+    enabled: !!uid && leadIds.length > 0,
   })
 
   return (leadId: string): ResumenInteracciones =>
@@ -67,12 +71,13 @@ export function useInteraccionesPorLead(leadIds: string[]) {
  * volver a montar la pantalla, porque la query no tiene `staleTime`.
  */
 export function useRolesPorLead(leadIds: string[]) {
+  const uid = useUid()
   const clave = leadIds.join(',')
 
   const { data } = useQuery({
-    queryKey: ['operaciones-por-lead', 'rol', clave],
+    queryKey: claves.operacionesPorLead.rol(uid, clave),
     queryFn: () => clasificarLeads(leadIds),
-    enabled: leadIds.length > 0,
+    enabled: !!uid && leadIds.length > 0,
   })
 
   return (leadId: string): RolLead | null => data?.get(leadId) ?? null

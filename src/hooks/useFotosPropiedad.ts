@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { eliminarFotoPropiedad, subirFotoPropiedad, validarArchivo } from '../lib/api/storage'
-import { clavePropiedad } from './useDetallePropiedad'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 export interface Progreso {
   actual: number
@@ -10,11 +11,12 @@ export interface Progreso {
 
 export function useFotosPropiedad(propiedadId: string) {
   const queryClient = useQueryClient()
+  const uid = useUid()
   const [progreso, setProgreso] = useState<Progreso | null>(null)
 
   function refrescar() {
-    queryClient.invalidateQueries({ queryKey: clavePropiedad(propiedadId) })
-    queryClient.invalidateQueries({ queryKey: ['propiedades'] })
+    queryClient.invalidateQueries({ queryKey: claves.propiedad.detalle(uid, propiedadId) })
+    queryClient.invalidateQueries({ queryKey: claves.propiedades.raiz })
   }
 
   const subir = useMutation({

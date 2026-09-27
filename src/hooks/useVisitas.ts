@@ -11,49 +11,48 @@ import {
   type EstadisticasVisitasPropiedad,
   type VisitaConContexto,
 } from '../lib/api/visitas'
-// El calendario unificado vive en `useTareas`: de ahí salen la clave del cache
-// y la forma del evento. La dependencia va en un solo sentido —`useTareas` no
-// importa nada de acá— así que no hay ciclo.
-import { CLAVE_TAREAS, type EventoCalendario } from './useTareas'
+// El calendario unificado vive en `useTareas`: de ahí sale la forma del evento.
+// La dependencia va en un solo sentido —`useTareas` no importa nada de acá— así
+// que no hay ciclo.
+import { type EventoCalendario } from './useTareas'
+import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import type { EstadoVisita, Visita } from '../types/database'
 
-/** Las visitas sueltas cuelgan de esta clave; el calendario, de CLAVE_TAREAS. */
-export const CLAVE_VISITAS = ['visitas'] as const
-
 /** Visitas de un rango, para quien las quiera sin el resto del calendario. */
 export function useVisitas(desde: string, hasta: string) {
+  const uid = useUid()
   return useQuery<VisitaConContexto[]>({
-    queryKey: [...CLAVE_VISITAS, desde, hasta],
+    queryKey: claves.visitas.rango(uid, desde, hasta),
     queryFn: () => listarVisitas(desde, hasta),
-    placeholderData: (anterior) => anterior,
+    enabled: !!uid,
+    placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
 /**
- * Los agregados cuelgan de CLAVE_VISITAS: todo lo que ya invalida esa clave
+ * Visitas realizadas, agendadas e interesados únicos de una propiedad.
+ *
+ * Los agregados cuelgan de `claves.visitas.raiz`: todo lo que ya la invalida
  * —crear, marcar realizada, cancelar, eliminar— los recalcula sin wiring extra.
  */
-export const claveEstadisticasPropiedad = (id: string) =>
-  [...CLAVE_VISITAS, 'estadisticas-propiedad', id] as const
-export const claveVisitasDeLead = (id: string) =>
-  [...CLAVE_VISITAS, 'por-lead', id] as const
-
-/** Visitas realizadas, agendadas e interesados únicos de una propiedad. */
 export function useEstadisticasVisitasPropiedad(propiedadId: string | undefined) {
+  const uid = useUid()
   return useQuery<EstadisticasVisitasPropiedad>({
-    queryKey: claveEstadisticasPropiedad(propiedadId ?? ''),
+    queryKey: claves.visitas.estadisticasPropiedad(uid, propiedadId ?? ''),
     queryFn: () => obtenerEstadisticasVisitasPropiedad(propiedadId as string),
-    enabled: Boolean(propiedadId),
+    enabled: !!uid && Boolean(propiedadId),
   })
 }
 
 /** Cuántas visitas realizadas acumula un lead. */
 export function useVisitasDeLead(leadId: string | undefined) {
+  const uid = useUid()
   return useQuery<number>({
-    queryKey: claveVisitasDeLead(leadId ?? ''),
+    queryKey: claves.visitas.porLead(uid, leadId ?? ''),
     queryFn: () => contarVisitasDeLead(leadId as string),
-    enabled: Boolean(leadId),
+    enabled: !!uid && Boolean(leadId),
   })
 }
 
@@ -79,10 +78,10 @@ function useCambiarEstadoVisita(
     mutationFn: accion,
 
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: CLAVE_TAREAS })
+      await queryClient.cancelQueries({ queryKey: claves.tareas.raiz })
 
       const anteriores = queryClient.getQueriesData<EventoCalendario[]>({
-        queryKey: CLAVE_TAREAS,
+        queryKey: claves.tareas.raiz,
       })
 
       for (const [clave] of anteriores) {
@@ -115,18 +114,18 @@ function useCambiarEstadoVisita(
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
-      queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
 
       // Marcar realizada inserta una interacción llamando a la API directo, sin
       // pasar por `useCrearInteraccion`, así que hay que repetir acá lo que ese
       // hook invalida: el timeline, la ficha del lead —el trigger le movió las
       // fechas de contacto—, el listado y los conteos por lead.
       if (estado === 'REALIZADA') {
-        queryClient.invalidateQueries({ queryKey: ['interacciones'] })
-        queryClient.invalidateQueries({ queryKey: ['lead'] })
-        queryClient.invalidateQueries({ queryKey: ['leads'] })
-        queryClient.invalidateQueries({ queryKey: ['interacciones-por-lead'] })
+        queryClient.invalidateQueries({ queryKey: claves.interacciones.raiz })
+        queryClient.invalidateQueries({ queryKey: claves.lead.raiz })
+        queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
+        queryClient.invalidateQueries({ queryKey: claves.interaccionesPorLead.raiz })
       }
     },
   })
@@ -154,8 +153,8 @@ export function useCrearVisita() {
   return useMutation<Visita, Error, CrearVisitaInput>({
     mutationFn: crearVisita,
     onSuccess: (creada) => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
-      queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
       sincronizarConGoogle({ tipo: 'visita', accion: 'crear', registro_id: creada.id })
     },
   })
@@ -169,8 +168,8 @@ export function useEliminarVisita() {
   return useMutation<string | null, Error, string>({
     mutationFn: eliminarVisita,
     onSuccess: (googleEventId, id) => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
-      queryClient.invalidateQueries({ queryKey: CLAVE_VISITAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
       if (googleEventId) {
         sincronizarConGoogle({
           tipo: 'visita',

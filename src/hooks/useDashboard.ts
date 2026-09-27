@@ -10,17 +10,15 @@ import {
   type LeadContactado,
   type LeadsDelDia,
 } from '../lib/api/dashboard'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
-export const CLAVE_COINCIDENCIAS = ['dashboard', 'coincidencias'] as const
-
-/**
- * Los leads del día cuelgan de `['leads']` y no de `['dashboard']` a propósito:
- * `useCrearInteraccion` y el "marcar realizada" de visitas ya invalidan esa
- * clave, así que registrar un contacto saca al lead de las secciones y lo suma
- * a contactados sin tocar ninguno de esos dos módulos.
+/*
+ * Los leads del día cuelgan de `claves.leads` y no de `claves.dashboard` a
+ * propósito: `useCrearInteraccion` y el "marcar realizada" de visitas ya
+ * invalidan esa raíz, así que registrar un contacto saca al lead de las
+ * secciones y lo suma a contactados sin tocar ninguno de esos dos módulos.
  */
-export const CLAVE_CANDIDATOS = ['leads', 'del-dia'] as const
-export const CLAVE_CONTACTADOS_HOY = ['leads', 'contactados-hoy'] as const
 
 /**
  * La única lectura de leads de la jornada.
@@ -30,9 +28,11 @@ export const CLAVE_CONTACTADOS_HOY = ['leads', 'contactados-hoy'] as const
  * pide una sola vez por visita a Mi día.
  */
 function useCandidatosDelDia() {
+  const uid = useUid()
   return useQuery<CandidatosDelDia>({
-    queryKey: CLAVE_CANDIDATOS,
+    queryKey: claves.leads.delDia(uid),
     queryFn: obtenerCandidatosDelDia,
+    enabled: !!uid,
   })
 }
 
@@ -68,16 +68,20 @@ export function useLeadsDelDia(): {
  * urgentes, así que la jornada se pinta apenas llega sin esperarlas.
  */
 export function useCoincidenciasDelDia() {
+  const uid = useUid()
   return useQuery<CoincidenciaDelDia[]>({
-    queryKey: CLAVE_COINCIDENCIAS,
+    queryKey: claves.dashboard.coincidencias(uid),
     queryFn: obtenerCoincidenciasDelDia,
+    enabled: !!uid,
   })
 }
 
 /** Los leads con una interacción de hoy, para la pantalla de contactados. */
 export function useContactadosHoy() {
+  const uid = useUid()
   return useQuery<LeadContactado[]>({
-    queryKey: CLAVE_CONTACTADOS_HOY,
+    queryKey: claves.leads.contactadosHoy(uid),
     queryFn: obtenerContactadosHoy,
+    enabled: !!uid,
   })
 }

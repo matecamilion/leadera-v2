@@ -7,17 +7,16 @@ import {
   type CriteriosBusqueda,
   type PropiedadCoincidente,
 } from '../lib/api/busquedas'
-import { claveOperacion } from './useOperacion'
-
-export const claveCoincidencias = (busquedaId: string) =>
-  ['coincidencias-busqueda', busquedaId] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Criterios ya guardados, para precargar el formulario de edición. */
 export function useCriteriosBusqueda(busquedaId: string | null | undefined) {
+  const uid = useUid()
   return useQuery<CriteriosBusqueda | null>({
-    queryKey: ['busqueda', busquedaId],
+    queryKey: claves.busqueda.criterios(uid, busquedaId),
     queryFn: () => obtenerCriterios(busquedaId as string),
-    enabled: Boolean(busquedaId),
+    enabled: !!uid && Boolean(busquedaId),
   })
 }
 
@@ -36,16 +35,19 @@ interface GuardarInput {
  */
 export function useGuardarBusqueda() {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation({
     mutationFn: ({ operacionId, leadId, criterios }: GuardarInput) =>
       guardarBusqueda(operacionId, leadId, criterios),
     onSuccess: (busquedaId, { operacionId }) => {
-      queryClient.invalidateQueries({ queryKey: claveOperacion(operacionId) })
-      queryClient.invalidateQueries({ queryKey: ['busqueda', busquedaId] })
-      queryClient.invalidateQueries({ queryKey: claveCoincidencias(busquedaId) })
+      queryClient.invalidateQueries({ queryKey: claves.operacion.detalle(uid, operacionId) })
+      queryClient.invalidateQueries({ queryKey: claves.busqueda.criterios(uid, busquedaId) })
+      queryClient.invalidateQueries({
+        queryKey: claves.coincidenciasBusqueda.deBusqueda(uid, busquedaId),
+      })
       // El selector de búsquedas del alta lista las del lead.
-      queryClient.invalidateQueries({ queryKey: ['busquedas-de-lead'] })
+      queryClient.invalidateQueries({ queryKey: claves.busquedasDeLead.raiz })
     },
   })
 }
@@ -57,10 +59,11 @@ export function useGuardarBusqueda() {
  * pantalla, así que volver a entrar tiene que volver a puntuar.
  */
 export function useCoincidenciasBusqueda(busquedaId: string | null | undefined) {
+  const uid = useUid()
   return useQuery<PropiedadCoincidente[]>({
-    queryKey: claveCoincidencias(busquedaId ?? ''),
+    queryKey: claves.coincidenciasBusqueda.deBusqueda(uid, busquedaId ?? ''),
     queryFn: () => obtenerCoincidencias(busquedaId as string),
-    enabled: Boolean(busquedaId),
+    enabled: !!uid && Boolean(busquedaId),
     staleTime: 0,
   })
 }
@@ -75,9 +78,10 @@ export function useDetalleMatch(
   busquedaId: string | undefined,
   propiedadId: string | undefined,
 ) {
+  const uid = useUid()
   return useQuery<DetalleMatch | null>({
-    queryKey: ['detalle-match', busquedaId, propiedadId],
+    queryKey: claves.detalleMatch.detalle(uid, busquedaId, propiedadId),
     queryFn: () => obtenerDetalleMatch(busquedaId as string, propiedadId as string),
-    enabled: Boolean(busquedaId && propiedadId),
+    enabled: !!uid && Boolean(busquedaId && propiedadId),
   })
 }

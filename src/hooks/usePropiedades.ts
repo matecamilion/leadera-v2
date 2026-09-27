@@ -10,6 +10,8 @@ import {
   crearPropiedadConOperacion,
   type TipoOperacionDePropiedad,
 } from '../lib/api/propiedades'
+import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Filas por página del listado de propiedades. */
 export const PROPIEDADES_POR_PAGINA = 20
@@ -20,30 +22,33 @@ export const PROPIEDADES_POR_PAGINA = 20
  * determinística, así que un objeto nuevo con el mismo contenido no dispara
  * refetch.
  *
- * El segmento `'listado'` separa esta clave de `['propiedades', 'por-lead', id]`
+ * El segmento `'listado'` separa esta clave de la de `'por-lead'`
  * —tienen distinto largo, pero nombrarlas evita el tipo de colisión que ya nos
  * mordió una vez en `operaciones-por-lead`—.
  */
 export function usePropiedades(filtros: FiltrosPropiedad, page: number) {
+  const uid = useUid()
   return useQuery<ListarPropiedadesResult>({
-    queryKey: ['propiedades', 'listado', filtros, page],
+    queryKey: claves.propiedades.listado(uid, filtros, page),
     queryFn: () =>
       listarPropiedades({ ...filtros, page, pageSize: PROPIEDADES_POR_PAGINA }),
+    enabled: !!uid,
     // Al paginar o tipear mantenemos la tabla anterior visible en vez de volver
     // al skeleton: evita que la lista parpadee en cada tecla.
-    placeholderData: (anterior) => anterior,
+    placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
 /**
- * Propiedades de un lead. Cuelga de `['propiedades']`, así que `useCrearPropiedad`
+ * Propiedades de un lead. Cuelga de `claves.propiedades.raiz`, así que `useCrearPropiedad`
  * ya la invalida: dar de alta una propiedad refresca la tab de la ficha.
  */
 export function usePropiedadesPorLead(leadId: string | undefined) {
+  const uid = useUid()
   return useQuery({
-    queryKey: ['propiedades', 'por-lead', leadId],
+    queryKey: claves.propiedades.porLead(uid, leadId),
     queryFn: () => listarPropiedadesPorLead(leadId as string),
-    enabled: Boolean(leadId),
+    enabled: !!uid && Boolean(leadId),
   })
 }
 
@@ -53,7 +58,7 @@ export function useCrearPropiedad() {
   return useMutation({
     mutationFn: (input: CrearPropiedadInput) => crearPropiedad(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['propiedades'] })
+      queryClient.invalidateQueries({ queryKey: claves.propiedades.raiz })
     },
   })
 }
@@ -79,9 +84,9 @@ export function useCrearPropiedadConOperacion() {
       tipoOperacion: TipoOperacionDePropiedad | null
     }) => crearPropiedadConOperacion(propiedad, tipoOperacion),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['propiedades'] })
-      queryClient.invalidateQueries({ queryKey: ['operaciones'] })
-      queryClient.invalidateQueries({ queryKey: ['operaciones-por-lead'] })
+      queryClient.invalidateQueries({ queryKey: claves.propiedades.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.operaciones.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.operacionesPorLead.raiz })
     },
   })
 }
@@ -93,12 +98,14 @@ export function useCrearPropiedadConOperacion() {
  * `estado` antes que por fecha, así que sus primeras filas no son las más
  * recientes. El porqué largo está en `listarPropiedadesRecientes`.
  *
- * La clave cuelga de `['propiedades']`, así que `useCrearPropiedad` y
+ * La clave cuelga de `claves.propiedades.raiz`, así que `useCrearPropiedad` y
  * `useCrearPropiedadConOperacion` ya la invalidan sin wiring extra.
  */
 export function usePropiedadesRecientes(limit = 3) {
+  const uid = useUid()
   return useQuery<ListarPropiedadesResult>({
-    queryKey: ['propiedades', 'recientes', limit],
+    queryKey: claves.propiedades.recientes(uid, limit),
     queryFn: () => listarPropiedadesRecientes(limit),
+    enabled: !!uid,
   })
 }

@@ -3,8 +3,8 @@ import {
   actualizarReporteSemanal,
   obtenerReporteSemanal,
 } from '../lib/api/reporteSemanal'
-
-export const CLAVE_REPORTE_SEMANAL = ['reporte-semanal'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Si el agente pidió recibir el reporte semanal por email.
@@ -13,9 +13,11 @@ export const CLAVE_REPORTE_SEMANAL = ['reporte-semanal'] as const
  * activar desde uno apaga el otro sin wiring extra.
  */
 export function useReporteSemanal() {
+  const uid = useUid()
   return useQuery<boolean>({
-    queryKey: CLAVE_REPORTE_SEMANAL,
+    queryKey: claves.reporteSemanal.activo(uid),
     queryFn: obtenerReporteSemanal,
+    enabled: !!uid,
   })
 }
 
@@ -28,12 +30,13 @@ export function useReporteSemanal() {
  */
 export function useCambiarReporteSemanal() {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation<boolean, Error, boolean>({
     mutationFn: actualizarReporteSemanal,
     onSuccess: (activo) => {
-      queryClient.setQueryData(CLAVE_REPORTE_SEMANAL, activo)
-      queryClient.invalidateQueries({ queryKey: CLAVE_REPORTE_SEMANAL })
+      queryClient.setQueryData(claves.reporteSemanal.activo(uid), activo)
+      queryClient.invalidateQueries({ queryKey: claves.reporteSemanal.activo(uid) })
     },
   })
 }

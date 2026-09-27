@@ -12,9 +12,8 @@ import {
   type PrecioPlan,
   type SuscripcionCreada,
 } from '../lib/api/suscripcion'
-
-/** Todo lo de la suscripción cuelga de esta clave. */
-export const CLAVE_SUSCRIPCION = ['suscripcion'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Los precios de lista.
@@ -24,7 +23,7 @@ export const CLAVE_SUSCRIPCION = ['suscripcion'] as const
  */
 export function usePreciosPlanes() {
   return useQuery<PrecioPlan[]>({
-    queryKey: [...CLAVE_SUSCRIPCION, 'precios'],
+    queryKey: claves.suscripcion.precios(),
     queryFn: listarPreciosPlanes,
     staleTime: 10 * 60_000,
   })
@@ -35,9 +34,11 @@ export function usePreciosPlanes() {
  * deja leer la fila; la pantalla trata ese caso como "no sé".
  */
 export function useEstadoSuscripcion() {
+  const uid = useUid()
   return useQuery<EstadoDeMiSuscripcion | null>({
-    queryKey: [...CLAVE_SUSCRIPCION, 'estado'],
+    queryKey: claves.suscripcion.estado(uid),
     queryFn: obtenerEstadoSuscripcion,
+    enabled: !!uid,
   })
 }
 
@@ -50,13 +51,14 @@ export function useEstadoSuscripcion() {
  */
 export function useCrearSuscripcion() {
   const qc = useQueryClient()
+  const uid = useUid()
 
   return useMutation<SuscripcionCreada, Error, Plan>({
     mutationFn: crearSuscripcion,
     onError: () => {
       // El intento pudo haber dejado el mp_preapproval_id guardado aunque el
       // usuario no llegue a pagar: el estado en pantalla ya no es confiable.
-      qc.invalidateQueries({ queryKey: [...CLAVE_SUSCRIPCION, 'estado'] })
+      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid) })
     },
   })
 }
@@ -70,11 +72,12 @@ export function useCrearSuscripcion() {
  */
 export function useCancelarSuscripcion() {
   const qc = useQueryClient()
+  const uid = useUid()
 
   return useMutation<CancelacionConfirmada, Error, void>({
     mutationFn: cancelarSuscripcion,
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: [...CLAVE_SUSCRIPCION, 'estado'] })
+      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid) })
     },
   })
 }
@@ -86,9 +89,10 @@ export function useCancelarSuscripcion() {
  * la sesión, y sin él la query traería el historial de nadie.
  */
 export function usePagos(inmobiliariaId: string | undefined) {
+  const uid = useUid()
   return useQuery<PagoDelHistorial[]>({
-    queryKey: [...CLAVE_SUSCRIPCION, 'pagos', inmobiliariaId],
+    queryKey: claves.suscripcion.pagos(uid, inmobiliariaId),
     queryFn: () => listarPagos(inmobiliariaId!),
-    enabled: inmobiliariaId != null,
+    enabled: !!uid && inmobiliariaId != null,
   })
 }

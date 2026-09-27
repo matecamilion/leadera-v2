@@ -4,6 +4,8 @@ import {
   type CoincidenciaInterna,
   type EstadoPropiedad,
 } from '../lib/api/propiedades'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Coincidencias de la MISMA inmobiliaria.
@@ -15,9 +17,10 @@ export function useCoincidenciasInternas(
   propiedadId: string | undefined,
   estado: EstadoPropiedad | undefined,
 ) {
+  const uid = useUid()
   return useQuery<CoincidenciaInterna[]>({
-    queryKey: ['coincidencias-internas', propiedadId],
+    queryKey: claves.coincidenciasInternas.dePropiedad(uid, propiedadId),
     queryFn: () => buscarCoincidenciasInternas(propiedadId as string),
-    enabled: Boolean(propiedadId) && estado === 'DISPONIBLE',
+    enabled: !!uid && Boolean(propiedadId) && estado === 'DISPONIBLE',
   })
 }

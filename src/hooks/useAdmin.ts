@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../contexts/AuthContext'
 import {
   ajustarVencimiento,
   anularPago,
@@ -17,9 +16,8 @@ import {
   type PagoManualInput,
   type TipoCuenta,
 } from '../lib/api/admin'
-
-/** Todo lo del panel cuelga de esta clave. */
-export const CLAVE_ADMIN = ['admin'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /**
  * Todo lo del panel /admin, en una sola ida.
@@ -29,45 +27,45 @@ export const CLAVE_ADMIN = ['admin'] as const
  * del siguiente que entre.
  */
 export function usePanelAdmin() {
-  const { user } = useAuth()
+  const uid = useUid()
   return useQuery<DatosPanelAdmin>({
-    queryKey: [...CLAVE_ADMIN, 'panel', user?.id],
+    queryKey: claves.admin.panel(uid),
     queryFn: () => obtenerPanelAdmin(),
-    enabled: !!user,
+    enabled: !!uid,
   })
 }
 
 /** Conteos de uso de una inmobiliaria, para /admin/inmobiliarias/:id. */
 export function useMetricasCuenta(inmobiliariaId: string | undefined) {
-  const { user } = useAuth()
+  const uid = useUid()
   return useQuery<MetricasUsoCuenta>({
-    queryKey: [...CLAVE_ADMIN, 'metricas', user?.id, inmobiliariaId],
+    queryKey: claves.admin.metricas(uid, inmobiliariaId),
     queryFn: () => obtenerMetricasCuenta(inmobiliariaId as string),
-    enabled: !!user && !!inmobiliariaId,
+    enabled: !!uid && !!inmobiliariaId,
   })
 }
 
 /** Los movimientos de cobro de una cuenta: pagos manuales, de MP y ajustes. */
 export function useHistorialCobros(inmobiliariaId: string | undefined) {
-  const { user } = useAuth()
+  const uid = useUid()
   return useQuery<MovimientoCobro[]>({
-    queryKey: [...CLAVE_ADMIN, 'cobros', user?.id, inmobiliariaId],
+    queryKey: claves.admin.cobros(uid, inmobiliariaId),
     queryFn: () => historialCobros(inmobiliariaId as string),
-    enabled: !!user && !!inmobiliariaId,
+    enabled: !!uid && !!inmobiliariaId,
   })
 }
 
 /**
  * Qué refrescar después de tocar el cobro de una cuenta.
  *
- * `['admin']` como prefijo alcanza para las tres consultas del panel: el
+ * `claves.admin.raiz` como prefijo alcanza para las tres consultas del panel: el
  * listado —donde cambian el estado, el método y el vencimiento—, el historial
  * de cobros y las métricas. Invalidar de más acá cuesta tres queries livianas;
  * invalidar de menos deja la pantalla mintiendo después de cobrar.
  */
 function useInvalidarAdmin() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: CLAVE_ADMIN })
+  return () => queryClient.invalidateQueries({ queryKey: claves.admin.raiz })
 }
 
 export function useRegistrarPagoManual() {

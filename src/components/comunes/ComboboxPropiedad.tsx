@@ -6,6 +6,8 @@ import {
   type PropiedadResumida,
 } from '../../lib/api/operaciones'
 import { etiquetaTipo, formatearPrecio } from '../../lib/api/propiedades'
+import { claves } from '../../lib/queryKeys'
+import { useUid } from '../../hooks/useUid'
 import { IconoLupa } from '../leads/Iconos'
 import { CLASES_CONTROL } from './estilosFormulario'
 
@@ -44,11 +46,12 @@ export function ComboboxPropiedad({
   const [busqueda, setBusqueda] = useState('')
   const [abierto, setAbierto] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
+  const uid = useUid()
 
   const { data: seleccionada } = useQuery({
-    queryKey: ['propiedad-resumida', value],
+    queryKey: claves.propiedadResumida.porId(uid, value),
     queryFn: () => obtenerPropiedadResumida(value as string),
-    enabled: Boolean(value),
+    enabled: !!uid && Boolean(value),
   })
 
   useEffect(() => {
@@ -58,9 +61,9 @@ export function ComboboxPropiedad({
   }, [texto, busqueda, debounceMs])
 
   const { data: resultados, isFetching } = useQuery({
-    queryKey: ['propiedades-combobox', busqueda],
+    queryKey: claves.propiedadesCombobox.busqueda(uid, busqueda),
     queryFn: () => buscarPropiedadesParaCombobox(busqueda),
-    enabled: busqueda.trim().length > 0,
+    enabled: !!uid && busqueda.trim().length > 0,
   })
 
   useEffect(() => {

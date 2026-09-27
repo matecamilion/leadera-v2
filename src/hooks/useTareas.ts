@@ -16,9 +16,8 @@ import { listarVisitas, type VisitaConContexto } from '../lib/api/visitas'
 import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import { claveDia } from '../lib/calendario'
 import type { EstadoTarea, EstadoVisita, Recurrencia, Tarea } from '../types/database'
-
-/** Todo lo del calendario cuelga de esta clave, para invalidarlo de una. */
-export const CLAVE_TAREAS = ['tareas'] as const
+import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 export interface EventoCalendario {
   id: string
@@ -80,32 +79,32 @@ function visitaAEvento(v: VisitaConContexto): EventoCalendario {
 }
 
 /**
+ * Tareas de un lead, para el panel de su ficha.
+ *
+ * Cuelga de `claves.tareas.raiz` a propósito: el `onSettled` de completar,
+ * eliminar y crear invalida esa raíz entera, así que el panel de la ficha se
+ * refresca sin wiring extra. Mismo patrón que las visitas por lead.
+ */
+export function useTareasPorLead(leadId: string | undefined) {
+  const uid = useUid()
+  return useQuery<Tarea[]>({
+    queryKey: claves.tareas.porLead(uid, leadId ?? ''),
+    queryFn: () => listarTareasPorLead(leadId as string),
+    enabled: !!uid && Boolean(leadId),
+  })
+}
+
+/**
  * Eventos del mes visible: tareas propias, seguimientos de leads y visitas a
  * propiedades, en una sola lista con forma común.
  *
  * Las tres fuentes van en la misma query key para que el calendario se pinte de
  * una vez y no en saltos.
  */
-/**
- * Cuelga de `CLAVE_TAREAS` a propósito: el `onSettled` de completar, eliminar y
- * crear invalida esa raíz entera, así que el panel de la ficha se refresca sin
- * wiring extra. Mismo patrón que `claveVisitasDeLead`.
- */
-export const claveTareasDeLead = (id: string) =>
-  [...CLAVE_TAREAS, 'por-lead', id] as const
-
-/** Tareas de un lead, para el panel de su ficha. */
-export function useTareasPorLead(leadId: string | undefined) {
-  return useQuery<Tarea[]>({
-    queryKey: claveTareasDeLead(leadId ?? ''),
-    queryFn: () => listarTareasPorLead(leadId as string),
-    enabled: Boolean(leadId),
-  })
-}
-
 export function useEventosCalendario(desde: string, hasta: string) {
+  const uid = useUid()
   return useQuery<EventoCalendario[]>({
-    queryKey: [...CLAVE_TAREAS, 'eventos', desde, hasta],
+    queryKey: claves.tareas.eventos(uid, desde, hasta),
     queryFn: async () => {
       const [tareas, seguimientos, visitas] = await Promise.all([
         listarTareas(desde, hasta),
@@ -118,9 +117,10 @@ export function useEventosCalendario(desde: string, hasta: string) {
         ...visitas.map(visitaAEvento),
       ]
     },
+    enabled: !!uid,
     // Al cambiar de mes se mantiene el calendario anterior en vez de saltar al
     // skeleton: navegar entre meses se siente continuo.
-    placeholderData: (anterior) => anterior,
+    placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
@@ -143,11 +143,11 @@ function useCambiarCompletada(accion: (id: string) => Promise<void>, completada:
     mutationFn: accion,
 
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: CLAVE_TAREAS })
+      await queryClient.cancelQueries({ queryKey: claves.tareas.raiz })
 
       // Puede haber varios meses cacheados; se tocan todos los que tengan la tarea.
       const anteriores = queryClient.getQueriesData<EventoCalendario[]>({
-        queryKey: CLAVE_TAREAS,
+        queryKey: claves.tareas.raiz,
       })
 
       const estado: EstadoTarea = completada ? 'COMPLETADA' : 'PENDIENTE'
@@ -184,7 +184,7 @@ function useCambiarCompletada(accion: (id: string) => Promise<void>, completada:
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
     },
   })
 }
@@ -231,7 +231,7 @@ export function useCrearTarea() {
       return { ocurrencias }
     },
     onSuccess: ({ id }) => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       if (id) sincronizarConGoogle({ tipo: 'tarea', accion: 'crear', registro_id: id })
     },
   })
@@ -246,7 +246,7 @@ export function useEliminarTarea() {
   return useMutation<string | null, Error, string>({
     mutationFn: eliminarTarea,
     onSuccess: (googleEventId, id) => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       if (googleEventId) {
         sincronizarConGoogle({
           tipo: 'tarea',
@@ -265,7 +265,7 @@ export function useEliminarSerie() {
   return useMutation<number, Error, string>({
     mutationFn: eliminarSerie,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_TAREAS })
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
     },
   })
 }

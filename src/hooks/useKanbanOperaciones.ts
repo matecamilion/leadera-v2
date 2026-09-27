@@ -6,6 +6,8 @@ import {
   type TableroKanban,
   type TotalPorMoneda,
 } from '../lib/api/operaciones'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** La moneda más grande primero, igual que como los arma el RPC. */
 function ordenados(totales: TotalPorMoneda[]): TotalPorMoneda[] {
@@ -45,12 +47,12 @@ function conMontoRestado(
   return ordenados(restados.filter((t) => t.total > 0))
 }
 
-export const CLAVE_KANBAN = ['operaciones', 'kanban'] as const
-
 export function useKanbanOperaciones() {
+  const uid = useUid()
   return useQuery<TableroKanban>({
-    queryKey: CLAVE_KANBAN,
+    queryKey: claves.operaciones.kanban(uid),
     queryFn: listarOperacionesKanban,
+    enabled: !!uid,
   })
 }
 
@@ -104,17 +106,19 @@ function conOperacionMovida(
  */
 export function useMovimientoOptimista() {
   const queryClient = useQueryClient()
+  const uid = useUid()
+  const clave = claves.operaciones.kanban(uid)
 
   return {
     aplicar: (id: string, estado: EstadoOperacion): TableroKanban | undefined => {
-      const previo = queryClient.getQueryData<TableroKanban>(CLAVE_KANBAN)
-      queryClient.setQueryData<TableroKanban>(CLAVE_KANBAN, (actual) =>
+      const previo = queryClient.getQueryData<TableroKanban>(clave)
+      queryClient.setQueryData<TableroKanban>(clave, (actual) =>
         conOperacionMovida(actual, id, estado),
       )
       return previo
     },
     revertir: (snapshot: TableroKanban | undefined) => {
-      if (snapshot) queryClient.setQueryData(CLAVE_KANBAN, snapshot)
+      if (snapshot) queryClient.setQueryData(clave, snapshot)
     },
   }
 }
@@ -146,6 +150,8 @@ interface ContextoMovimiento {
  */
 export function useMoverOperacion() {
   const queryClient = useQueryClient()
+  const uid = useUid()
+  const clave = claves.operaciones.kanban(uid)
 
   return useMutation<unknown, Error, MoverInput, ContextoMovimiento>({
     mutationFn: ({ id, estado }) => actualizarEstadoOperacion(id, estado),
@@ -153,15 +159,15 @@ export function useMoverOperacion() {
     onMutate: async ({ id, estado, snapshotPrevio }) => {
       // Si hay un refetch en vuelo podría pisar el cambio optimista con datos
       // viejos justo después de aplicarlo.
-      await queryClient.cancelQueries({ queryKey: CLAVE_KANBAN })
+      await queryClient.cancelQueries({ queryKey: clave })
 
       // Con la card ya movida a mano, el tablero al que hay que poder volver es
       // el que vino, no el de ahora.
       if (snapshotPrevio) return { snapshotAnterior: snapshotPrevio }
 
-      const snapshotAnterior = queryClient.getQueryData<TableroKanban>(CLAVE_KANBAN)
+      const snapshotAnterior = queryClient.getQueryData<TableroKanban>(clave)
 
-      queryClient.setQueryData<TableroKanban>(CLAVE_KANBAN, (actual) =>
+      queryClient.setQueryData<TableroKanban>(clave, (actual) =>
         conOperacionMovida(actual, id, estado),
       )
 
@@ -170,15 +176,15 @@ export function useMoverOperacion() {
 
     onError: (_error, _input, contexto) => {
       if (contexto?.snapshotAnterior) {
-        queryClient.setQueryData(CLAVE_KANBAN, contexto.snapshotAnterior)
+        queryClient.setQueryData(clave, contexto.snapshotAnterior)
       }
     },
 
     onSettled: (_data, _error, { id }) => {
-      queryClient.invalidateQueries({ queryKey: CLAVE_KANBAN })
+      queryClient.invalidateQueries({ queryKey: clave })
       // El listado plano y la ficha muestran el mismo estado.
-      queryClient.invalidateQueries({ queryKey: ['operaciones'] })
-      queryClient.invalidateQueries({ queryKey: ['operacion', id] })
+      queryClient.invalidateQueries({ queryKey: claves.operaciones.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.operacion.detalle(uid, id) })
     },
   })
 }

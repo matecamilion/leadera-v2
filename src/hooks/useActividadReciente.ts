@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { obtenerActividadReciente, type ActividadReciente } from '../lib/api/actividad'
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Cuántas filas entran en el resumen de Mi día. */
 export const ACTIVIDAD_EN_RESUMEN = 8
@@ -15,8 +17,10 @@ export const ACTIVIDAD_EN_RESUMEN = 8
  * dos llamadas con límites distintos se pisarían la entrada.
  */
 export function useActividadReciente() {
+  const uid = useUid()
   return useQuery<ActividadReciente[]>({
-    queryKey: ['actividad-reciente'],
+    queryKey: claves.actividadReciente.resumen(uid),
     queryFn: () => obtenerActividadReciente(ACTIVIDAD_EN_RESUMEN),
+    enabled: !!uid,
   })
 }

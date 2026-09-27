@@ -9,6 +9,8 @@ import {
   type ListarOperacionesResult,
   type TipoOperacion,
 } from '../lib/api/operaciones'
+import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Filas por página del listado de operaciones. */
 export const OPERACIONES_POR_PAGINA = 20
@@ -19,8 +21,9 @@ export function useOperaciones(
   busqueda: string,
   page: number,
 ) {
+  const uid = useUid()
   return useQuery<ListarOperacionesResult>({
-    queryKey: ['operaciones', tipo ?? 'todos', estado ?? 'todos', busqueda, page],
+    queryKey: claves.operaciones.listado(uid, tipo ?? 'todos', estado ?? 'todos', busqueda, page),
     queryFn: () =>
       listarOperaciones({
         tipo,
@@ -29,9 +32,10 @@ export function useOperaciones(
         page,
         pageSize: OPERACIONES_POR_PAGINA,
       }),
+    enabled: !!uid,
     // Al paginar, filtrar o tipear mantenemos la tabla anterior visible en vez
     // de volver al skeleton: evita que la lista parpadee en cada búsqueda.
-    placeholderData: (anterior) => anterior,
+    placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
@@ -41,21 +45,22 @@ export function useCrearOperacion() {
   return useMutation({
     mutationFn: (input: CrearOperacionInput) => crearOperacion(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['operaciones'] })
-      // La tab de la ficha del lead cuelga de otra clave que `['operaciones']`
+      queryClient.invalidateQueries({ queryKey: claves.operaciones.raiz })
+      // La tab de la ficha del lead cuelga de otra clave que `claves.operaciones`
       // no alcanza. Hace falta desde que el alta puede volver a esa ficha: sin
       // esto la operación recién creada no aparece hasta que el cache expira.
-      queryClient.invalidateQueries({ queryKey: ['operaciones-por-lead'] })
+      queryClient.invalidateQueries({ queryKey: claves.operacionesPorLead.raiz })
     },
   })
 }
 
 /** Búsquedas activas del lead elegido, para el tipo COMPRA. */
 export function useBusquedasDeLead(leadId: string | null) {
+  const uid = useUid()
   return useQuery({
-    queryKey: ['busquedas-de-lead', leadId],
+    queryKey: claves.busquedasDeLead.deLead(uid, leadId),
     queryFn: () => listarBusquedasDeLead(leadId as string),
-    enabled: Boolean(leadId),
+    enabled: !!uid && Boolean(leadId),
   })
 }
 
@@ -66,12 +71,14 @@ export function useBusquedasDeLead(leadId: string | null) {
  * un valor único y acá hace falta el complemento —todo lo que no está cerrado ni
  * cancelado—. El porqué largo está en `listarOperacionesEnCurso`.
  *
- * La clave cuelga de `['operaciones']`, así que `useCrearOperacion` y
+ * La clave cuelga de `claves.operaciones.raiz`, así que `useCrearOperacion` y
  * `useCrearPropiedadConOperacion` ya la invalidan sin wiring extra.
  */
 export function useOperacionesEnCurso(limit = 3) {
+  const uid = useUid()
   return useQuery<ListarOperacionesResult>({
-    queryKey: ['operaciones', 'en-curso', limit],
+    queryKey: claves.operaciones.enCurso(uid, limit),
     queryFn: () => listarOperacionesEnCurso(limit),
+    enabled: !!uid,
   })
 }

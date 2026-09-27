@@ -12,29 +12,31 @@ import {
   type EstadoLead,
   type Lead,
 } from '../lib/api/leads'
-
-export const claveLead = (id: string) => ['lead', id] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Un lead por id. `data === null` = no existe o RLS lo tapa. */
 export function useLead(id: string | undefined) {
+  const uid = useUid()
   return useQuery<Lead | null>({
-    queryKey: claveLead(id ?? ''),
+    queryKey: claves.lead.detalle(uid, id ?? ''),
     queryFn: () => obtenerLeadPorId(id as string),
-    enabled: Boolean(id),
+    enabled: !!uid && Boolean(id),
   })
 }
 
 /**
  * Invalidación compartida por todas las mutaciones.
  *
- * `['leads']` cubre el listado, el contador del chip "Todos" y los conteos
- * por lead de Fase 4a-i; `['lead', id]` es la ficha abierta.
+ * `claves.leads.raiz` cubre el listado, el contador del chip "Todos" y los
+ * conteos por lead de Fase 4a-i; `claves.lead.detalle` es la ficha abierta.
  */
 function useInvalidarLead() {
   const queryClient = useQueryClient()
+  const uid = useUid()
   return (id?: string) => {
-    queryClient.invalidateQueries({ queryKey: ['leads'] })
-    if (id) queryClient.invalidateQueries({ queryKey: claveLead(id) })
+    queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
+    if (id) queryClient.invalidateQueries({ queryKey: claves.lead.detalle(uid, id) })
   }
 }
 
@@ -49,6 +51,7 @@ export function useCrearLead() {
 
 export function useActualizarContacto(id: string) {
   const queryClient = useQueryClient()
+  const uid = useUid()
   const invalidar = useInvalidarLead()
 
   return useMutation({
@@ -56,7 +59,7 @@ export function useActualizarContacto(id: string) {
     onSuccess: (lead) => {
       // El update ya devolvió la fila: la dejamos en cache para que la ficha
       // se actualice sin esperar al refetch.
-      queryClient.setQueryData(claveLead(id), lead)
+      queryClient.setQueryData(claves.lead.detalle(uid, id), lead)
       invalidar(id)
     },
   })
@@ -64,12 +67,13 @@ export function useActualizarContacto(id: string) {
 
 export function useActualizarDescripcion(id: string) {
   const queryClient = useQueryClient()
+  const uid = useUid()
   const invalidar = useInvalidarLead()
 
   return useMutation({
     mutationFn: (descripcion: string) => actualizarDescripcion(id, descripcion),
     onSuccess: (lead) => {
-      queryClient.setQueryData(claveLead(id), lead)
+      queryClient.setQueryData(claves.lead.detalle(uid, id), lead)
       invalidar(id)
     },
   })
@@ -77,12 +81,13 @@ export function useActualizarDescripcion(id: string) {
 
 export function useActualizarEstado(id: string) {
   const queryClient = useQueryClient()
+  const uid = useUid()
   const invalidar = useInvalidarLead()
 
   return useMutation({
     mutationFn: (estado: EstadoLead | null) => actualizarEstado(id, estado),
     onSuccess: (lead) => {
-      queryClient.setQueryData(claveLead(id), lead)
+      queryClient.setQueryData(claves.lead.detalle(uid, id), lead)
       invalidar(id)
     },
   })
@@ -90,12 +95,13 @@ export function useActualizarEstado(id: string) {
 
 export function useEliminarLead() {
   const queryClient = useQueryClient()
+  const uid = useUid()
   const invalidar = useInvalidarLead()
 
   return useMutation({
     mutationFn: (id: string) => eliminarLead(id),
     onSuccess: (_data, id) => {
-      queryClient.removeQueries({ queryKey: claveLead(id) })
+      queryClient.removeQueries({ queryKey: claves.lead.detalle(uid, id) })
       invalidar()
     },
   })
@@ -104,14 +110,15 @@ export function useEliminarLead() {
 /**
  * Nombre del agente asignado a un lead.
  *
- * Clave propia —`['agente', id]`— y no colgada de la del lead: el perfil no
+ * Clave propia —`claves.agente`— y no colgada de la del lead: el perfil no
  * cambia cuando cambia el lead, y así dos fichas del mismo agente comparten la
  * entrada en vez de pedirlo dos veces.
  */
 export function useNombreAgente(agenteId: string | null | undefined) {
+  const uid = useUid()
   return useQuery<string | null>({
-    queryKey: ['agente', agenteId],
+    queryKey: claves.agente.nombre(uid, agenteId),
     queryFn: () => obtenerNombreAgente(agenteId as string),
-    enabled: Boolean(agenteId),
+    enabled: !!uid && Boolean(agenteId),
   })
 }

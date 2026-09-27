@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { obtenerEmbudo, type Embudo } from '../lib/api/perfil'
-
-export const CLAVE_EMBUDO = ['perfil', 'embudo'] as const
+import { claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 export function useEmbudo() {
+  const uid = useUid()
   return useQuery<Embudo>({
-    queryKey: CLAVE_EMBUDO,
+    queryKey: claves.perfil.embudo(uid),
     queryFn: obtenerEmbudo,
+    enabled: !!uid,
   })
 }

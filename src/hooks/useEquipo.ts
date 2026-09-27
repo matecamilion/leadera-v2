@@ -17,52 +17,57 @@ import {
   type InvitacionCreada,
   type InvitacionPendiente,
 } from '../lib/api/invitaciones'
-
-/** Todo lo del equipo cuelga de esta clave, para invalidarlo de una. */
-export const CLAVE_EQUIPO = ['equipo'] as const
+import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useUid } from './useUid'
 
 /** Filas por página de la tabla de leads del equipo. */
 export const LEADS_EQUIPO_POR_PAGINA = 20
 
 export function useEquipo(rol: RolAgente | undefined, miId: string | undefined) {
+  const uid = useUid()
   return useQuery<Miembro[]>({
-    queryKey: [...CLAVE_EQUIPO, 'miembros', rol, miId],
+    queryKey: claves.equipo.miembros(uid, rol, miId),
     queryFn: () => listarEquipo(rol!, miId!),
-    enabled: !!rol && !!miId,
+    enabled: !!uid && !!rol && !!miId,
   })
 }
 
 export function useCupoEquipo() {
+  const uid = useUid()
   return useQuery<CupoEquipo>({
-    queryKey: [...CLAVE_EQUIPO, 'cupo'],
+    queryKey: claves.equipo.cupo(uid),
     queryFn: obtenerCupo,
+    enabled: !!uid,
   })
 }
 
 export function useStatsEquipo(habilitado: boolean) {
+  const uid = useUid()
   return useQuery<StatsEquipo>({
-    queryKey: [...CLAVE_EQUIPO, 'stats'],
+    queryKey: claves.equipo.stats(uid),
     queryFn: obtenerStatsEquipo,
     // Las stats recorren toda la cartera: no se piden hasta que se abre la tab.
-    enabled: habilitado,
+    enabled: !!uid && habilitado,
   })
 }
 
 export function useLeadsDelEquipo(page: number, habilitado: boolean) {
+  const uid = useUid()
   return useQuery<LeadsEquipoResult>({
-    queryKey: [...CLAVE_EQUIPO, 'leads', page],
+    queryKey: claves.equipo.leads(uid, page),
     queryFn: () => listarLeadsDelEquipo(page, LEADS_EQUIPO_POR_PAGINA),
-    enabled: habilitado,
+    enabled: !!uid && habilitado,
     // Al paginar se mantiene la tabla anterior en vez de volver al skeleton.
-    placeholderData: (anterior) => anterior,
+    placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
 export function useInvitacionesPendientes(habilitado: boolean) {
+  const uid = useUid()
   return useQuery<InvitacionPendiente[]>({
-    queryKey: [...CLAVE_EQUIPO, 'invitaciones'],
+    queryKey: claves.equipo.invitaciones(uid),
     queryFn: listarInvitacionesPendientes,
-    enabled: habilitado,
+    enabled: !!uid && habilitado,
   })
 }
 
@@ -79,7 +84,7 @@ export function useCrearInvitacion() {
     onSuccess: () => {
       // Cambia la lista de pendientes; el cupo todavía no, porque la
       // invitación no ocupa lugar hasta que alguien la usa.
-      queryClient.invalidateQueries({ queryKey: CLAVE_EQUIPO })
+      queryClient.invalidateQueries({ queryKey: claves.equipo.raiz })
     },
   })
 }
@@ -96,7 +101,7 @@ export function useToggleActivo() {
     mutationFn: ({ profileId, activo }) => toggleActivoMiembro(profileId, activo),
     onSuccess: () => {
       // Afecta a la lista y también a las stats agregadas.
-      queryClient.invalidateQueries({ queryKey: CLAVE_EQUIPO })
+      queryClient.invalidateQueries({ queryKey: claves.equipo.raiz })
     },
   })
 }

@@ -6,6 +6,8 @@ import {
   obtenerLeadResumido,
   type LeadResumido,
 } from '../../lib/api/leads'
+import { claves } from '../../lib/queryKeys'
+import { useUid } from '../../hooks/useUid'
 import { IconoCerrar, IconoLupa } from '../leads/Iconos'
 import { CLASES_CONTROL } from './estilosFormulario'
 
@@ -38,13 +40,14 @@ export function ComboboxLead({
   const [abierto, setAbierto] = useState(false)
   const [creando, setCreando] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
+  const uid = useUid()
 
   // Lead seleccionado: lo traemos por id para poder mostrar su nombre aunque
   // el value venga de afuera (por ejemplo, de un formulario ya guardado).
   const { data: seleccionado } = useQuery({
-    queryKey: ['lead-resumido', value],
+    queryKey: claves.leadResumido.porId(uid, value),
     queryFn: () => obtenerLeadResumido(value as string),
-    enabled: Boolean(value),
+    enabled: !!uid && Boolean(value),
   })
 
   useEffect(() => {
@@ -54,9 +57,9 @@ export function ComboboxLead({
   }, [texto, busqueda, debounceMs])
 
   const { data: resultados, isFetching } = useQuery({
-    queryKey: ['leads-combobox', busqueda],
+    queryKey: claves.leadsCombobox.busqueda(uid, busqueda),
     queryFn: () => buscarLeadsParaCombobox(busqueda),
-    enabled: busqueda.trim().length > 0,
+    enabled: !!uid && busqueda.trim().length > 0,
   })
 
   // Click afuera cierra el dropdown, salvo que se esté cargando el alta rápida.

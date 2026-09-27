@@ -27,6 +27,7 @@ import { FILTROS_ROL, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { leerPagina } from '../lib/parametrosDeUrl'
+import { claves } from '../lib/queryKeys'
 import { useUiStore } from '../stores/ui'
 
 /** Los valores de `?estado=` que entiende el listado. */
@@ -94,7 +95,7 @@ export default function Leads() {
       setLeadAEliminar(null)
       // Invalidamos todo lo que cuelga de 'leads': el listado, el total del
       // chip "Todos" y los conteos de la página actual.
-      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
     },
   })
 

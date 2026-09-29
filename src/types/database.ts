@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      avisos_vencimiento: {
+        Row: {
+          actualizado_at: string
+          created_at: string
+          email: string | null
+          enviado_at: string | null
+          error: string | null
+          estado: string
+          id: string
+          inmobiliaria_id: string
+          intentos: number
+          resend_id: string | null
+          tipo: string
+          vencimiento: string
+        }
+        Insert: {
+          actualizado_at?: string
+          created_at?: string
+          email?: string | null
+          enviado_at?: string | null
+          error?: string | null
+          estado: string
+          id?: string
+          inmobiliaria_id: string
+          intentos?: number
+          resend_id?: string | null
+          tipo: string
+          vencimiento: string
+        }
+        Update: {
+          actualizado_at?: string
+          created_at?: string
+          email?: string | null
+          enviado_at?: string | null
+          error?: string | null
+          estado?: string
+          id?: string
+          inmobiliaria_id?: string
+          intentos?: number
+          resend_id?: string | null
+          tipo?: string
+          vencimiento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_vencimiento_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_vencimiento_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       busquedas: {
         Row: {
           activa: boolean
@@ -88,6 +148,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "busquedas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "busquedas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -135,10 +202,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "eventos_facturacion_evento_relacionado_id_fkey"
+            columns: ["evento_relacionado_id"]
+            isOneToOne: false
+            referencedRelation: "eventos_facturacion"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "eventos_facturacion_inmobiliaria_id_fkey"
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_facturacion_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
             referencedColumns: ["id"]
           },
         ]
@@ -169,8 +250,13 @@ export type Database = {
           created_at: string
           google_calendar_id: string
           id: string
+          importacion_activa: boolean
+          importacion_fallos_seguidos: number
+          importacion_ultima_at: string | null
+          importacion_ultimo_error: string | null
           refresh_token: string
           scope: string
+          sync_token: string | null
           token_expiry: string
           updated_at: string
         }
@@ -181,8 +267,13 @@ export type Database = {
           created_at?: string
           google_calendar_id?: string
           id?: string
+          importacion_activa?: boolean
+          importacion_fallos_seguidos?: number
+          importacion_ultima_at?: string | null
+          importacion_ultimo_error?: string | null
           refresh_token: string
           scope?: string
+          sync_token?: string | null
           token_expiry: string
           updated_at?: string
         }
@@ -193,8 +284,13 @@ export type Database = {
           created_at?: string
           google_calendar_id?: string
           id?: string
+          importacion_activa?: boolean
+          importacion_fallos_seguidos?: number
+          importacion_ultima_at?: string | null
+          importacion_ultimo_error?: string | null
           refresh_token?: string
           scope?: string
+          sync_token?: string | null
           token_expiry?: string
           updated_at?: string
         }
@@ -248,6 +344,7 @@ export type Database = {
           id: string
           limite_usuarios: number | null
           metodo_cobro: string
+          modelo_gestion_activo: boolean
           mp_preapproval_id: string | null
           nombre: string
           plan: Database["public"]["Enums"]["plan_leadera"] | null
@@ -265,6 +362,7 @@ export type Database = {
           id?: string
           limite_usuarios?: number | null
           metodo_cobro?: string
+          modelo_gestion_activo?: boolean
           mp_preapproval_id?: string | null
           nombre: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
@@ -282,6 +380,7 @@ export type Database = {
           id?: string
           limite_usuarios?: number | null
           metodo_cobro?: string
+          modelo_gestion_activo?: boolean
           mp_preapproval_id?: string | null
           nombre?: string
           plan?: Database["public"]["Enums"]["plan_leadera"] | null
@@ -411,6 +510,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "invitaciones_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invitaciones_usado_por_fkey"
             columns: ["usado_por"]
             isOneToOne: false
@@ -487,6 +593,13 @@ export type Database = {
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
             referencedColumns: ["id"]
           },
         ]
@@ -569,6 +682,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "operaciones_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "operaciones_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -587,14 +707,20 @@ export type Database = {
       planes_cupo: {
         Row: {
           limite_usuarios: number | null
+          max_agentes: number | null
+          max_asistentes_por_agente: number | null
           plan: Database["public"]["Enums"]["plan_leadera"]
         }
         Insert: {
           limite_usuarios?: number | null
+          max_agentes?: number | null
+          max_asistentes_por_agente?: number | null
           plan: Database["public"]["Enums"]["plan_leadera"]
         }
         Update: {
           limite_usuarios?: number | null
+          max_agentes?: number | null
+          max_asistentes_por_agente?: number | null
           plan?: Database["public"]["Enums"]["plan_leadera"]
         }
         Relationships: []
@@ -656,6 +782,7 @@ export type Database = {
           inmobiliaria_id: string
           meta_mensual_ganados: number
           nombre: string
+          reporte_semanal_activo: boolean
           rol: Database["public"]["Enums"]["rol_agente"]
         }
         Insert: {
@@ -669,6 +796,7 @@ export type Database = {
           inmobiliaria_id: string
           meta_mensual_ganados?: number
           nombre: string
+          reporte_semanal_activo?: boolean
           rol?: Database["public"]["Enums"]["rol_agente"]
         }
         Update: {
@@ -682,6 +810,7 @@ export type Database = {
           inmobiliaria_id?: string
           meta_mensual_ganados?: number
           nombre?: string
+          reporte_semanal_activo?: boolean
           rol?: Database["public"]["Enums"]["rol_agente"]
         }
         Relationships: [
@@ -697,6 +826,13 @@ export type Database = {
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
             referencedColumns: ["id"]
           },
         ]
@@ -799,6 +935,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "propiedades_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "propiedades_lead_propietario_id_fkey"
             columns: ["lead_propietario_id"]
             isOneToOne: false
@@ -822,6 +965,7 @@ export type Database = {
           inmobiliaria_id: string
           lead_id: string | null
           operacion_id: string | null
+          origen_importacion: string | null
           propiedad_id: string | null
           serie_id: string | null
           titulo: string
@@ -840,6 +984,7 @@ export type Database = {
           inmobiliaria_id: string
           lead_id?: string | null
           operacion_id?: string | null
+          origen_importacion?: string | null
           propiedad_id?: string | null
           serie_id?: string | null
           titulo: string
@@ -858,6 +1003,7 @@ export type Database = {
           inmobiliaria_id?: string
           lead_id?: string | null
           operacion_id?: string | null
+          origen_importacion?: string | null
           propiedad_id?: string | null
           serie_id?: string | null
           titulo?: string
@@ -882,6 +1028,13 @@ export type Database = {
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tareas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
             referencedColumns: ["id"]
           },
           {
@@ -951,6 +1104,13 @@ export type Database = {
             referencedRelation: "inmobiliarias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tareas_series_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
         ]
       }
       visitas: {
@@ -967,6 +1127,7 @@ export type Database = {
           lead_id: string | null
           notas: string | null
           operacion_id: string | null
+          origen_importacion: string | null
           propiedad_id: string
         }
         Insert: {
@@ -982,6 +1143,7 @@ export type Database = {
           lead_id?: string | null
           notas?: string | null
           operacion_id?: string | null
+          origen_importacion?: string | null
           propiedad_id: string
         }
         Update: {
@@ -997,6 +1159,7 @@ export type Database = {
           lead_id?: string | null
           notas?: string | null
           operacion_id?: string | null
+          origen_importacion?: string | null
           propiedad_id?: string
         }
         Relationships: [
@@ -1019,6 +1182,13 @@ export type Database = {
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
             referencedColumns: ["id"]
           },
           {
@@ -1097,6 +1267,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "operaciones_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "operaciones_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -1112,18 +1289,37 @@ export type Database = {
           },
         ]
       }
+      vista_cuentas_en_riesgo: {
+        Row: {
+          cancelacion_solicitada: boolean | null
+          dias_trial_restantes: number | null
+          dueno: string | null
+          email_dueno: string | null
+          estado_suscripcion:
+            | Database["public"]["Enums"]["estado_suscripcion"]
+            | null
+          fecha_fin_trial: string | null
+          fecha_proximo_cobro: string | null
+          fecha_ultimo_pago_fallido: string | null
+          id: string | null
+          inmobiliaria: string | null
+          mp_preapproval_id: string | null
+          plan: Database["public"]["Enums"]["plan_leadera"] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      admin_anular_pago: {
-        Args: { p_evento_id: string; p_nota: string }
-        Returns: undefined
-      }
       admin_ajustar_vencimiento: {
         Args: {
           p_inmobiliaria_id: string
           p_nota: string
           p_nuevo_hasta: string
         }
+        Returns: undefined
+      }
+      admin_anular_pago: {
+        Args: { p_evento_id: string; p_nota: string }
         Returns: undefined
       }
       admin_extender_trial: {
@@ -1173,6 +1369,14 @@ export type Database = {
           score_pct: number
         }[]
       }
+      buscar_propiedad_por_direccion: {
+        Args: { p_direccion: string; p_inmobiliaria_id: string }
+        Returns: {
+          direccion: string
+          propiedad_id: string
+          puntaje: number
+        }[]
+      }
       contar_visitas_lead: { Args: { p_lead_id: string }; Returns: number }
       conteo_operaciones_por_estado: {
         Args: never
@@ -1195,6 +1399,30 @@ export type Database = {
           interesados_unicos: number
           visitas_agendadas: number
           visitas_realizadas: number
+        }[]
+      }
+      metricas_semanales: {
+        Args: { p_agente_id: string; p_desde: string; p_hasta: string }
+        Returns: {
+          contactados: number
+          nuevos: number
+          operaciones: number
+          seguimientos_cumplidos: number
+          seguimientos_vencidos: number
+          visitas: number
+        }[]
+      }
+      mi_cupo: {
+        Args: never
+        Returns: {
+          agentes_usados: number
+          asistentes_usados: number
+          limite_usuarios: number
+          max_agentes: number
+          max_asistentes_por_agente: number
+          plan: Database["public"]["Enums"]["plan_leadera"]
+          por_agente: Json
+          usados_total: number
         }[]
       }
       obtener_actividad_reciente: {
@@ -1235,6 +1463,15 @@ export type Database = {
           ultima_fecha: string
           ultimo_detalle: string
           ultimo_tipo: Database["public"]["Enums"]["tipo_interaccion"]
+        }[]
+      }
+      resumen_semana_gestion: {
+        Args: never
+        Returns: {
+          nuevos_contactos: number
+          semana_fin: string
+          semana_inicio: string
+          verdes: number
         }[]
       }
       suma_montos_por_estado: {

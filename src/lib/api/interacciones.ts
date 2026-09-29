@@ -31,6 +31,38 @@ export function etiquetaTipoInteraccion(tipo: TipoInteraccion): string {
 }
 
 /**
+ * Qué tipo de reunión fue, para el modelo de gestión.
+ *
+ * `interacciones.categoria` es `text` con CHECK y no un enum, así que la unión
+ * se declara acá. La base además rechaza cualquier categoría en una fila cuyo
+ * tipo no sea REUNION.
+ */
+export type CategoriaReunion =
+  | 'PROSPECCION'
+  | 'PRELISTING'
+  | 'PREBUYING'
+  | 'NEGOCIACION'
+  | 'FIRMA'
+  | 'POSTVENTA'
+  | 'PRESENTACION_ACM'
+
+/** Opciones de los chips, en el orden del formulario. */
+export const CATEGORIAS_REUNION: { valor: CategoriaReunion; label: string }[] = [
+  { valor: 'PROSPECCION', label: 'Prospección' },
+  { valor: 'PRELISTING', label: 'Prelisting' },
+  { valor: 'PREBUYING', label: 'Prebuying' },
+  { valor: 'NEGOCIACION', label: 'Negociación' },
+  { valor: 'FIRMA', label: 'Firma' },
+  { valor: 'POSTVENTA', label: 'Post venta' },
+  { valor: 'PRESENTACION_ACM', label: 'Presentación ACM' },
+]
+
+/** La etiqueta de una categoría; un valor desconocido se muestra tal cual. */
+export function etiquetaCategoriaReunion(categoria: string): string {
+  return CATEGORIAS_REUNION.find((c) => c.valor === categoria)?.label ?? categoria
+}
+
+/**
  * CONSULTA sigue siendo un valor válido del enum aunque hoy ningún formulario
  * lo genere: el timeline de la operación tenía uno y se sacó cuando esa carga
  * pasó a ser automática. Las filas viejas con ese tipo se siguen mostrando, y
@@ -79,6 +111,8 @@ export interface CrearInteraccionInput {
    * Un trigger de la base rechaza vincularla a una operación de otro lead.
    */
   operacion_id?: string | null
+  /** Sólo cuenta si `tipo` es REUNION; con cualquier otro tipo se manda null. */
+  categoria?: CategoriaReunion | null
   /** Valor de un <input type="datetime-local">, en hora local. Opcional. */
   fecha_proximo_contacto?: string
   /** Por defecto, ahora. */
@@ -107,6 +141,8 @@ export async function crearInteraccion(
       tipo: input.tipo,
       detalle: input.detalle.trim(),
       operacion_id: input.operacion_id ?? null,
+      // Un CHECK de la base rechaza categoría en lo que no sea REUNION.
+      categoria: input.tipo === 'REUNION' ? (input.categoria ?? null) : null,
       // Si no viene, la base pone now() por default.
       ...(input.fecha ? { fecha: input.fecha } : {}),
     })
@@ -217,14 +253,20 @@ export type CamposEditablesInteraccion = Partial<{
   detalle: string
   /** ISO. La columna es timestamptz. */
   fecha: string
+  /** Sólo con tipo REUNION; ver la regla en `actualizarInteraccion`. */
+  categoria: CategoriaReunion | null
 }>
 
 /**
  * Edita una interacción.
  *
- * Manda sólo `tipo`, `detalle` y `fecha`, y sólo los que vengan definidos: un
- * objeto vacío no toca nada. El resto de las columnas ni se arma, así el
- * trigger de estructura no tiene de qué quejarse.
+ * Manda sólo `tipo`, `detalle`, `fecha` y `categoria`, y sólo los que vengan
+ * definidos: un objeto vacío no toca nada. El resto de las columnas ni se arma,
+ * así el trigger de estructura no tiene de qué quejarse.
+ *
+ * Si el tipo cambia a algo que no es REUNION, la categoría se manda en null
+ * aunque no venga: la base rechaza por CHECK una categoría en otro tipo, y la
+ * fila podía tener una de cuando era reunión.
  */
 export async function actualizarInteraccion(
   id: string,
@@ -234,6 +276,8 @@ export async function actualizarInteraccion(
   if (campos.tipo !== undefined) cambios.tipo = campos.tipo
   if (campos.detalle !== undefined) cambios.detalle = campos.detalle.trim()
   if (campos.fecha !== undefined) cambios.fecha = campos.fecha
+  if (campos.categoria !== undefined) cambios.categoria = campos.categoria
+  if (campos.tipo !== undefined && campos.tipo !== 'REUNION') cambios.categoria = null
 
   const { data, error } = await supabase
     .from('interacciones')

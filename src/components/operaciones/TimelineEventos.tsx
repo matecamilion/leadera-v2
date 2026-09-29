@@ -1,4 +1,8 @@
-import { etiquetaTipoInteraccion, type Interaccion } from '../../lib/api/interacciones'
+import {
+  etiquetaCategoriaReunion,
+  etiquetaTipoInteraccion,
+  type Interaccion,
+} from '../../lib/api/interacciones'
 import { IconoCasa, IconoChat, IconoConversacion } from '../leads/Iconos'
 
 const DIA_MES = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long' })
@@ -87,17 +91,26 @@ export function TimelineEventos({ eventos, cargando, errorCarga }: TimelineEvent
               />
               <article className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm">
                 <header className="mb-2 flex flex-col gap-1 min-[600px]:flex-row min-[600px]:items-center min-[600px]:justify-between min-[600px]:gap-3">
-                  <span
-                    className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold uppercase ${
-                      ESTILOS_BADGE[evento.tipo] ?? 'bg-surface-2 text-ink-2'
-                    }`}
-                  >
-                    {evento.tipo === 'VISITA' ? (
-                      <IconoCasa className="size-3.5" />
-                    ) : (
-                      <IconoChat className="size-3.5" />
+                  {/* Tipo y categoría juntos, así la fecha sigue yendo a la derecha. */}
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold uppercase ${
+                        ESTILOS_BADGE[evento.tipo] ?? 'bg-surface-2 text-ink-2'
+                      }`}
+                    >
+                      {evento.tipo === 'VISITA' ? (
+                        <IconoCasa className="size-3.5" />
+                      ) : (
+                        <IconoChat className="size-3.5" />
+                      )}
+                      {etiquetaTipoInteraccion(evento.tipo)}
+                    </span>
+                    {/* La categoría de la reunión, del modelo de gestión. */}
+                    {evento.categoria && (
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-3">
+                        {etiquetaCategoriaReunion(evento.categoria)}
+                      </span>
                     )}
-                    {etiquetaTipoInteraccion(evento.tipo)}
                   </span>
                   <span className="text-[0.85rem] text-ink-4">
                     {formatearMomento(evento.fecha)}

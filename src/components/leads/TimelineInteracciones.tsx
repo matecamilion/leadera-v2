@@ -2,7 +2,11 @@ import type { Interaccion } from '../../lib/api/interacciones'
 // `HORAS_DE_EDICION` ya no se importa: era sólo para el cartel de "no editable"
 // que este timeline dejó de mostrar. La constante sigue viviendo —y usándose—
 // en `lib/api/interacciones.ts`, que es quien define la ventana.
-import { dentroDeVentanaDeEdicion, etiquetaTipoInteraccion } from '../../lib/api/interacciones'
+import {
+  dentroDeVentanaDeEdicion,
+  etiquetaCategoriaReunion,
+  etiquetaTipoInteraccion,
+} from '../../lib/api/interacciones'
 import { IconoConversacion, IconoLapiz, IconoReloj, IconoTacho } from './Iconos'
 import { ICONOS } from './iconosInteraccion'
 
@@ -151,6 +155,12 @@ export function TimelineInteracciones({
                       <Icono className="size-4" />
                     </span>
                     {etiquetaTipoInteraccion(interaccion.tipo)}
+                    {/* La categoría de la reunión, del modelo de gestión. */}
+                    {interaccion.categoria && (
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-3">
+                        {etiquetaCategoriaReunion(interaccion.categoria)}
+                      </span>
+                    )}
                   </span>
                   <span className="text-[0.85rem] text-ink-4">
                     {formatearMomento(interaccion.fecha)}

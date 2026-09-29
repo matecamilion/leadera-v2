@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useCrearInteraccion } from '../../hooks/useInteracciones'
-import { TIPOS_INTERACCION, type TipoInteraccion } from '../../lib/api/interacciones'
+import { useModeloGestionActivo } from '../../hooks/useModeloGestion'
+import {
+  TIPOS_INTERACCION,
+  type CategoriaReunion,
+  type TipoInteraccion,
+} from '../../lib/api/interacciones'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../../lib/calendario'
 import { DETALLE_MINIMO } from '../../lib/validaciones'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
+import { ChipsCategoriaReunion } from './ChipsCategoriaReunion'
 
 /** Lo mismo que pide la página: un detalle de una palabra no sirve de historial. */
 
@@ -87,8 +93,11 @@ export function ModalNuevaInteraccion({
 }: ModalNuevaInteraccionProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const crear = useCrearInteraccion()
+  // Sin el flag el modal queda como siempre: sin chips y sin categoría.
+  const modeloGestion = useModeloGestionActivo()
 
   const [tipo, setTipo] = useState<TipoInteraccion | ''>('')
+  const [categoria, setCategoria] = useState<CategoriaReunion | null>(null)
   const [detalle, setDetalle] = useState('')
   const [proximo, setProximo] = useState('')
   const [tocado, setTocado] = useState(false)
@@ -107,6 +116,7 @@ export function ModalNuevaInteraccion({
       // no queremos ver ese borrador —ni el error de un intento viejo— cuando
       // el modal se reabre sobre otro lead.
       setTipo('')
+      setCategoria(null)
       setDetalle('')
       setProximo('')
       setTocado(false)
@@ -151,6 +161,7 @@ export function ModalNuevaInteraccion({
         lead_id: leadId,
         tipo: tipo as TipoInteraccion,
         detalle,
+        categoria: modeloGestion.data === true ? categoria : null,
         fecha_proximo_contacto: proximo || undefined,
       },
       {
@@ -194,7 +205,12 @@ export function ModalNuevaInteraccion({
           <Campo label="Tipo *">
             <select
               value={tipo}
-              onChange={(e) => setTipo(e.target.value as TipoInteraccion)}
+              onChange={(e) => {
+                const nuevo = e.target.value as TipoInteraccion
+                setTipo(nuevo)
+                // La categoría es sólo de reuniones: al salir de REUNION se va.
+                if (nuevo !== 'REUNION') setCategoria(null)
+              }}
               onBlur={() => setTocado(true)}
               aria-invalid={Boolean(errorTipo) || undefined}
               className={`${CLASES_CONTROL} ${errorTipo ? 'border-peligro-ink' : ''}`}
@@ -210,6 +226,10 @@ export function ModalNuevaInteraccion({
             </select>
             {errorTipo && <ErrorCampo>{errorTipo}</ErrorCampo>}
           </Campo>
+
+          {modeloGestion.data === true && tipo === 'REUNION' && (
+            <ChipsCategoriaReunion valor={categoria} onCambiar={setCategoria} />
+          )}
 
           <Campo label="Detalle *">
             <textarea

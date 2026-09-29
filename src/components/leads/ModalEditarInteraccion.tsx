@@ -3,10 +3,13 @@ import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { esMomentoFuturo } from '../../lib/calendario'
 import { DETALLE_MINIMO } from '../../lib/validaciones'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
+import { useModeloGestionActivo } from '../../hooks/useModeloGestion'
+import { ChipsCategoriaReunion } from './ChipsCategoriaReunion'
 import {
   etiquetaTipoInteraccion,
   TIPOS_INTERACCION,
   type CamposEditablesInteraccion,
+  type CategoriaReunion,
   type Interaccion,
   type TipoInteraccion,
 } from '../../lib/api/interacciones'
@@ -64,8 +67,13 @@ export function ModalEditarInteraccion({
   onGuardar,
 }: ModalEditarInteraccionProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  const modeloGestion = useModeloGestionActivo()
+
+  // La columna es `text`: el cast confía en el CHECK de la base.
+  const categoriaOriginal = (interaccion.categoria ?? null) as CategoriaReunion | null
 
   const [tipo, setTipo] = useState<TipoInteraccion>(interaccion.tipo)
+  const [categoria, setCategoria] = useState<CategoriaReunion | null>(categoriaOriginal)
   const [detalle, setDetalle] = useState(interaccion.detalle ?? '')
   const [fecha, setFecha] = useState(() => aLocal(interaccion.fecha))
   const [tocado, setTocado] = useState(false)
@@ -77,13 +85,14 @@ export function ModalEditarInteraccion({
       // Al abrir partimos siempre de los datos actuales: si el usuario canceló
       // una edición anterior, no queremos ver su borrador.
       setTipo(interaccion.tipo)
+      setCategoria(categoriaOriginal)
       setDetalle(interaccion.detalle ?? '')
       setFecha(aLocal(interaccion.fecha))
       setTocado(false)
       dialog.showModal()
     }
     if (!abierto && dialog.open) dialog.close()
-  }, [abierto, interaccion])
+  }, [abierto, interaccion, categoriaOriginal])
 
   // Mismo piso que el alta, y desde la misma constante: bajarlo por acá dejaba
   // el historial con detalles de un carácter que el alta nunca hubiera aceptado.
@@ -117,6 +126,8 @@ export function ModalEditarInteraccion({
 
     const campos: CamposEditablesInteraccion = {}
     if (tipo !== interaccion.tipo) campos.tipo = tipo
+    // Salir de REUNION ya manda null desde la API; acá sólo el cambio de chip.
+    if (tipo === 'REUNION' && categoria !== categoriaOriginal) campos.categoria = categoria
     if (detalle.trim() !== (interaccion.detalle ?? '')) campos.detalle = detalle
     if (fecha !== aLocal(interaccion.fecha)) {
       campos.fecha = aIso(fecha) as string
@@ -152,7 +163,11 @@ export function ModalEditarInteraccion({
           <Campo label="Tipo *">
             <select
               value={tipo}
-              onChange={(e) => setTipo(e.target.value as TipoInteraccion)}
+              onChange={(e) => {
+                const nuevo = e.target.value as TipoInteraccion
+                setTipo(nuevo)
+                if (nuevo !== 'REUNION') setCategoria(null)
+              }}
               className={CLASES_CONTROL}
             >
               {TIPOS_INTERACCION.map((t) => (
@@ -171,6 +186,10 @@ export function ModalEditarInteraccion({
               )}
             </select>
           </Campo>
+
+          {modeloGestion.data === true && tipo === 'REUNION' && (
+            <ChipsCategoriaReunion valor={categoria} onCambiar={setCategoria} />
+          )}
 
           <Campo label="Detalle *">
             <textarea

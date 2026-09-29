@@ -37,6 +37,8 @@ export function useCrearInteraccion() {
       // Los conteos por lead que alimentan la tabla y las cards del listado
       // viven bajo su propia raíz, que `claves.leads` no alcanza.
       queryClient.invalidateQueries({ queryKey: claves.interaccionesPorLead.raiz })
+      // Una VISITA o REUNION suma a las actividades verdes de la semana.
+      queryClient.invalidateQueries({ queryKey: claves.modeloGestion.semana(uid) })
     },
   })
 }
@@ -60,6 +62,8 @@ function useInvalidarInteracciones(leadId: string) {
     queryClient.invalidateQueries({ queryKey: claves.lead.detalle(uid, leadId) })
     queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
     queryClient.invalidateQueries({ queryKey: claves.interaccionesPorLead.raiz })
+    // Cambiar el tipo o borrar una VISITA/REUNION mueve las actividades verdes.
+    queryClient.invalidateQueries({ queryKey: claves.modeloGestion.semana(uid) })
   }
 }
 

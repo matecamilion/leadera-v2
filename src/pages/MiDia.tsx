@@ -7,6 +7,7 @@ import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacione
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
 import { ResumenTareasHoy } from '../components/dashboard/ResumenTareasHoy'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
+import { TarjetaSemanaGestion } from '../components/dashboard/TarjetaSemanaGestion'
 import { AvisoReporteSemanal } from '../components/reporte/AvisoReporteSemanal'
 import {
   IconoAlerta,
@@ -17,6 +18,7 @@ import {
 } from '../components/leads/Iconos'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { useCoincidenciasDelDia, useLeadsDelDia } from '../hooks/useDashboard'
+import { useModeloGestionActivo } from '../hooks/useModeloGestion'
 import { useEventosCalendario } from '../hooks/useTareas'
 import { hoyComoClave } from '../lib/calendario'
 import { useAuth } from '../contexts/AuthContext'
@@ -41,6 +43,9 @@ export default function MiDia() {
   const { profile } = useAuth()
   const { data, isPending, isError, error } = useLeadsDelDia()
   const coincidencias = useCoincidenciasDelDia()
+  // Mientras el flag carga `data` es undefined y la tarjeta no se monta: sin
+  // parpadeo para las cuentas que no lo tienen, que son casi todas.
+  const modeloGestion = useModeloGestionActivo()
 
   // Misma clave que monta `ResumenTareasHoy`, así que no hay request de más:
   // react-query devuelve la entrada que ya está en cache.
@@ -160,6 +165,9 @@ export default function MiDia() {
           a="/tareas"
         />
       </div>
+
+      {/* Modelo de gestión: a ancho completo, pegado a los números del día. */}
+      {modeloGestion.data === true && <TarjetaSemanaGestion />}
 
       {/* Par 1: los dos frentes de leads que se atienden primero. */}
       {alDia ? (

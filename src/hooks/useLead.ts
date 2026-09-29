@@ -42,10 +42,16 @@ function useInvalidarLead() {
 
 export function useCrearLead() {
   const invalidar = useInvalidarLead()
+  const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation({
     mutationFn: (input: CrearLeadInput) => crearLead(input),
-    onSuccess: (lead) => invalidar(lead.id),
+    onSuccess: (lead) => {
+      invalidar(lead.id)
+      // Un lead REFERIDO o MANUAL suma a los nuevos contactos de la semana.
+      queryClient.invalidateQueries({ queryKey: claves.modeloGestion.semana(uid) })
+    },
   })
 }
 

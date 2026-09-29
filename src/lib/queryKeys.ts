@@ -145,6 +145,17 @@ export const claves = {
     busqueda: (uid: Uid, busqueda: string) => ['leads-combobox', uid, busqueda] as const,
   },
 
+  /**
+   * El flag va por inmobiliaria y la semana por agente. Registrar una
+   * interacción o marcar una visita realizada invalida `semana`.
+   */
+  modeloGestion: {
+    raiz: ['modelo-gestion'] as const,
+    activo: (uid: Uid, inmobiliariaId: string | undefined) =>
+      ['modelo-gestion', 'activo', uid, inmobiliariaId] as const,
+    semana: (uid: Uid) => ['modelo-gestion', 'semana', uid] as const,
+  },
+
   /** La ficha de una operación. */
   operacion: {
     raiz: ['operacion'] as const,

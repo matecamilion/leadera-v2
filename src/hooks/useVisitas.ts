@@ -73,6 +73,7 @@ function useCambiarEstadoVisita(
   estado: EstadoVisita,
 ) {
   const queryClient = useQueryClient()
+  const uid = useUid()
 
   return useMutation<unknown, Error, string, ContextoOptimista>({
     mutationFn: accion,
@@ -116,6 +117,9 @@ function useCambiarEstadoVisita(
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
+      // Fuera del `if`: una visita que sale de REALIZADA también mueve las
+      // actividades verdes, no sólo la que entra.
+      queryClient.invalidateQueries({ queryKey: claves.modeloGestion.semana(uid) })
 
       // Marcar realizada inserta una interacción llamando a la API directo, sin
       // pasar por `useCrearInteraccion`, así que hay que repetir acá lo que ese

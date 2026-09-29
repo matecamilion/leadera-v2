@@ -391,6 +391,7 @@ export type Database = {
       interacciones: {
         Row: {
           agente_id: string
+          categoria: string | null
           created_at: string
           detalle: string | null
           fecha: string
@@ -401,6 +402,7 @@ export type Database = {
         }
         Insert: {
           agente_id: string
+          categoria?: string | null
           created_at?: string
           detalle?: string | null
           fecha?: string
@@ -411,6 +413,7 @@ export type Database = {
         }
         Update: {
           agente_id?: string
+          categoria?: string | null
           created_at?: string
           detalle?: string | null
           fecha?: string
@@ -1469,6 +1472,8 @@ export type Database = {
         Args: never
         Returns: {
           nuevos_contactos: number
+          prebuyings: number
+          prelistings: number
           semana_fin: string
           semana_inicio: string
           verdes: number

@@ -1,7 +1,7 @@
 import { useEmbudo } from '../../hooks/useEmbudo'
 import type { Embudo as DatosEmbudo } from '../../lib/api/perfil'
 
-interface Etapa {
+export interface Etapa {
   num: string
   nombre: string
   valor: number
@@ -18,7 +18,7 @@ interface Etapa {
  * `Math.max(base, 1)` evita dividir por cero cuando todavía no contactaste a
  * nadie.
  */
-function calcularEtapas(datos: DatosEmbudo): Etapa[] {
+export function calcularEtapas(datos: DatosEmbudo): Etapa[] {
   const base = Math.max(datos.contactados, 1)
   const crudas = [
     { num: '01', nombre: 'Contactados', valor: datos.contactados },
@@ -35,7 +35,7 @@ function calcularEtapas(datos: DatosEmbudo): Etapa[] {
   }))
 }
 
-interface Insight {
+export interface Insight {
   desde: string
   hasta: string
   porc: number
@@ -48,7 +48,7 @@ interface Insight {
  * perder 5 de 100. Ante un empate gana el escalón más temprano, que es donde
  * arreglarlo rinde más.
  */
-function calcularInsight(etapas: Etapa[]): Insight | null {
+export function calcularInsight(etapas: Etapa[]): Insight | null {
   let peorIndice = 1
   let peorCaida = -1
 
@@ -71,6 +71,25 @@ function calcularInsight(etapas: Etapa[]): Insight | null {
   }
 }
 
+/**
+ * El paso que marca `calcularInsight`, con sus cantidades absolutas: cuántos
+ * había en la etapa anterior y cuántos se perdieron en el camino.
+ *
+ * El insight identifica el paso por nombre (son únicos entre las cinco etapas)
+ * y da la caída en porcentaje; esto sólo la traduce a personas, sin volver a
+ * decidir cuál es el peor.
+ */
+export function pasoDelInsight(
+  etapas: Etapa[],
+  insight: Insight | null,
+): { indice: number; anterior: number; perdidos: number } | null {
+  if (!insight) return null
+  const indice = etapas.findIndex((e) => e.nombre === insight.hasta)
+  if (indice < 1) return null
+  const anterior = etapas[indice - 1].valor
+  return { indice, anterior, perdidos: anterior - etapas[indice].valor }
+}
+
 export function Embudo() {
   const { data, isPending, isError, error } = useEmbudo()
 
@@ -89,8 +108,14 @@ export function Embudo() {
     )
   }
 
+  // El aviso del peor escalón (`calcularInsight`) ya no va acá: lo muestra
+  // Estadísticas arriba de todo, que es donde se lee antes de bajar al detalle.
+  // Acá se reusa sólo para saber qué paso pintar en ámbar.
   const etapas = calcularEtapas(data)
-  const insight = calcularInsight(etapas)
+  const peor = pasoDelInsight(etapas, calcularInsight(etapas))
+  // Base de las barras: la primera etapa. `Math.max` por si acaso, aunque con
+  // 0 contactados esta rama no se dibuja.
+  const base = Math.max(etapas[0].valor, 1)
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
@@ -104,41 +129,97 @@ export function Embudo() {
           Todavía no contactaste a ningún lead.
         </p>
       ) : (
-        <>
-          <ul className="flex flex-col gap-2.5">
-            {etapas.map((e) => (
-              <li key={e.num} className="flex items-center gap-2 sm:gap-3">
-                <span className="w-5 shrink-0 text-[0.7rem] font-bold text-ink-4 tabular-nums">
-                  {e.num}
-                </span>
-                <span className="w-[6.5rem] shrink-0 truncate text-[0.82rem] text-ink-2 sm:w-32">
-                  {e.nombre}
-                </span>
-                <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2">
+        // Mismas filas que "Origen de tus leads": nombre y cantidad arriba,
+        // riel con la barra abajo. Entre fila y fila va siempre el mismo hueco,
+        // con o sin marca de caída, para que el ritmo vertical no salte.
+        <ol className="flex flex-col">
+          {etapas.map((e, i) => {
+            const anterior = etapas[i - 1]
+            const esPeor = peor?.indice === i
+            // Piso de 2%, igual que Orígenes: una etapa con 1 sobre 100 no
+            // puede quedar sin barra si el número dice que existe.
+            const ancho = e.valor === 0 ? 0 : Math.min(Math.max((e.valor / base) * 100, 2), 100)
+            return (
+              <li key={e.num}>
+                {anterior && (
+                  <Caida
+                    desde={anterior.nombre}
+                    hasta={e.nombre}
+                    perdidos={anterior.valor - e.valor}
+                    peor={esPeor}
+                  />
+                )}
+                <div className="mb-1 flex items-baseline justify-between gap-2">
+                  <span className="truncate text-[0.85rem] text-ink-2">{e.nombre}</span>
+                  <span className="shrink-0 text-[0.8rem] font-semibold text-ink tabular-nums">
+                    {e.valor}
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-surface-2">
                   <span
-                    className="block h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none"
-                    style={{ width: `${e.ancho}%` }}
+                    className={`block h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${
+                      esPeor ? 'bg-tibio' : 'bg-primary'
+                    }`}
+                    style={{ width: `${ancho}%` }}
                   />
                 </div>
-                <span className="w-6 shrink-0 text-right text-[0.85rem] font-bold text-ink tabular-nums">
-                  {e.valor}
-                </span>
-                <span className="w-10 shrink-0 text-right text-[0.78rem] text-ink-3 tabular-nums">
-                  {e.porc}%
-                </span>
               </li>
-            ))}
-          </ul>
-
-          {insight && (
-            <p className="mt-4 rounded-xl bg-warm-soft px-3.5 py-2.5 text-[0.82rem] text-badge-tibio-ink">
-              Se te cae más gente entre <b>{insight.desde}</b> y <b>{insight.hasta}</b>:{' '}
-              <b>-{insight.porc}%</b>. Es el escalón donde más rinde poner esfuerzo.
-            </p>
-          )}
-        </>
+            )
+          })}
+        </ol>
       )}
     </section>
+  )
+}
+
+/**
+ * El hueco entre dos filas. Si hubo caída, una marca chica "↓ −N" en ámbar;
+ * la del peor paso, además, en píldora. Si no la hubo, el hueco queda vacío a
+ * la vista pero dice igual qué pasó para quien usa lector de pantalla.
+ */
+function Caida({
+  desde,
+  hasta,
+  perdidos,
+  peor,
+}: {
+  desde: string
+  hasta: string
+  perdidos: number
+  peor: boolean
+}) {
+  const hayCaida = perdidos > 0
+  return (
+    <div className="flex h-7 items-center">
+      <span className="sr-only">
+        De {desde} a {hasta}:{' '}
+        {hayCaida
+          ? `se ${perdidos === 1 ? 'pierde' : 'pierden'} ${perdidos}${peor ? ', el paso donde más gente se cae' : ''}.`
+          : 'no se pierde nadie.'}
+      </span>
+      {hayCaida && (
+        <span
+          aria-hidden
+          className={[
+            'inline-flex items-center gap-1 text-[0.72rem] text-badge-tibio-ink tabular-nums',
+            peor ? 'rounded-full bg-warm-soft px-2 py-0.5 font-bold' : 'font-semibold',
+          ].join(' ')}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-3"
+          >
+            <path d="M12 5v14M6 13l6 6 6-6" />
+          </svg>
+          −{perdidos}
+        </span>
+      )}
+    </div>
   )
 }
 

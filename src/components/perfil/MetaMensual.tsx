@@ -1,8 +1,6 @@
 import { useState } from 'react'
+import { AnilloProgreso } from '../dashboard/AnilloProgreso'
 import { useGuardarMeta } from '../../hooks/usePerfil'
-
-const RADIO = 64
-const CIRCUNFERENCIA = 2 * Math.PI * RADIO
 
 interface MetaMensualProps {
   ganadosMes: number
@@ -11,7 +9,11 @@ interface MetaMensualProps {
 }
 
 /**
- * Meta de cierres del mes, con el anillo de progreso del original.
+ * Ganados del mes contra la meta. Es la card protagonista de Estadísticas: el
+ * KPI "Ganados del mes" se fue porque repetía este mismo número.
+ *
+ * El anillo es el `AnilloProgreso` de la semana de gestión, así las metas de la
+ * app se leen igual en todos lados (incluido el verde oscuro al cumplirla).
  *
  * El input arranca vacío y sólo se usa mientras se está editando: si guardara
  * su valor en un estado sincronizado con la prop, un refetch mientras tipeás
@@ -22,7 +24,6 @@ export function MetaMensual({ ganadosMes, meta, diasRestantes }: MetaMensualProp
   const [borrador, setBorrador] = useState('')
   const guardar = useGuardarMeta()
 
-  const progreso = Math.min((ganadosMes / Math.max(meta, 1)) * 100, 100)
   const faltan = Math.max(meta - ganadosMes, 0)
   // diasRestantesDelMes() cuenta hoy, así que nunca es 0 y no hay división por cero.
   const ritmo = faltan / Math.max(diasRestantes, 1)
@@ -45,56 +46,64 @@ export function MetaMensual({ ganadosMes, meta, diasRestantes }: MetaMensualProp
     guardar.mutate(valor, { onSuccess: () => setEditando(false) })
   }
 
+  // El resumen dice sólo lo que falta; los números van en los tres bloques de
+  // abajo, así la línea no repite lo que se lee al lado.
+  const cifras = [
+    { label: 'Ganados', valor: String(ganadosMes) },
+    { label: 'Meta', valor: String(meta) },
+    // Cumplida la meta no hay ritmo que sostener: un "0.0" leería como alerta.
+    { label: 'Por día', valor: faltan === 0 ? '—' : ritmo.toFixed(1) },
+  ]
+
   return (
-    <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+    // `h-full` + cuerpo `flex-1`: la card se estira a la altura del donut de al
+    // lado y el contenido se centra en ese alto, sin dejar una franja vacía
+    // abajo. Fondo de marca suave: es la card protagonista de la pantalla.
+    <section className="flex h-full flex-col rounded-2xl border border-border bg-brand-softer p-5 shadow-sm">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-[0.95rem] font-bold text-ink">Meta del mes</h2>
-        <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[0.72rem] font-semibold text-ink-3">
+        <h2 className="m-0 text-[0.95rem] font-bold text-ink">Ganados del mes</h2>
+        <span className="rounded-full bg-surface px-2.5 py-0.5 text-[0.72rem] font-semibold text-ink-3">
           {diasRestantes}d restantes
         </span>
       </header>
 
-      <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-        <div className="relative grid shrink-0 place-items-center">
-          <svg viewBox="0 0 160 160" aria-hidden className="size-[150px] -rotate-90">
-            <circle cx="80" cy="80" r={RADIO} fill="none" strokeWidth="12" className="stroke-border" />
-            <circle
-              cx="80"
-              cy="80"
-              r={RADIO}
-              fill="none"
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={CIRCUNFERENCIA}
-              strokeDashoffset={CIRCUNFERENCIA * (1 - progreso / 100)}
-              className="stroke-primary transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none"
-            />
-          </svg>
-
-          <div className="absolute text-center">
-            <div className="text-[1.6rem] leading-none font-bold text-ink tabular-nums">
-              {ganadosMes}
-              <span className="text-[1rem] font-semibold text-ink-3">/{meta}</span>
-            </div>
-            <div className="mt-0.5 text-[0.7rem] text-ink-3">cierres</div>
-          </div>
+      <div className="flex flex-1 flex-col items-center gap-5 sm:flex-row sm:gap-6">
+        {/* `shrink-0`: el anillo trae `min-w-0` para vivir en la grilla de la
+            semana, y acá, en fila con el texto `w-full`, se aplastaría. La
+            etiqueta no se muestra —el título de la card ya dice qué mide— pero
+            sigue siendo el nombre accesible del anillo. */}
+        <div className="shrink-0">
+          <AnilloProgreso
+            valor={ganadosMes}
+            meta={meta}
+            etiqueta="Cierres del mes"
+            etiquetaVisible={false}
+            tamano="grande"
+          />
         </div>
 
-        <div className="w-full">
-          <p className="text-[0.9rem] text-ink-2">
+        <div className="w-full min-w-0">
+          <p className="m-0 text-[0.9rem] text-ink-2">
             {faltan === 0 ? (
-              <>
-                Ya llegaste a tu meta de <b className="text-ink">{meta}</b>. Todo lo que
-                cierres de acá en adelante suma de más.
-              </>
+              <>Ya llegaste a tu meta. Todo lo que cierres suma de más.</>
             ) : (
               <>
                 Te {faltan === 1 ? 'falta' : 'faltan'} <b className="text-ink">{faltan}</b>{' '}
-                para llegar a tu meta, necesitás{' '}
-                <b className="text-ink tabular-nums">{ritmo.toFixed(1)}</b> por día.
+                para llegar a tu meta.
               </>
             )}
           </p>
+
+          <dl className="mt-3 grid grid-cols-3 gap-2">
+            {cifras.map((c) => (
+              <div key={c.label} className="min-w-0 rounded-xl bg-surface px-3 py-2">
+                <dt className="truncate text-[0.72rem] font-semibold text-ink-3">{c.label}</dt>
+                <dd className="m-0 mt-0.5 text-[1.2rem] leading-tight font-bold text-ink tabular-nums">
+                  {c.valor}
+                </dd>
+              </div>
+            ))}
+          </dl>
 
           {editando ? (
             <form onSubmit={enviar} className="mt-3 flex flex-wrap items-center gap-2">

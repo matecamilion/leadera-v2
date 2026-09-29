@@ -142,46 +142,79 @@ export function evolY(valor: number, max: number): number {
 }
 
 /**
- * Catmull-Rom uniforme convertido a Bézier cúbicas. Para cada tramo p1→p2 los
- * puntos de control salen de los vecinos (p0 y p3), lo que da una curva
- * continua que pasa exactamente por todos los puntos.
+ * Pendiente de la curva en cada punto, elegida para que la curva sea monótona
+ * entre cada par de puntos consecutivos (método de Steffen, la variante de
+ * Fritsch-Carlson que usa d3 en `curveMonotoneX`).
  *
- * yMin/yMax acotan los puntos de control: Catmull-Rom sobrepasa en picos
- * bruscos y sin el clamp el relleno del área se escapa de la baseline.
+ * - Donde la serie cambia de dirección —o un tramo es plano— la pendiente es
+ *   0: un pico queda en su punto y un tramo en cero queda pegado a cero.
+ * - Si no, se acota a dos veces la menor de las pendientes vecinas, que es lo
+ *   que garantiza que la Bézier no se pase del valor de ninguno de los dos
+ *   extremos del tramo.
+ *
+ * Los extremos usan la fórmula de un solo lado; con dos puntos la pendiente es
+ * la de la recta, así que el tramo sale recto.
  */
-export function smoothPath(puntos: Punto[], yMin: number, yMax: number): string {
+function pendientesMonotonas(puntos: Punto[]): number[] {
   const n = puntos.length
-  if (n === 0) return ''
-  if (n === 1) return `M ${puntos[0].x} ${puntos[0].y}`
-
-  const clampY = (y: number) => +Math.min(yMax, Math.max(yMin, y)).toFixed(2)
-
-  let d = `M ${puntos[0].x} ${puntos[0].y}`
+  const h: number[] = []
+  const s: number[] = []
   for (let i = 0; i < n - 1; i++) {
-    const p0 = puntos[i - 1] ?? puntos[i]
-    const p1 = puntos[i]
-    const p2 = puntos[i + 1]
-    const p3 = puntos[i + 2] ?? p2
-
-    const cp1x = +(p1.x + (p2.x - p0.x) / 6).toFixed(2)
-    const cp1y = clampY(p1.y + (p2.y - p0.y) / 6)
-    const cp2x = +(p2.x - (p3.x - p1.x) / 6).toFixed(2)
-    const cp2y = clampY(p2.y - (p3.y - p1.y) / 6)
-
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`
+    h.push(puntos[i + 1].x - puntos[i].x)
+    s.push(h[i] === 0 ? 0 : (puntos[i + 1].y - puntos[i].y) / h[i])
   }
-  return d
+
+  if (n === 2) return [s[0], s[0]]
+
+  const m: number[] = new Array(n).fill(0)
+  for (let i = 1; i < n - 1; i++) {
+    const s0 = s[i - 1]
+    const s1 = s[i]
+    const p = (s0 * h[i] + s1 * h[i - 1]) / (h[i - 1] + h[i])
+    m[i] =
+      (Math.sign(s0) + Math.sign(s1)) *
+        Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0
+  }
+  m[0] = (3 * s[0] - m[1]) / 2
+  m[n - 1] = (3 * s[n - 2] - m[n - 2]) / 2
+  // En un tramo plano la fórmula de un solo lado ya da 0, pero se fuerza igual:
+  // un -0 o un resto de coma flotante no tiene que levantar la punta del cero.
+  if (s[0] === 0) m[0] = 0
+  if (s[n - 2] === 0) m[n - 1] = 0
+  return m
 }
 
 /**
- * El `d` de una serie. Con `area` en true cierra contra la baseline para que
- * se pueda rellenar.
+ * El `d` de una serie: una curva cúbica monótona que pasa por todos los
+ * puntos. Con `area` en true cierra contra la baseline para que se pueda
+ * rellenar, con el mismo trazo arriba.
+ *
+ * Monótona y no un spline común: Catmull-Rom sobrepasaba en los picos —subía
+ * por encima del máximo y bajaba por debajo de cero entre dos valores que no
+ * existen—. Acá cada tramo queda entre el valor de sus dos puntos, así que la
+ * curva nunca sale del área y no hace falta acotar nada.
+ *
+ * Cada tramo es una Hermite cúbica escrita como Bézier: los puntos de control
+ * están a un tercio del tramo, siguiendo la pendiente de cada extremo.
  */
 export function generarPathLinea(puntos: Punto[], area: boolean): string {
   const n = puntos.length
   if (n === 0) return ''
 
-  let d = smoothPath(puntos, EVOL_TOP, EVOL_BASELINE)
+  let d = `M ${puntos[0].x} ${puntos[0].y}`
+  if (n > 1) {
+    const m = pendientesMonotonas(puntos)
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = puntos[i]
+      const p1 = puntos[i + 1]
+      const tercio = (p1.x - p0.x) / 3
+      const cp1x = +(p0.x + tercio).toFixed(2)
+      const cp1y = +(p0.y + m[i] * tercio).toFixed(2)
+      const cp2x = +(p1.x - tercio).toFixed(2)
+      const cp2y = +(p1.y - m[i + 1] * tercio).toFixed(2)
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`
+    }
+  }
   if (area) {
     d += ` L ${puntos[n - 1].x} ${EVOL_BASELINE} L ${puntos[0].x} ${EVOL_BASELINE} Z`
   }

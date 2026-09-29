@@ -6,6 +6,11 @@ interface DonutTemperaturaProps {
   calientes: number
   tibios: number
   frios: number
+  /**
+   * Leads activos sin temperatura todavía (`estado` null). Sin este segmento
+   * el total del donut no coincidía con "Leads activos". En 0 no se dibuja.
+   */
+  sinClasificar?: number
 }
 
 /**
@@ -13,24 +18,48 @@ interface DonutTemperaturaProps {
  *
  * Cada arco se dibuja con `stroke-dasharray = "<largo> <circunferencia>"` y se
  * corre con un `stroke-dashoffset` negativo igual a lo que ocupan los arcos
- * anteriores, así los tres se encadenan sin superponerse. El SVG va rotado
- * -90° para que el primero arranque arriba y no a las 3 en punto.
+ * anteriores, así se encadenan sin superponerse. El SVG va rotado -90° para
+ * que el primero arranque arriba y no a las 3 en punto.
  */
-export function DonutTemperatura({ calientes, tibios, frios }: DonutTemperaturaProps) {
-  const total = calientes + tibios + frios
+export function DonutTemperatura({
+  calientes,
+  tibios,
+  frios,
+  sinClasificar = 0,
+}: DonutTemperaturaProps) {
+  const clasificados = calientes + tibios + frios
+  const total = clasificados + sinClasificar
 
   const arco = (valor: number) => (total === 0 ? 0 : (valor / total) * CIRCUNFERENCIA)
   const porcentaje = (valor: number) => (total === 0 ? 0 : Math.round((valor / total) * 100))
 
-  const arcoCaliente = arco(calientes)
-  const arcoTibio = arco(tibios)
-  const arcoFrio = arco(frios)
-
+  // "Sin clasificar" va último y en gris: es lo que falta ordenar, no una
+  // temperatura más, y no tiene que competir con los tres colores.
   const segmentos = [
-    { clave: 'caliente', label: 'Caliente', valor: calientes, punto: 'bg-caliente' },
-    { clave: 'tibio', label: 'Tibio', valor: tibios, punto: 'bg-tibio' },
-    { clave: 'frio', label: 'Frío', valor: frios, punto: 'bg-frio' },
+    { clave: 'caliente', label: 'Caliente', valor: calientes, punto: 'bg-caliente', trazo: 'stroke-caliente' },
+    { clave: 'tibio', label: 'Tibio', valor: tibios, punto: 'bg-tibio', trazo: 'stroke-tibio' },
+    { clave: 'frio', label: 'Frío', valor: frios, punto: 'bg-frio', trazo: 'stroke-frio' },
+    ...(sinClasificar > 0
+      ? [
+          {
+            clave: 'sin-clasificar',
+            label: 'Sin clasificar',
+            valor: sinClasificar,
+            punto: 'bg-ink-4',
+            trazo: 'stroke-ink-4',
+          },
+        ]
+      : []),
   ]
+
+  // Offset de cada arco: lo que ya ocuparon los anteriores.
+  let recorrido = 0
+  const arcos = segmentos.map((s) => {
+    const largo = arco(s.valor)
+    const offset = recorrido
+    recorrido += largo
+    return { clave: s.clave, trazo: s.trazo, largo, offset }
+  })
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
@@ -47,40 +76,20 @@ export function DonutTemperatura({ calientes, tibios, frios }: DonutTemperaturaP
               strokeWidth="14"
               className="stroke-border"
             />
-            {total > 0 && (
-              <>
+            {total > 0 &&
+              arcos.map((a) => (
                 <circle
+                  key={a.clave}
                   cx="70"
                   cy="70"
                   r={RADIO}
                   fill="none"
                   strokeWidth="14"
-                  strokeDasharray={`${arcoCaliente} ${CIRCUNFERENCIA}`}
-                  strokeDashoffset={0}
-                  className="stroke-caliente"
+                  strokeDasharray={`${a.largo} ${CIRCUNFERENCIA}`}
+                  strokeDashoffset={-a.offset}
+                  className={a.trazo}
                 />
-                <circle
-                  cx="70"
-                  cy="70"
-                  r={RADIO}
-                  fill="none"
-                  strokeWidth="14"
-                  strokeDasharray={`${arcoTibio} ${CIRCUNFERENCIA}`}
-                  strokeDashoffset={-arcoCaliente}
-                  className="stroke-tibio"
-                />
-                <circle
-                  cx="70"
-                  cy="70"
-                  r={RADIO}
-                  fill="none"
-                  strokeWidth="14"
-                  strokeDasharray={`${arcoFrio} ${CIRCUNFERENCIA}`}
-                  strokeDashoffset={-(arcoCaliente + arcoTibio)}
-                  className="stroke-frio"
-                />
-              </>
-            )}
+              ))}
           </svg>
 
           <div className="absolute text-center">
@@ -104,7 +113,7 @@ export function DonutTemperatura({ calientes, tibios, frios }: DonutTemperaturaP
         </ul>
       </div>
 
-      {total === 0 && (
+      {clasificados === 0 && (
         <p className="mt-4 text-center text-[0.85rem] text-ink-3">
           Todavía no clasificaste ningún lead por temperatura.
         </p>

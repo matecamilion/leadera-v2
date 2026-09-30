@@ -1,33 +1,21 @@
 import { useState, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useResumenGestion } from '../../hooks/useModeloGestion'
-import type { PeriodoGestion } from '../../lib/api/modeloGestion'
-import { desdeClaveDia } from '../../lib/calendario'
-import { calcularRitmo, type Ritmo } from '../../lib/ritmoSemanal'
+import type { MetricaGestion, PeriodoGestion } from '../../lib/api/modeloGestion'
+import {
+  escribirPanel,
+  etiquetaDia,
+  leerPanel,
+  META_DIARIA_VERDES,
+  METAS_SEMANALES,
+  METRICAS,
+} from '../../lib/detalleGestion'
+import { calcularRitmo, hoyEnArgentina } from '../../lib/ritmoSemanal'
 import { TooltipAyuda } from '../comunes/TooltipAyuda'
 import { IconoCheck } from '../leads/Iconos'
 import { AnilloProgreso } from './AnilloProgreso'
+import { PanelDetalleGestion, TextoRitmo } from './PanelDetalleGestion'
 import { SeccionCard } from './SeccionCard'
-
-/** Las metas de la semana. Fijas por ahora; más adelante, configurables. */
-export const METAS_SEMANALES = { verdes: 15, preListingBuying: 3, nuevosContactos: 1 } as const
-
-/**
- * El ritmo diario de reuniones y visitas: 15 / 7 redondeado, o sea 2. Es la
- * única meta que se lleva al día; prelistings y contactos nuevos son pocos por
- * semana y una meta diaria de 0,4 no le dice nada a nadie.
- */
-const META_DIARIA_VERDES = Math.round(METAS_SEMANALES.verdes / 7)
-
-const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-
-/** `YYYY-MM-DD` → "mié 24/09". Parseo local: con `new Date(clave)` sería UTC y
- *  en Argentina caería en el día anterior. */
-function etiquetaDia(clave: string): string {
-  const fecha = desdeClaveDia(clave)
-  const dd = String(fecha.getDate()).padStart(2, '0')
-  const mm = String(fecha.getMonth() + 1).padStart(2, '0')
-  return `${DIAS[fecha.getDay()]} ${dd}/${mm}`
-}
 
 const CLAVE_VISTA = 'leadera.modelo-gestion.vista'
 
@@ -63,12 +51,59 @@ const TITULOS: Record<PeriodoGestion, string> = { dia: 'Tu día', semana: 'Tu se
  * propia (el ritmo diario); los otros dos anillos siguen mostrando la semana y
  * lo de hoy va abajo, en el detalle.
  *
- * Se piden las dos ventanas siempre: Día necesita también la semana, y así
- * cambiar de vista no pasa por el skeleton. Sólo se monta con el flag
- * prendido, así que las queries arrancan habilitadas.
+ * Cada anillo tiene un "Ver detalle" que abre el panel con lo que suma a ese
+ * número. El panel abierto vive en la URL
+ * (`?detalle=…&periodo=…&ref=…`): abrir es un push, así "atrás" lo cierra.
  */
 export function TarjetaSemanaGestion() {
+  const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const estadoPanel = leerPanel(params, hoyEnArgentina())
+  // Si se abrió desde la tarjeta, cerrar es volver atrás: la entrada del
+  // historial que agregó el push se consume. Si vino de un link pegado o de
+  // un F5 sin esa marca, volver atrás podría sacar al usuario de la app, así
+  // que se sacan los params en el lugar.
+  const abiertoDesdeTarjeta =
+    (location.state as { desdeTarjeta?: boolean } | null)?.desdeTarjeta === true
+
+  function cerrarPanel() {
+    if (abiertoDesdeTarjeta) navigate(-1)
+    else setParams(escribirPanel(params, null), { replace: true })
+  }
+
+  function cambiarReferencia(referencia: string | null) {
+    if (!estadoPanel) return
+    // replace: moverse entre períodos no suma entradas al historial, y se
+    // conserva la marca de origen para que cerrar siga volviendo atrás.
+    setParams(escribirPanel(params, { ...estadoPanel, referencia }), {
+      replace: true,
+      state: location.state,
+    })
+  }
+
+  return (
+    <>
+      <ContenidoTarjeta params={params} />
+      <PanelDetalleGestion
+        estado={estadoPanel}
+        onCerrar={cerrarPanel}
+        onCambiarReferencia={cambiarReferencia}
+      />
+    </>
+  )
+}
+
+/**
+ * La tarjeta en sí. Se piden las dos ventanas siempre: Día necesita también la
+ * semana, y así cambiar de vista no pasa por el skeleton. Sólo se monta con el
+ * flag prendido, así que las queries arrancan habilitadas.
+ */
+function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
   const [vista, setVista] = useState<PeriodoGestion>(leerVista)
+  const enlace = (metrica: MetricaGestion) => (
+    <EnlaceDetalle metrica={metrica} vista={vista} params={params} />
+  )
   const semana = useResumenGestion('semana', true)
   const dia = useResumenGestion('dia', true)
 
@@ -115,9 +150,12 @@ export function TarjetaSemanaGestion() {
             valor={d.verdes}
             meta={META_DIARIA_VERDES}
             detalle={
-              <span className="block tabular-nums">
-                Semana {s.verdes} de {METAS_SEMANALES.verdes}
-              </span>
+              <>
+                <span className="block tabular-nums">
+                  Semana {s.verdes} de {METAS_SEMANALES.verdes}
+                </span>
+                {enlace('verdes')}
+              </>
             }
           />
           <AnilloProgreso
@@ -126,11 +164,14 @@ export function TarjetaSemanaGestion() {
             valor={preListingBuyingSemana}
             meta={METAS_SEMANALES.preListingBuying}
             detalle={
-              <HoyYSemana
-                hoy={d.prelistings + d.prebuyings}
-                semana={preListingBuyingSemana}
-                meta={METAS_SEMANALES.preListingBuying}
-              />
+              <>
+                <HoyYSemana
+                  hoy={d.prelistings + d.prebuyings}
+                  semana={preListingBuyingSemana}
+                  meta={METAS_SEMANALES.preListingBuying}
+                />
+                {enlace('pre')}
+              </>
             }
           />
           <AnilloProgreso
@@ -139,11 +180,14 @@ export function TarjetaSemanaGestion() {
             valor={s.nuevos_contactos}
             meta={METAS_SEMANALES.nuevosContactos}
             detalle={
-              <HoyYSemana
-                hoy={d.nuevos_contactos}
-                semana={s.nuevos_contactos}
-                meta={METAS_SEMANALES.nuevosContactos}
-              />
+              <>
+                <HoyYSemana
+                  hoy={d.nuevos_contactos}
+                  semana={s.nuevos_contactos}
+                  meta={METAS_SEMANALES.nuevosContactos}
+                />
+                {enlace('nuevos')}
+              </>
             }
           />
         </Anillos>
@@ -173,7 +217,12 @@ export function TarjetaSemanaGestion() {
           meta={METAS_SEMANALES.verdes}
           marcaEsperado={ritmoVerdes.esperado}
           alerta={!ritmoVerdes.alDia}
-          detalle={<TextoRitmo ritmo={ritmoVerdes} />}
+          detalle={
+            <>
+              <TextoRitmo ritmo={ritmoVerdes} />
+              {enlace('verdes')}
+            </>
+          }
         />
         <AnilloProgreso
           etiqueta="Prelistings / prebuyings"
@@ -188,6 +237,7 @@ export function TarjetaSemanaGestion() {
                 Prelisting {s.prelistings} · Prebuying {s.prebuyings}
               </span>
               <TextoRitmo ritmo={ritmoPre} />
+              {enlace('pre')}
             </>
           }
         />
@@ -197,9 +247,12 @@ export function TarjetaSemanaGestion() {
           valor={s.nuevos_contactos}
           meta={METAS_SEMANALES.nuevosContactos}
           detalle={
-            <span className={`block font-semibold ${nuevosCumplido ? 'text-primary' : 'text-ink-3'}`}>
-              {nuevosCumplido ? 'Cumplido' : 'Pendiente'}
-            </span>
+            <>
+              <span className={`block font-semibold ${nuevosCumplido ? 'text-primary' : 'text-ink-3'}`}>
+                {nuevosCumplido ? 'Cumplido' : 'Pendiente'}
+              </span>
+              {enlace('nuevos')}
+            </>
           }
         />
       </Anillos>
@@ -342,28 +395,46 @@ function HoyYSemana({ hoy, semana, meta }: { hoy: number; semana: number; meta: 
   )
 }
 
-/** "Vas al día" o cuánto debería llevar y cuánto falta, en el color del arco. */
-function TextoRitmo({ ritmo }: { ritmo: Ritmo }) {
-  if (ritmo.alDia) {
-    return <span className="block font-semibold text-primary">Vas al día</span>
-  }
+/**
+ * "Ver detalle" debajo de cada anillo. Es un link aparte y no el anillo
+ * envuelto en un botón: el anillo ya tiene adentro el botón del tooltip, y un
+ * interactivo dentro de otro no es válido ni se lee bien.
+ *
+ * Abre el panel en el período que muestra la tarjeta. Es un push con la marca
+ * `desdeTarjeta`, para que cerrar pueda volver atrás.
+ */
+function EnlaceDetalle({
+  metrica,
+  vista,
+  params,
+}: {
+  metrica: MetricaGestion
+  vista: PeriodoGestion
+  params: URLSearchParams
+}) {
+  const destino = escribirPanel(params, { metrica, periodo: vista, referencia: null })
   return (
-    <span className="block font-semibold text-badge-tibio-ink">
-      Deberías llevar {ritmo.esperado} · te faltan {ritmo.faltan}
-    </span>
+    <Link
+      to={{ search: `?${destino.toString()}` }}
+      state={{ desdeTarjeta: true }}
+      className="mt-1 inline-block rounded-sm text-[0.75rem] font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      Ver detalle
+      <span className="sr-only"> de {METRICAS[metrica].nombre.toLowerCase()}</span>
+    </Link>
   )
 }
 
 /**
  * Mismo skeleton que las secciones de Mi día: barra de título y bloque, del
- * alto de la tarjeta con sus anillos y la fila del selector. Es el mismo en
- * las dos vistas, así la página no salta.
+ * alto de la tarjeta con sus anillos, la fila del selector y el "Ver detalle".
+ * Es el mismo en las dos vistas, así la página no salta.
  */
 function Skeleton() {
   return (
     <div aria-hidden className="mb-4">
       <div className="mb-3 h-8 w-56 animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
-      <div className="h-[208px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none sm:h-[236px]" />
+      <div className="h-[228px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none sm:h-[256px]" />
     </div>
   )
 }

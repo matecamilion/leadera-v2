@@ -147,21 +147,26 @@ export const claves = {
   },
 
   /**
-   * El flag va por inmobiliaria y la semana por agente. Registrar una
-   * interacción o marcar una visita realizada invalida `semana`.
+   * El flag va por inmobiliaria y los resúmenes por agente. Registrar una
+   * interacción o marcar una visita realizada invalida `resumen`, que alcanza
+   * también al detalle.
    */
   modeloGestion: {
     raiz: ['modelo-gestion'] as const,
     activo: (uid: Uid, inmobiliariaId: string | undefined) =>
       ['modelo-gestion', 'activo', uid, inmobiliariaId] as const,
-    /** Prefijo de todos los resúmenes: lo que invalidan las mutaciones. */
+    /** Prefijo de resúmenes y detalles: lo que invalidan las mutaciones. */
     resumen: (uid: Uid) => ['modelo-gestion', 'resumen', uid] as const,
     /**
      * `hoy` (hora argentina) va en la clave para que pasada la medianoche el
      * día y la semana se pidan de nuevo en vez de servir los de ayer.
+     * `referencia` null es el período en curso.
      */
-    periodo: (uid: Uid, periodo: string, hoy: string) =>
-      ['modelo-gestion', 'resumen', uid, periodo, hoy] as const,
+    periodo: (uid: Uid, periodo: string, hoy: string, referencia: string | null = null) =>
+      ['modelo-gestion', 'resumen', uid, periodo, hoy, referencia ?? 'actual'] as const,
+    /** Las filas de una métrica. Bajo `resumen` para que la misma invalidación lo alcance. */
+    detalle: (uid: Uid, metrica: string, periodo: string, hoy: string, referencia: string | null) =>
+      ['modelo-gestion', 'resumen', uid, 'detalle', metrica, periodo, hoy, referencia ?? 'actual'] as const,
   },
 
   /** La ficha de una operación. */

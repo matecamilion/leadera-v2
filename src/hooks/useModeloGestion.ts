@@ -2,10 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import {
   obtenerModeloGestionActivo,
-  obtenerResumenSemanaGestion,
-  type ResumenSemanaGestion,
+  obtenerResumenGestion,
+  type PeriodoGestion,
+  type ResumenGestion,
 } from '../lib/api/modeloGestion'
 import { claves } from '../lib/queryKeys'
+import { hoyEnArgentina } from '../lib/ritmoSemanal'
 import { useUid } from './useUid'
 
 /**
@@ -26,12 +28,13 @@ export function useModeloGestionActivo() {
   })
 }
 
-/** El resumen de la semana en curso. `enabled` es el flag de arriba. */
-export function useResumenSemanaGestion(enabled: boolean) {
+/** El resumen del día o de la semana en curso. `enabled` es el flag de arriba. */
+export function useResumenGestion(periodo: PeriodoGestion, enabled: boolean) {
   const uid = useUid()
-  return useQuery<ResumenSemanaGestion>({
-    queryKey: claves.modeloGestion.semana(uid),
-    queryFn: obtenerResumenSemanaGestion,
+  const hoy = hoyEnArgentina()
+  return useQuery<ResumenGestion>({
+    queryKey: claves.modeloGestion.periodo(uid, periodo, hoy),
+    queryFn: () => obtenerResumenGestion(periodo),
     enabled: !!uid && enabled,
   })
 }

@@ -49,8 +49,8 @@ export function useCrearLead() {
     mutationFn: (input: CrearLeadInput) => crearLead(input),
     onSuccess: (lead) => {
       invalidar(lead.id)
-      // Un lead REFERIDO o MANUAL suma a los nuevos contactos de la semana.
-      queryClient.invalidateQueries({ queryKey: claves.modeloGestion.semana(uid) })
+      // Un lead REFERIDO o MANUAL suma a los nuevos contactos del día y la semana.
+      queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })
     },
   })
 }

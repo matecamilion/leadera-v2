@@ -154,7 +154,14 @@ export const claves = {
     raiz: ['modelo-gestion'] as const,
     activo: (uid: Uid, inmobiliariaId: string | undefined) =>
       ['modelo-gestion', 'activo', uid, inmobiliariaId] as const,
-    semana: (uid: Uid) => ['modelo-gestion', 'semana', uid] as const,
+    /** Prefijo de todos los resúmenes: lo que invalidan las mutaciones. */
+    resumen: (uid: Uid) => ['modelo-gestion', 'resumen', uid] as const,
+    /**
+     * `hoy` (hora argentina) va en la clave para que pasada la medianoche el
+     * día y la semana se pidan de nuevo en vez de servir los de ayer.
+     */
+    periodo: (uid: Uid, periodo: string, hoy: string) =>
+      ['modelo-gestion', 'resumen', uid, periodo, hoy] as const,
   },
 
   /** La ficha de una operación. */

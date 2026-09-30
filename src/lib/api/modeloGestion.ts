@@ -9,8 +9,15 @@ import type { Database } from '../../types/database'
  * nace en false: ninguna cuenta ve nada hasta que se prende a mano.
  */
 
-export type ResumenSemanaGestion =
-  Database['public']['Functions']['resumen_semana_gestion']['Returns'][number]
+export type ResumenGestion =
+  Database['public']['Functions']['resumen_gestion']['Returns'][number]
+
+/**
+ * Las ventanas que pide el front. La función SQL acepta además 'mes', que va a
+ * ir en Estadísticas; `database.ts` tipa `p_periodo` como string suelto, así
+ * que la unión se declara acá.
+ */
+export type PeriodoGestion = 'dia' | 'semana'
 
 /**
  * Si la inmobiliaria tiene el modelo de gestión prendido.
@@ -38,19 +45,23 @@ export async function obtenerModeloGestionActivo(inmobiliariaId: string): Promis
 }
 
 /**
- * Las métricas de la semana en curso (miércoles a martes, hora argentina) del
- * agente logueado. La semana y los conteos los arma la base; ver la migración
- * `20260929120000_modelo_gestion_etapa1`.
+ * Las métricas del agente logueado en el día o la semana (miércoles a martes)
+ * en curso, hora argentina. La ventana, `dia_actual` y los conteos los arma la
+ * base; ver la migración `20260930120000_resumen_gestion_periodos`.
+ *
+ * No se manda `p_referencia`: "hoy" lo decide el reloj de la base, no el del
+ * navegador, que puede estar corrido.
  */
-export async function obtenerResumenSemanaGestion(): Promise<ResumenSemanaGestion> {
-  const { data, error } = await supabase.rpc('resumen_semana_gestion')
+export async function obtenerResumenGestion(periodo: PeriodoGestion): Promise<ResumenGestion> {
+  const mensaje =
+    periodo === 'dia' ? 'No se pudo cargar el resumen del día.' : 'No se pudo cargar el resumen de la semana.'
 
-  if (error) {
-    throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar el resumen de la semana.'))
-  }
+  const { data, error } = await supabase.rpc('resumen_gestion', { p_periodo: periodo })
+
+  if (error) throw new Error(interpretarErrorSupabase(error, mensaje))
 
   const fila = data?.[0]
-  if (!fila) throw new Error('No se pudo cargar el resumen de la semana.')
+  if (!fila) throw new Error(mensaje)
 
   return fila
 }

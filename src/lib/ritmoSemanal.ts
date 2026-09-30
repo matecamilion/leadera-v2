@@ -1,6 +1,6 @@
 /**
- * El ritmo de una meta semanal: cuánto debería llevar el agente a esta altura
- * de la semana del modelo de gestión (miércoles a martes).
+ * El ritmo de una meta del modelo de gestión: cuánto debería llevar el agente a
+ * esta altura del período (hoy, la semana de miércoles a martes).
  *
  * Funciones puras, sin React ni Supabase.
  */
@@ -29,17 +29,8 @@ export function hoyEnArgentina(ahora: Date = new Date()): string {
   return FORMATO_DIA_AR.format(ahora)
 }
 
-/** Días enteros entre dos claves `YYYY-MM-DD`, sin que el horario de verano mueva nada. */
-function diasEntre(desde: string, hasta: string): number {
-  const aUtc = (clave: string) => {
-    const [a, m, d] = clave.split('-').map(Number)
-    return Date.UTC(a, m - 1, d)
-  }
-  return Math.round((aUtc(hasta) - aUtc(desde)) / 86_400_000)
-}
-
 export interface Ritmo {
-  /** Día de la semana de gestión: miércoles = 1, martes = 7. */
+  /** Día del período: en la semana de gestión, miércoles = 1 y martes = 7. */
   dia: number
   /** Cuánto debería llevar al empezar hoy para llegar a la meta a ritmo parejo. */
   esperado: number
@@ -48,16 +39,22 @@ export interface Ritmo {
   faltan: number
 }
 
+/**
+ * `diaActual` y `diasTotales` son los que devuelve `resumen_gestion`: la base
+ * ya sabe qué día del período es hoy, así que no se recalcula con el reloj del
+ * navegador.
+ */
 export function calcularRitmo(
   valor: number,
   meta: number,
-  semanaInicio: string,
-  hoy: string,
+  diaActual: number,
+  diasTotales: number,
 ): Ritmo {
-  const dia = Math.min(Math.max(diasEntre(semanaInicio, hoy) + 1, 1), 7)
+  const total = Math.max(diasTotales, 1)
+  const dia = Math.min(Math.max(diaActual, 1), total)
   // Con el día anterior: lo esperado es lo que ya debería estar hecho al
   // arrancar hoy. Con `dia` el miércoles a la mañana ya pedía actividades.
-  const esperado = Math.round((meta * (dia - 1)) / 7)
+  const esperado = Math.round((meta * (dia - 1)) / total)
   return {
     dia,
     esperado,

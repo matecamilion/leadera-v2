@@ -68,12 +68,16 @@ export function AvisoReporteSemanal() {
           <IconoMail className="size-[18px]" />
         </span>
 
-        <p className="m-0 min-w-0 flex-1 text-[0.85rem] leading-relaxed text-ink-2">
+        {/* En mobile el texto toma la fila entera menos el ícono (28px del chip
+            + 16px de `gap-x-4`) y los botones bajan solos por el `flex-wrap`.
+            `grow` + `basis` y no `flex-1`: desde `sm` vuelve a ser exactamente
+            `flex: 1 1 0%`, la misma fila de siempre. */}
+        <p className="m-0 min-w-0 grow basis-[calc(100%-2.75rem)] text-[0.85rem] leading-relaxed text-ink-2 sm:basis-0">
           ¿Sabías que podés recibir un reporte semanal con tu actividad? Te llega
           todos los lunes a la mañana.
         </p>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-0">
           <button
             type="button"
             onClick={descartar}

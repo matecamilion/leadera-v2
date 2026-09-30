@@ -50,6 +50,14 @@ interface AnilloProgresoProps {
    * anillo. Para cuando la card ya dice qué mide el anillo en su título.
    */
   etiquetaVisible?: boolean
+  /**
+   * Con esto el círculo (SVG y número) pasa a ser un botón. Sólo el círculo:
+   * la etiqueta y su `ayuda` quedan afuera, porque la ayuda ya es un botón y
+   * uno dentro de otro no es válido. Sin esto, el anillo es igual que siempre.
+   */
+  alTocar?: () => void
+  /** El nombre del botón, p. ej. "Ver detalle de Reuniones y visitas". Va con `alTocar`. */
+  etiquetaAccion?: string
 }
 
 /**
@@ -72,6 +80,8 @@ export function AnilloProgreso({
   ayuda,
   tamano = 'normal',
   etiquetaVisible = true,
+  alTocar,
+  etiquetaAccion,
 }: AnilloProgresoProps) {
   const clases = TAMANOS[tamano]
 
@@ -89,46 +99,79 @@ export function AnilloProgreso({
       ? puntosDeMarca(fraccionMarca)
       : null
 
+  const tocable = alTocar !== undefined
+
+  const circulo = (
+    <div
+      role="progressbar"
+      aria-valuenow={valor}
+      aria-valuemin={0}
+      aria-valuemax={meta}
+      aria-label={etiqueta}
+      className="relative grid shrink-0 place-items-center"
+    >
+      {/* -90° para que el arco arranque arriba, igual que en MetaMensual.
+          Tocable: al pasar el mouse crece apenas y el trazo de fondo se
+          oscurece; con movimiento reducido sólo cambia el color. */}
+      <svg
+        viewBox="0 0 160 160"
+        aria-hidden
+        className={`${clases.svg} -rotate-90 ${tocable ? 'transition-[scale] duration-150 group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100' : ''}`}
+      >
+        <circle
+          cx={CENTRO}
+          cy={CENTRO}
+          r={RADIO}
+          fill="none"
+          strokeWidth="12"
+          className={`stroke-border ${tocable ? 'transition-colors group-hover:stroke-ink-4 motion-reduce:transition-none' : ''}`}
+        />
+        <circle
+          cx={CENTRO}
+          cy={CENTRO}
+          r={RADIO}
+          fill="none"
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={CIRCUNFERENCIA}
+          strokeDashoffset={CIRCUNFERENCIA * (1 - progreso)}
+          className={`${colorArco} transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none`}
+        />
+        {/* La marca va en dos trazos: uno ancho del color de la card que la
+            recorta del arco, y el fino encima. Sin el recorte se perdía
+            contra el verde cuando el arco ya pasó por ahí. */}
+        {marca && (
+          <>
+            <line {...marca} strokeWidth="7" strokeLinecap="round" className="stroke-surface" />
+            <line {...marca} strokeWidth="3" strokeLinecap="round" className="stroke-ink-2" />
+          </>
+        )}
+      </svg>
+
+      <div className="absolute leading-none font-bold text-ink tabular-nums">
+        <span className={clases.valor}>{valor}</span>
+        <span className={`${clases.meta} font-semibold text-ink-3`}>/{meta}</span>
+      </div>
+    </div>
+  )
+
   return (
     <div className="flex min-w-0 flex-col items-center text-center">
-      <div
-        role="progressbar"
-        aria-valuenow={valor}
-        aria-valuemin={0}
-        aria-valuemax={meta}
-        aria-label={etiqueta}
-        className="relative grid shrink-0 place-items-center"
-      >
-        {/* -90° para que el arco arranque arriba, igual que en MetaMensual. */}
-        <svg viewBox="0 0 160 160" aria-hidden className={`${clases.svg} -rotate-90`}>
-          <circle cx={CENTRO} cy={CENTRO} r={RADIO} fill="none" strokeWidth="12" className="stroke-border" />
-          <circle
-            cx={CENTRO}
-            cy={CENTRO}
-            r={RADIO}
-            fill="none"
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={CIRCUNFERENCIA}
-            strokeDashoffset={CIRCUNFERENCIA * (1 - progreso)}
-            className={`${colorArco} transition-[stroke-dashoffset] duration-500 motion-reduce:transition-none`}
-          />
-          {/* La marca va en dos trazos: uno ancho del color de la card que la
-              recorta del arco, y el fino encima. Sin el recorte se perdía
-              contra el verde cuando el arco ya pasó por ahí. */}
-          {marca && (
-            <>
-              <line {...marca} strokeWidth="7" strokeLinecap="round" className="stroke-surface" />
-              <line {...marca} strokeWidth="3" strokeLinecap="round" className="stroke-ink-2" />
-            </>
-          )}
-        </svg>
-
-        <div className="absolute leading-none font-bold text-ink tabular-nums">
-          <span className={clases.valor}>{valor}</span>
-          <span className={`${clases.meta} font-semibold text-ink-3`}>/{meta}</span>
-        </div>
-      </div>
+      {tocable ? (
+        // Dentro de un botón el `progressbar` pierde su rol (los hijos de un
+        // botón son presentacionales), así que el valor va en el nombre del
+        // botón para que el lector lo siga diciendo.
+        <button
+          type="button"
+          onClick={alTocar}
+          aria-label={`${etiquetaAccion ?? etiqueta}: ${valor} de ${meta}`}
+          className="group cursor-pointer rounded-full border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        >
+          {circulo}
+        </button>
+      ) : (
+        circulo
+      )}
 
       {etiquetaVisible && (
         <div className="mt-2 inline-flex items-center justify-center gap-1 text-[0.75rem] leading-tight font-semibold text-ink-2 sm:text-[0.82rem]">

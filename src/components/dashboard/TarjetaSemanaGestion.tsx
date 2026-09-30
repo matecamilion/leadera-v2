@@ -101,9 +101,16 @@ export function TarjetaSemanaGestion() {
  */
 function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
   const [vista, setVista] = useState<PeriodoGestion>(leerVista)
+  const navigate = useNavigate()
   const enlace = (metrica: MetricaGestion) => (
     <EnlaceDetalle metrica={metrica} vista={vista} params={params} />
   )
+  // El círculo de cada anillo abre lo mismo que su "Ver detalle": mismo
+  // destino y misma marca en el state, así cerrar vuelve atrás igual.
+  const tocable = (metrica: MetricaGestion) => ({
+    alTocar: () => navigate(destinoDetalle(params, metrica, vista), { state: DESDE_TARJETA }),
+    etiquetaAccion: `Ver detalle de ${METRICAS[metrica].nombre}`,
+  })
   const semana = useResumenGestion('semana', true)
   const dia = useResumenGestion('dia', true)
 
@@ -145,6 +152,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
       <Marco vista={vista} onCambiarVista={cambiarVista} subtitulo={`hoy ${etiquetaDia(d.periodo_inicio)}`}>
         <Anillos>
           <AnilloProgreso
+            {...tocable('verdes')}
             etiqueta="Reuniones y visitas"
             ayuda={<AyudaVerdes />}
             valor={d.verdes}
@@ -159,6 +167,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
             }
           />
           <AnilloProgreso
+            {...tocable('pre')}
             etiqueta="Prelistings / prebuyings"
             ayuda={<AyudaPre />}
             valor={preListingBuyingSemana}
@@ -175,6 +184,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
             }
           />
           <AnilloProgreso
+            {...tocable('nuevos')}
             etiqueta="Contactos nuevos"
             ayuda={<AyudaNuevos />}
             valor={s.nuevos_contactos}
@@ -211,6 +221,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
     >
       <Anillos>
         <AnilloProgreso
+          {...tocable('verdes')}
           etiqueta="Reuniones y visitas"
           ayuda={<AyudaVerdes />}
           valor={s.verdes}
@@ -225,6 +236,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
           }
         />
         <AnilloProgreso
+          {...tocable('pre')}
           etiqueta="Prelistings / prebuyings"
           ayuda={<AyudaPre />}
           valor={preListingBuyingSemana}
@@ -242,6 +254,7 @@ function ContenidoTarjeta({ params }: { params: URLSearchParams }) {
           }
         />
         <AnilloProgreso
+          {...tocable('nuevos')}
           etiqueta="Contactos nuevos"
           ayuda={<AyudaNuevos />}
           valor={s.nuevos_contactos}
@@ -395,6 +408,14 @@ function HoyYSemana({ hoy, semana, meta }: { hoy: number; semana: number; meta: 
   )
 }
 
+/** La marca que distingue "lo abrí desde la tarjeta" de un link pegado o un F5. */
+const DESDE_TARJETA = { desdeTarjeta: true } as const
+
+/** El panel de una métrica, en el período que muestra la tarjeta. */
+function destinoDetalle(params: URLSearchParams, metrica: MetricaGestion, vista: PeriodoGestion) {
+  return { search: `?${escribirPanel(params, { metrica, periodo: vista, referencia: null }).toString()}` }
+}
+
 /**
  * "Ver detalle" debajo de cada anillo. Es un link aparte y no el anillo
  * envuelto en un botón: el anillo ya tiene adentro el botón del tooltip, y un
@@ -412,11 +433,10 @@ function EnlaceDetalle({
   vista: PeriodoGestion
   params: URLSearchParams
 }) {
-  const destino = escribirPanel(params, { metrica, periodo: vista, referencia: null })
   return (
     <Link
-      to={{ search: `?${destino.toString()}` }}
-      state={{ desdeTarjeta: true }}
+      to={destinoDetalle(params, metrica, vista)}
+      state={DESDE_TARJETA}
       className="mt-1 inline-block rounded-sm text-[0.75rem] font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       Ver detalle

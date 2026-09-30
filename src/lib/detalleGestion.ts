@@ -155,12 +155,22 @@ export function etiquetaPeriodo(
   return `${etiquetaDia(inicio)} → ${etiquetaDia(fin)}`
 }
 
+// `hourCycle: 'h23'` y no `hour12: false`: con este último algunos motores
+// escriben la medianoche como "24:00", y abajo se compara contra "00:00".
 const FORMATO_HORA_AR = new Intl.DateTimeFormat('es-AR', {
   timeZone: 'America/Argentina/Buenos_Aires',
   hour: '2-digit',
   minute: '2-digit',
-  hour12: false,
+  hourCycle: 'h23',
 })
+
+/**
+ * La medianoche exacta no es una hora: es "sin hora". Marcar realizada una
+ * visita agendada sin horario deja la interacción VISITA fechada a las 00:00
+ * de ese día (`momentoDeLaInteraccion` en `lib/api/visitas`). Mostrar "00:00"
+ * haría creer que la visita fue a medianoche.
+ */
+const SIN_HORA = '00:00'
 
 /**
  * La hora de la fila en hora argentina, o null si no tiene.
@@ -170,9 +180,10 @@ const FORMATO_HORA_AR = new Intl.DateTimeFormat('es-AR', {
  * local de la visita y se muestra tal cual.
  */
 export function horaDeFila(fila: FilaDetalleGestion): string | null {
-  if (fila.momento) return FORMATO_HORA_AR.format(new Date(fila.momento))
-  if (fila.hora) return fila.hora.slice(0, 5)
-  return null
+  let hora: string | null = null
+  if (fila.momento) hora = FORMATO_HORA_AR.format(new Date(fila.momento))
+  else if (fila.hora) hora = fila.hora.slice(0, 5)
+  return hora === SIN_HORA ? null : hora
 }
 
 // ---------------------------------------------------------------------------

@@ -1458,6 +1458,19 @@ export type Database = {
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
       procesar_transiciones_suscripcion: { Args: never; Returns: undefined }
+      resumen_gestion: {
+        Args: { p_periodo?: string; p_referencia?: string }
+        Returns: {
+          dia_actual: number
+          dias_totales: number
+          nuevos_contactos: number
+          periodo_fin: string
+          periodo_inicio: string
+          prebuyings: number
+          prelistings: number
+          verdes: number
+        }[]
+      }
       resumen_interacciones_por_lead: {
         Args: { p_lead_ids: string[] }
         Returns: {

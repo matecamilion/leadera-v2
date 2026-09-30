@@ -330,14 +330,28 @@ export interface CupoEquipo {
   sinTope: boolean
 }
 
-/** Cuántos lugares del plan están ocupados. */
-export async function obtenerCupo(): Promise<CupoEquipo> {
+/**
+ * Cuántos lugares del plan están ocupados.
+ *
+ * Las dos lecturas filtran por la inmobiliaria en vez de confiar en la RLS: el
+ * superadmin ve todas las inmobiliarias y todos los profiles, así que sin
+ * filtro el `maybeSingle()` falla por filas de más y el conteo suma gente de
+ * otras cuentas.
+ */
+export async function obtenerCupo(inmobiliariaId: string): Promise<CupoEquipo> {
   const [inmobiliaria, conteo] = await Promise.all([
-    supabase.from('inmobiliarias').select('limite_usuarios').maybeSingle(),
-    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('inmobiliarias').select('limite_usuarios').eq('id', inmobiliariaId).maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('inmobiliaria_id', inmobiliariaId),
   ])
 
   if (conteo.error) throw new Error(interpretarErrorSupabase(conteo.error, 'No se pudo leer el cupo.'))
+
+  // No se lanza: el cupo es informativo y la invitación la decide la Edge
+  // Function. Pero se deja rastro, para que un fallo no pase por "no se sabe".
+  if (inmobiliaria.error) console.error('No se pudo leer el límite de usuarios', inmobiliaria.error)
 
   // `data` null es "no se pudo leer la fila"; `limite_usuarios` null adentro de
   // una fila que sí vino es "sin tope". Sin esta distinción los dos casos se

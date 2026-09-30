@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../contexts/AuthContext'
 import {
   cancelarSuscripcion,
   crearSuscripcion,
@@ -32,13 +33,19 @@ export function usePreciosPlanes() {
 /**
  * El estado de mi suscripción. Puede ser `null` si la RLS de `inmobiliarias` no
  * deja leer la fila; la pantalla trata ese caso como "no sé".
+ *
+ * El id sale del `profile` de `AuthContext`, que carga aparte de la sesión:
+ * hasta que llega —o si no trae inmobiliaria— la query queda deshabilitada.
+ * Ojo quien espere con `isPending`: una query deshabilitada queda pending para
+ * siempre. Para un spinner va `isLoading`, que sólo es true si está pidiendo.
  */
 export function useEstadoSuscripcion() {
   const uid = useUid()
+  const inmobiliariaId = useAuth().profile?.inmobiliaria_id
   return useQuery<EstadoDeMiSuscripcion | null>({
-    queryKey: claves.suscripcion.estado(uid),
-    queryFn: obtenerEstadoSuscripcion,
-    enabled: !!uid,
+    queryKey: claves.suscripcion.estado(uid, inmobiliariaId),
+    queryFn: () => obtenerEstadoSuscripcion(inmobiliariaId!),
+    enabled: !!uid && !!inmobiliariaId,
   })
 }
 
@@ -52,13 +59,14 @@ export function useEstadoSuscripcion() {
 export function useCrearSuscripcion() {
   const qc = useQueryClient()
   const uid = useUid()
+  const inmobiliariaId = useAuth().profile?.inmobiliaria_id
 
   return useMutation<SuscripcionCreada, Error, Plan>({
     mutationFn: crearSuscripcion,
     onError: () => {
       // El intento pudo haber dejado el mp_preapproval_id guardado aunque el
       // usuario no llegue a pagar: el estado en pantalla ya no es confiable.
-      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid) })
+      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid, inmobiliariaId) })
     },
   })
 }
@@ -73,11 +81,12 @@ export function useCrearSuscripcion() {
 export function useCancelarSuscripcion() {
   const qc = useQueryClient()
   const uid = useUid()
+  const inmobiliariaId = useAuth().profile?.inmobiliaria_id
 
   return useMutation<CancelacionConfirmada, Error, void>({
     mutationFn: cancelarSuscripcion,
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid) })
+      qc.invalidateQueries({ queryKey: claves.suscripcion.estado(uid, inmobiliariaId) })
     },
   })
 }

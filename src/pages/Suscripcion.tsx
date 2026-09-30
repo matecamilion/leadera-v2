@@ -162,7 +162,10 @@ export default function Suscripcion() {
     })
   }
 
-  if (precios.isPending || estado.isPending) {
+  // `estado` con `isLoading`: sin `inmobiliaria_id` en el profile la query queda
+  // deshabilitada —pending para siempre—, y ahí se sigue como con el estado
+  // desconocido en vez de quedarse en el spinner.
+  if (precios.isPending || estado.isLoading) {
     return (
       <div className="grid min-h-[50vh] place-items-center">
         <Spinner label="Cargando los planes" />

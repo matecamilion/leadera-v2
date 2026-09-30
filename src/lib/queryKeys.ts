@@ -86,7 +86,8 @@ export const claves = {
     raiz: ['equipo'] as const,
     miembros: (uid: Uid, rol: string | undefined, miId: string | undefined) =>
       ['equipo', 'miembros', uid, rol, miId] as const,
-    cupo: (uid: Uid) => ['equipo', 'cupo', uid] as const,
+    cupo: (uid: Uid, inmobiliariaId: string | undefined) =>
+      ['equipo', 'cupo', uid, inmobiliariaId] as const,
     stats: (uid: Uid) => ['equipo', 'stats', uid] as const,
     leads: (uid: Uid, page: number) => ['equipo', 'leads', uid, page] as const,
     invitaciones: (uid: Uid) => ['equipo', 'invitaciones', uid] as const,
@@ -235,7 +236,8 @@ export const claves = {
      * cuentas. Igual se van con el resto al vaciar el cache en un logout.
      */
     precios: () => ['suscripcion', 'precios'] as const,
-    estado: (uid: Uid) => ['suscripcion', 'estado', uid] as const,
+    estado: (uid: Uid, inmobiliariaId: string | undefined) =>
+      ['suscripcion', 'estado', uid, inmobiliariaId] as const,
     pagos: (uid: Uid, inmobiliariaId: string | undefined) =>
       ['suscripcion', 'pagos', uid, inmobiliariaId] as const,
   },

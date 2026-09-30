@@ -23,19 +23,26 @@ const RUTA_SUSCRIPCION = '/suscripcion'
  * puede leer o escribir lo gobierna la RLS. Por eso, ante la duda, deja pasar.
  */
 export function SuscripcionGuard() {
-  const { profile, signOut } = useAuth()
+  const { profile, perfilListo, signOut } = useAuth()
   const estado = useEstadoSuscripcion()
   const location = useLocation()
 
   // Se espera al estado antes de pintar nada: entrar a la app y que un segundo
-  // después te expulse es peor que un spinner corto. La espera está acotada
-  // —la query resuelve o falla— y en el camino feliz sale de cache.
-  if (estado.isPending) {
+  // después te expulse es peor que un spinner corto. Son dos esperas, las dos
+  // acotadas: el profile —la query del estado necesita su `inmobiliaria_id`—
+  // y después la query, que resuelve o falla. En el camino feliz sale de cache.
+  //
+  // `isLoading` y no `isPending`: sin `inmobiliaria_id` la query queda
+  // deshabilitada, y una query deshabilitada está pending para siempre. Con
+  // `isPending` eso sería un spinner infinito; con `isLoading` —pending Y
+  // pidiendo— cae abajo con `data` undefined y deja pasar.
+  if (!perfilListo || estado.isLoading) {
     return <Spinner fullscreen label="Verificando tu suscripción" />
   }
 
-  // `estado.data` es null cuando no se pudo leer la fila, y ahí `estaBloqueada`
-  // devuelve false: un error de lectura no puede dejar afuera a un cliente al día.
+  // `estado.data` es null cuando no se pudo leer la fila, y undefined cuando no
+  // hubo inmobiliaria con qué pedirla. En los dos casos `estaBloqueada` devuelve
+  // false: un error de lectura no puede dejar afuera a un cliente al día.
   if (!estaBloqueada(estado.data)) return <Outlet />
 
   // El dueño necesita llegar a /suscripcion para reactivar: si ya está ahí, se
@@ -45,10 +52,8 @@ export function SuscripcionGuard() {
     return <Navigate to={RUTA_SUSCRIPCION} replace />
   }
 
-  // Mientras el profile carga, `rol` es undefined y se cae acá. Es el mismo
-  // criterio que usa el sidebar para los links por rol: la ventana dura lo que
-  // tarda una query que ya está en vuelo, y el dueño que la atraviese termina
-  // redirigido en cuanto llega su perfil.
+  // A esta altura el profile ya volvió: sólo se llega acá con el estado leído,
+  // y para leerlo hizo falta su `inmobiliaria_id`.
   return <PantallaCuentaVencida onCerrarSesion={signOut} />
 }
 

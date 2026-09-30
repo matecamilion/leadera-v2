@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../contexts/AuthContext'
 import {
   listarEquipo,
   listarLeadsDelEquipo,
@@ -32,12 +33,14 @@ export function useEquipo(rol: RolAgente | undefined, miId: string | undefined) 
   })
 }
 
+/** El id sale del `profile`: hasta que llega, la query no dispara. */
 export function useCupoEquipo() {
   const uid = useUid()
+  const inmobiliariaId = useAuth().profile?.inmobiliaria_id
   return useQuery<CupoEquipo>({
-    queryKey: claves.equipo.cupo(uid),
-    queryFn: obtenerCupo,
-    enabled: !!uid,
+    queryKey: claves.equipo.cupo(uid, inmobiliariaId),
+    queryFn: () => obtenerCupo(inmobiliariaId!),
+    enabled: !!uid && !!inmobiliariaId,
   })
 }
 

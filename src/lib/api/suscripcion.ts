@@ -181,13 +181,20 @@ export interface EstadoDeMiSuscripcion {
  * si la fila no vuelve —RLS, error de red—, quien decide de verdad es
  * `crear-suscripcion`, que sí la ve. Ante la duda la app deja pasar y muestra
  * los planes, que es la salida útil; ver `estaBloqueada`.
+ *
+ * Filtra por id y no confía en que la RLS devuelva una sola fila: el
+ * superadmin ve todas las inmobiliarias, y un `maybeSingle()` sin filtro le
+ * daría error por filas de más.
  */
-export async function obtenerEstadoSuscripcion(): Promise<EstadoDeMiSuscripcion | null> {
+export async function obtenerEstadoSuscripcion(
+  inmobiliariaId: string,
+): Promise<EstadoDeMiSuscripcion | null> {
   const { data, error } = await supabase
     .from('inmobiliarias')
     .select(
       'nombre, plan, estado_suscripcion, metodo_cobro, acceso_pagado_hasta, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
     )
+    .eq('id', inmobiliariaId)
     .maybeSingle()
 
   if (error) {

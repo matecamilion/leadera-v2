@@ -1396,12 +1396,58 @@ export type Database = {
         }
         Returns: Json
       }
+      detalle_gestion: {
+        Args: {
+          p_limite?: number
+          p_metrica: string
+          p_periodo?: string
+          p_referencia?: string
+        }
+        Returns: {
+          categoria: string
+          detalle: string
+          dia: string
+          fuente: string
+          hora: string
+          id: string
+          lead_apellido: string
+          lead_estado: string
+          lead_id: string
+          lead_nombre: string
+          lead_origen: string
+          momento: string
+          propiedad_direccion: string
+          propiedad_id: string
+          propiedad_zona: string
+          tipo: string
+          total_filas: number
+        }[]
+      }
       estadisticas_visitas_propiedad: {
         Args: { p_propiedad_id: string }
         Returns: {
           interesados_unicos: number
           visitas_agendadas: number
           visitas_realizadas: number
+        }[]
+      }
+      filas_gestion: {
+        Args: { p_periodo: string; p_referencia: string }
+        Returns: {
+          categoria: string
+          dia: string
+          es_nuevo_contacto: boolean
+          es_prebuying: boolean
+          es_prelisting: boolean
+          es_verde: boolean
+          fuente: string
+          hora: string
+          id: string
+          lead_id: string
+          momento: string
+          origen: string
+          propiedad_id: string
+          tipo: string
         }[]
       }
       metricas_semanales: {
@@ -1471,6 +1517,19 @@ export type Database = {
           verdes: number
         }[]
       }
+      resumen_gestion_previo: {
+        Args: { p_periodo?: string; p_referencia?: string }
+        Returns: {
+          dia_actual: number
+          dias_totales: number
+          nuevos_contactos: number
+          periodo_fin: string
+          periodo_inicio: string
+          prebuyings: number
+          prelistings: number
+          verdes: number
+        }[]
+      }
       resumen_interacciones_por_lead: {
         Args: { p_lead_ids: string[] }
         Returns: {
@@ -1506,6 +1565,17 @@ export type Database = {
           leads_usados: number
           operaciones_activas_usadas: number
           propiedades_usadas: number
+        }[]
+      }
+      ventana_gestion: {
+        Args: { p_periodo: string; p_referencia: string }
+        Returns: {
+          desde: string
+          dia_actual: number
+          dias_totales: number
+          fin: string
+          hasta: string
+          inicio: string
         }[]
       }
     }

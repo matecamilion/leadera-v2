@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import type { Lead, ResumenOperaciones } from '../../lib/api/leads'
-import { tiempoTranscurrido } from '../../lib/formatoFecha'
-import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
+import { etiquetaOrigen, type Lead, type ResumenOperaciones } from '../../lib/api/leads'
+import { esVencido, formatearFecha, tiempoTranscurrido } from '../../lib/formatoFecha'
+import { AccionesContacto } from '../comunes/AccionesContacto'
 import type { RolLead } from '../../lib/api/rolLead'
 import { BadgeEstado } from './BadgeEstado'
 import { BadgeRol } from './BadgeRol'
-import { IconoChat, IconoMail, IconoReloj, IconoTacho, IconoTelefono } from './Iconos'
+import { IconoTacho } from './Iconos'
 
 interface LeadsCardsProps {
   leads: Lead[]
@@ -35,95 +35,90 @@ export function LeadsCards({
   }
 
   return (
-    <ul className="space-y-4">
+    <ul className="space-y-3">
       {leads.map((lead) => {
         const ops = operaciones(lead.id)
         const ints = interacciones(lead.id)
+        const nombre = `${lead.nombre} ${lead.apellido ?? ''}`.trim()
+        const contacto = tiempoTranscurrido(lead.fecha_ultimo_contacto_real)
+        // Misma regla que la columna de la tabla: vencido en rojo, si no la fecha.
+        const vencido = esVencido(lead.fecha_proximo_seguimiento)
 
         return (
           <li
             key={lead.id}
-            className="flex flex-col gap-5 rounded-[16px] border border-border bg-surface p-5"
+            className="flex flex-col gap-3 rounded-[16px] border border-border bg-surface p-4"
           >
-            <div className="flex-1">
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <h2 className="m-0 text-[1.1rem] font-bold text-ink">
-                  {lead.nombre} {lead.apellido ?? ''}
-                </h2>
-                <BadgeEstado estado={lead.estado} />
-                <BadgeRol rol={rol(lead.id)} />
+            {/* Fila 1: el nombre trunca y el tacho no se mueve. */}
+            <div className="flex items-center gap-2">
+              <h2 className="m-0 min-w-0 flex-1 truncate text-[1.05rem] font-bold text-ink">
+                {nombre}
+              </h2>
+              {/* Mismo botón que la tabla: la confirmación la monta la página. */}
+              <button
+                type="button"
+                aria-label={`Eliminar el lead ${lead.nombre}`}
+                onClick={() => onEliminar(lead)}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-peligro-borde text-peligro-ink transition-colors hover:bg-peligro-soft motion-reduce:transition-none"
+              >
+                <IconoTacho className="size-4" />
+              </button>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => onEliminar(lead)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-peligro-borde px-3.5 py-[7px] text-[0.8rem] font-medium text-peligro-ink opacity-65 transition hover:bg-peligro-soft hover:opacity-100 motion-reduce:transition-none"
-                >
-                  <IconoTacho className="size-4" />
-                  Eliminar
-                </button>
-              </div>
+            {/* Fila 2: temperatura y rol, y las operaciones sólo si hay. */}
+            <div className="-mt-1 flex flex-wrap items-center gap-2">
+              <BadgeEstado estado={lead.estado} />
+              <BadgeRol rol={rol(lead.id)} />
+              {ops.venta > 0 && <ChipOperaciones cantidad={ops.venta} singular="venta" plural="ventas" />}
+              {ops.compra > 0 && <ChipOperaciones cantidad={ops.compra} singular="compra" plural="compras" />}
+            </div>
 
-              <div className="mb-3 flex flex-col gap-2 min-[600px]:flex-row min-[600px]:gap-5">
-                <span className="flex items-center text-[0.85rem] break-all text-ink-2">
-                  <IconoTelefono className="mr-2 size-[18px] shrink-0 text-ink-3" />
-                  {lead.telefono ? (
-                    <TelefonoConAcciones
-                      telefono={lead.telefono}
-                      nombre={`${lead.nombre} ${lead.apellido ?? ''}`.trim()}
-                    />
+            {/* Fila 3: origen y último contacto; el seguimiento, sólo si hay. */}
+            <p className="m-0 text-[0.8rem] text-ink-3">
+              {etiquetaOrigen(lead.origen)} ·{' '}
+              {lead.fecha_ultimo_contacto_real ? `Contacto: ${contacto}` : contacto}
+              {lead.fecha_proximo_seguimiento && (
+                <>
+                  {' · '}
+                  {vencido ? (
+                    <span className="font-bold text-caliente">Vencido</span>
                   ) : (
-                    '—'
+                    <span className="whitespace-nowrap">
+                      Próx.: {formatearFecha(lead.fecha_proximo_seguimiento)}
+                    </span>
                   )}
-                </span>
-                <span className="flex items-center text-[0.85rem] break-all text-ink-2">
-                  <IconoMail className="mr-2 size-[18px] shrink-0 text-ink-3" />
-                  {lead.email ? <EmailLink email={lead.email} /> : '—'}
-                </span>
-              </div>
+                </>
+              )}
+            </p>
 
-              <div className="flex flex-wrap gap-3 text-[0.8rem] text-ink-3">
-                <span className="flex items-center">
-                  <IconoReloj className="mr-1 size-4 shrink-0 text-border" />
-                  {tiempoTranscurrido(lead.fecha_ultimo_contacto_real)}
-                </span>
-                <span className="flex items-center">
-                  <IconoChat className="mr-1 size-4 shrink-0 text-border" />
-                  {ints.cantidad} interacciones
-                </span>
-              </div>
-
-              <p className="mt-4 rounded-sm border border-border bg-background p-3 text-[0.85rem] text-ink">
+            {/* El clamp va en el <p> de adentro: puesto en la caja, el padding
+                de abajo dejaba asomar la mitad del tercer renglón. */}
+            <div className="rounded-sm border border-border bg-background px-3 py-2">
+              <p className="m-0 line-clamp-2 text-[0.85rem] text-ink">
                 <span className="font-bold">Última:</span>{' '}
                 {ints.ultimoDetalle ?? 'Sin interacciones registradas'}
               </p>
             </div>
 
-            <div className="flex flex-col justify-between gap-3 border-t border-dashed border-border pt-4">
-              <div className="flex flex-row justify-start gap-2">
-                <MiniCard label="Venta" valor={ops.venta} />
-                <MiniCard label="Compra" valor={ops.compra} />
-              </div>
+            {/* "+ Interacción" primero y en primario: es la acción del día.
+                Sin teléfono no se dibujan los íconos, igual que en la tabla. */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onRegistrar(lead)}
+                className="flex-1 rounded-lg border border-primary bg-primary px-3 py-2.5 text-center text-[0.9rem] font-semibold text-white transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
+              >
+                + Interacción
+              </button>
 
-              {/* El atajo que la tabla ya tenía y la card no: registrar era
-                  el único camino que obligaba a entrar a la ficha. Va primero
-                  y en primario porque es la acción del día; "Ver detalle"
-                  queda de secundaria. */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => onRegistrar(lead)}
-                  className="flex-1 rounded-lg border border-primary bg-primary p-3 text-center font-semibold text-white transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
-                >
-                  + Interacción
-                </button>
+              <Link
+                to={`/leads/${lead.id}`}
+                className="rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-[0.9rem] font-semibold text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+              >
+                Ver
+              </Link>
 
-                <Link
-                  to={`/leads/${lead.id}`}
-                  className="flex-1 rounded-lg border border-border bg-surface p-3 text-center font-semibold text-ink transition-colors hover:bg-background motion-reduce:transition-none"
-                >
-                  Ver detalle
-                </Link>
-              </div>
+              {lead.telefono && <AccionesContacto telefono={lead.telefono} nombre={nombre} />}
             </div>
           </li>
         )
@@ -132,11 +127,19 @@ export function LeadsCards({
   )
 }
 
-function MiniCard({ label, valor }: { label: string; valor: number }) {
+/** "1 venta", "2 compras": las operaciones del lead, sólo cuando hay alguna. */
+function ChipOperaciones({
+  cantidad,
+  singular,
+  plural,
+}: {
+  cantidad: number
+  singular: string
+  plural: string
+}) {
   return (
-    <div className="flex min-w-[86px] flex-col gap-1 rounded-md border border-border bg-background px-3 py-2.5">
-      <span className="text-xs font-semibold text-ink-3">{label}</span>
-      <strong className="text-[1.2rem] leading-none text-ink">{valor}</strong>
-    </div>
+    <span className="rounded-full border border-border bg-background px-2 py-0.5 text-[0.72rem] font-semibold text-ink-3 tabular-nums">
+      {cantidad} {cantidad === 1 ? singular : plural}
+    </span>
   )
 }

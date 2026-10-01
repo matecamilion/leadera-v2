@@ -510,3 +510,10 @@ verify_jwt = true
 [functions.reporte-semanal-baja]
 enabled = true
 verify_jwt = false
+
+# consulta-publica es el backend del link público de consultas (/c/:slug): lo
+# usa gente sin cuenta. verify_jwt = false a propósito — no hay usuario; el POST
+# se ata a un link con el token firmado que entrega el GET.
+[functions.consulta-publica]
+enabled = true
+verify_jwt = false

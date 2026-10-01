@@ -33,6 +33,9 @@ export type ErrorCode =
   | 'NO_CONECTADO'
   | 'REAUTH_REQUERIDO'
   | 'REGISTRO_NO_ENCONTRADO'
+  // Link público de consultas (consulta-publica).
+  | 'LINK_NO_DISPONIBLE'
+  | 'TOKEN_INVALIDO'
   | 'ERROR_INTERNO'
 
 export function jsonResponse(req: Request, body: unknown, status = 200): Response {

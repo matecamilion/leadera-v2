@@ -12,6 +12,7 @@ import {
   IconoTelefono,
   IconoUsuarios,
 } from './Iconos'
+import { SeccionConsultaLead } from './ConsultaDelLead'
 import { ICONOS } from './iconosInteraccion'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
 import { TooltipAyuda } from '../comunes/TooltipAyuda'
@@ -233,6 +234,9 @@ function ColumnaIdentidad({
       </section>
 
       <SeccionSobreLead lead={lead} />
+
+      {/* Solo si vino de (o volvió por) el link de consultas. */}
+      <SeccionConsultaLead leadId={leadId} />
 
       {mostrarBusquedas && (
         <section className="border-t border-border p-5">

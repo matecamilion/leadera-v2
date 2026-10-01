@@ -82,6 +82,7 @@ export const claves = {
     pendientes: (uid: Uid, rol: string | undefined) =>
       ['consultas', 'pendientes', uid, rol] as const,
     resumen: (uid: Uid, rol: string | undefined) => ['consultas', 'resumen', uid, rol] as const,
+    deLead: (uid: Uid, leadId: string) => ['consultas', 'de-lead', uid, leadId] as const,
   },
 
   dashboard: {
@@ -165,6 +166,16 @@ export const claves = {
    * interacción o marcar una visita realizada invalida `resumen`, que alcanza
    * también al detalle.
    */
+  /**
+   * El link público de consultas del agente: el general (`'general'`) o el de
+   * una propiedad. Raíz propia y no colgada de `consultas`: aceptar o descartar
+   * una consulta no cambia el link.
+   */
+  linksConsulta: {
+    raiz: ['links-consulta'] as const,
+    mio: (uid: Uid, propiedadId: string) => ['links-consulta', uid, propiedadId] as const,
+  },
+
   modeloGestion: {
     raiz: ['modelo-gestion'] as const,
     activo: (uid: Uid, inmobiliariaId: string | undefined) =>

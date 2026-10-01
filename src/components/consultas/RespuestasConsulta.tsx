@@ -2,11 +2,17 @@ import type { ReactNode } from 'react'
 import { filasRespuestas } from './respuestas'
 import { esperaCorta, esperaLarga, nivelEspera } from './urgencia'
 
-/** Las respuestas completas, para el detalle desplegable de una fila. */
-export function RespuestasConsulta({ respuestas }: { respuestas: unknown }) {
+/**
+ * Las respuestas completas. En la bandeja van en dos pares por renglón desde
+ * `sm`; `angosta` las deja siempre en uno, para columnas como la de la ficha
+ * del lead.
+ */
+export function RespuestasConsulta({ respuestas, angosta = false }: { respuestas: unknown; angosta?: boolean }) {
   const filas = filasRespuestas(respuestas)
   return (
-    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[0.82rem] sm:grid-cols-[auto_1fr_auto_1fr]">
+    <dl
+      className={`m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[0.82rem] ${angosta ? '' : 'sm:grid-cols-[auto_1fr_auto_1fr]'}`}
+    >
       {filas.map((f) => (
         <div key={f.label} className="contents">
           <dt className="text-ink-3">{f.label}</dt>
@@ -62,6 +68,18 @@ export function BloquePuntaje({
       {!chico && (
         <span className="mt-1 text-[0.56rem] font-bold tracking-[0.06em] uppercase">{t.nombre}</span>
       )}
+    </span>
+  )
+}
+
+/** "Encuesta: 85 pts", tintada con la temperatura: para la ficha del lead. */
+export function PastillaEncuesta({ temperatura, puntaje }: { temperatura: string; puntaje: number }) {
+  const t = tono(temperatura)
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[0.72rem] font-bold whitespace-nowrap tabular-nums ${t.fondo} ${t.tinta}`}
+    >
+      Encuesta: {puntaje} pts
     </span>
   )
 }

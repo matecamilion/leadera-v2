@@ -5,6 +5,7 @@ import {
   contarPendientes,
   descartarConsulta,
   listarConsultas,
+  listarConsultasDeLead,
   listarVolvieron,
   obtenerResumenConsultas,
   vincularConsulta,
@@ -24,6 +25,16 @@ export function useConsultas(filtro: FiltroConsultas, page: number, agenteId: st
     queryFn: () => listarConsultas(filtro, page, agenteId || undefined),
     enabled: !!uid,
     placeholderData: anteriorDelMismoUsuario(uid),
+  })
+}
+
+/** Las consultas que terminaron en este lead (la de origen y las que volvieron). */
+export function useConsultasDeLead(leadId: string) {
+  const uid = useUid()
+  return useQuery({
+    queryKey: claves.consultas.deLead(uid, leadId),
+    queryFn: () => listarConsultasDeLead(leadId),
+    enabled: !!uid && Boolean(leadId),
   })
 }
 

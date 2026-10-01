@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AvatarLead } from '../components/leads/AvatarLead'
 import { BadgeEstado } from '../components/leads/BadgeEstado'
 import { BadgeRol } from '../components/leads/BadgeRol'
+import { BadgeEncuesta } from '../components/leads/ConsultaDelLead'
 import { IconoCerrar, IconoLapiz, IconoTacho } from '../components/leads/Iconos'
 import { ModalCambiarEstado } from '../components/leads/ModalCambiarEstado'
 import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
@@ -123,6 +124,9 @@ export default function DetalleLead() {
               ya cerró, Inactivo dejó de responder, y Nuevo es el que todavía
               nadie clasificó. Lo actualizás vos a mano: no se recalcula solo.
             </TooltipAyuda>
+
+            {/* Solo si vino de (o volvió por) el link de consultas. */}
+            <BadgeEncuesta leadId={lead.id} />
 
             {rolLead && (
               <>

@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { BarraTabs } from '../components/comunes/BarraTabs'
+import { BarraLinkGeneral, InvitacionCompartir } from '../components/consultas/BarraLinkGeneral'
 import { FilaConsulta } from '../components/consultas/FilaConsulta'
 import { minutosDesde, UMBRAL_URGENTE_MIN, useAhora } from '../components/consultas/urgencia'
 import { Paginacion } from '../components/leads/Paginacion'
@@ -172,6 +173,8 @@ export default function Consultas() {
         )}
       </header>
 
+      <BarraLinkGeneral />
+
       <BarraTabs
         etiqueta="Estado de las consultas"
         tabs={FILTROS_CONSULTAS.map((f) => ({
@@ -231,6 +234,7 @@ export default function Consultas() {
             </span>
             <h2 className="mt-4 mb-0 text-[1.15rem] font-bold text-ink">{VACIO.pendientes.titulo}</h2>
             <p className="mt-1.5 mb-0 max-w-[42ch] text-[0.88rem] text-ink-3">{VACIO.pendientes.texto}</p>
+            <InvitacionCompartir />
           </div>
         ) : (
           <div className="px-6 py-12 text-center">

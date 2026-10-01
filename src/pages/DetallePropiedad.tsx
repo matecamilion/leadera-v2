@@ -6,6 +6,7 @@ import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
 import { BadgeEstadoPropiedad } from '../components/propiedades/BadgeEstadoPropiedad'
 import { GaleriaFotos } from '../components/propiedades/GaleriaFotos'
 import { GrupoEstadoPropiedad } from '../components/propiedades/GrupoEstadoPropiedad'
+import { BotonLinkConsultas, PanelLinkPropiedad } from '../components/propiedades/LinkConsultaPropiedad'
 import { ModalEditarPropiedad } from '../components/propiedades/ModalEditarPropiedad'
 import { SeccionCoincidenciasInternas } from '../components/propiedades/SeccionCoincidenciasInternas'
 import { SeccionActividadVisitas } from '../components/propiedades/SeccionActividadVisitas'
@@ -58,6 +59,8 @@ export default function DetallePropiedad() {
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   const [modal, setModal] = useState<ModalAbierto>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  // El link de consultas se crea recién la primera vez que se abre el panel.
+  const [linkAbierto, setLinkAbierto] = useState(false)
 
   const cambioEstado = useActualizarEstadoPropiedad(id)
   const edicion = useActualizarPropiedad(id)
@@ -157,6 +160,12 @@ export default function DetallePropiedad() {
                 Editar
               </button>
 
+              <BotonLinkConsultas
+                propiedadId={propiedad.id}
+                abierto={linkAbierto}
+                onAlternar={() => setLinkAbierto((a) => !a)}
+              />
+
               <Suspense fallback={<EsperandoFicha />}>
                 {/* Se pasan sólo los campos de la propiedad: el tipo DatosFicha
                     no acepta lead_propietario ni agente_id, así que la ficha no
@@ -189,6 +198,10 @@ export default function DetallePropiedad() {
             />
           </div>
         </header>
+
+        {linkAbierto && (
+          <PanelLinkPropiedad propiedad={propiedad} onCerrar={() => setLinkAbierto(false)} />
+        )}
 
         <div className="mb-6">
           <GaleriaFotos propiedadId={propiedad.id} fotos={propiedad.fotos_urls ?? []} />

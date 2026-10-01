@@ -197,6 +197,20 @@ export async function obtenerResumenConsultas(
   }
 }
 
+/**
+ * Las consultas que terminaron en este lead: la que lo creó (aceptada, a mano
+ * o sola) y las de cuando volvió a consultar. De la más vieja a la más nueva.
+ */
+export async function listarConsultasDeLead(leadId: string): Promise<Consulta[]> {
+  const { data, error } = await supabase
+    .from('consultas')
+    .select(COLUMNAS)
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las consultas del lead.'))
+  return (data ?? []) as unknown as Consulta[]
+}
+
 // ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------

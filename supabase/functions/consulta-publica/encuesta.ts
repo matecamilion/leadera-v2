@@ -108,7 +108,7 @@ export interface RespuestasValidas {
 
 export interface ContactoValido {
   nombre: string
-  apellido: string | null
+  apellido: string
   telefono: string
   email: string | null
 }
@@ -275,8 +275,10 @@ export function validarPost(datos: unknown, ctx: ContextoEncuesta): Resultado<Po
   if (!nombre.ok) return nombre
   if (!nombre.valor) return falla('Falta el nombre.')
 
+  // Obligatorio: sin apellido, el asesor no distingue a dos "Ana" en la bandeja.
   const apellido = textoOpcional(c.apellido, 80, 'apellido')
   if (!apellido.ok) return apellido
+  if (!apellido.valor) return falla('Falta el apellido.')
 
   if (typeof c.telefono !== 'string') return falla('Falta el teléfono.')
   const telefono = c.telefono.trim()

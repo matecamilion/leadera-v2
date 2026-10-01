@@ -16,7 +16,7 @@ Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'clave-de-prueba')
 const GENERAL: ContextoEncuesta = { flujo: 'GENERAL', operacionFija: null, preguntasOff: [] }
 const PROP_VENTA: ContextoEncuesta = { flujo: 'PROPIEDAD', operacionFija: 'COMPRA', preguntasOff: [] }
 
-const CONTACTO = { nombre: 'Ana', telefono: '223 555-1234', email: 'ana@mail.com' }
+const CONTACTO = { nombre: 'Ana', apellido: 'Gómez', telefono: '223 555-1234', email: 'ana@mail.com' }
 
 function postGeneral(respuestas: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   return { token: 't', hp: '', consentimiento: true, respuestas, contacto: CONTACTO, ...extra }
@@ -97,7 +97,7 @@ Deno.test('validarPost: pregunta apagada no se acepta', () => {
   assert(!validarPost(postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA', visita: true }), ctx).ok)
   assert(!validarPost(postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA' }), ctx).ok) // trae email
   const sinEmail = postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA' }, {
-    contacto: { nombre: 'Ana', telefono: '2235551234' },
+    contacto: { nombre: 'Ana', apellido: 'Gómez', telefono: '2235551234' },
   })
   assert(validarPost(sinEmail, ctx).ok)
 })
@@ -111,7 +111,7 @@ Deno.test('validarPost: presupuesto ausente se tolera', () => {
 Deno.test('validarPost: email con comodín de PostgREST se rechaza', () => {
   const r = validarPost(
     postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA', visita: true }, {
-      contacto: { nombre: 'Ana', telefono: '2235551234', email: 'a*b@mail.com' },
+      contacto: { nombre: 'Ana', apellido: 'Gómez', telefono: '2235551234', email: 'a*b@mail.com' },
     }),
     PROP_VENTA,
   )
@@ -121,11 +121,33 @@ Deno.test('validarPost: email con comodín de PostgREST se rechaza', () => {
 Deno.test('validarPost: teléfono corto se rechaza', () => {
   const r = validarPost(
     postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA', visita: true }, {
-      contacto: { nombre: 'Ana', telefono: '1234' },
+      contacto: { nombre: 'Ana', apellido: 'Gómez', telefono: '1234' },
     }),
     PROP_VENTA,
   )
   assert(!r.ok)
+})
+
+Deno.test('validarPost: apellido obligatorio (vacío, solo espacios o largo de más)', () => {
+  const base = { presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA', visita: true }
+  const con = (apellido: unknown) =>
+    validarPost(postGeneral(base, { contacto: { nombre: 'Ana', apellido, telefono: '2235551234' } }), PROP_VENTA)
+
+  const sinCampo = validarPost(
+    postGeneral(base, { contacto: { nombre: 'Ana', telefono: '2235551234' } }),
+    PROP_VENTA,
+  )
+  assert(!sinCampo.ok)
+  assertEquals(sinCampo.error, 'Falta el apellido.')
+  assert(!con('').ok)
+  assert(!con('   ').ok)
+  assert(!con(null).ok)
+  assert(!con('x'.repeat(81)).ok)
+
+  const ok = con('  Gómez  ')
+  assert(ok.ok)
+  assertEquals(ok.valor.contacto.apellido, 'Gómez')
+  assert(con('x'.repeat(80)).ok)
 })
 
 // --- Puntaje ------------------------------------------------------------------
@@ -146,7 +168,7 @@ function respuestas(over: Record<string, unknown> = {}) {
 }
 
 Deno.test('calificar: caliente y auto-aceptable', () => {
-  const c = calificar('PROPIEDAD', respuestas(), { nombre: 'A', apellido: null, telefono: 'x', email: 'a@b.co' })
+  const c = calificar('PROPIEDAD', respuestas(), { nombre: 'A', apellido: 'B', telefono: 'x', email: 'a@b.co' })
   assertEquals(c.puntaje, 30 + 25 + 25 + 10 + 5)
   assertEquals(c.temperatura, 'CALIENTE')
   assert(c.autoAceptable)
@@ -154,7 +176,7 @@ Deno.test('calificar: caliente y auto-aceptable', () => {
 
 Deno.test('calificar: sin presupuesto nunca es auto-aceptable', () => {
   const c = calificar('PROPIEDAD', respuestas({ presupuesto: null }), {
-    nombre: 'A', apellido: null, telefono: 'x', email: 'a@b.co',
+    nombre: 'A', apellido: 'B', telefono: 'x', email: 'a@b.co',
   })
   assertEquals(c.puntaje, 65)
   assertEquals(c.temperatura, 'CALIENTE')
@@ -165,7 +187,7 @@ Deno.test('calificar: curioso queda frío', () => {
   const c = calificar(
     'PROPIEDAD',
     respuestas({ presupuesto: 'NO', pago: 'NO_SABE', plazo: 'SOLO_MIRANDO', visita: false }),
-    { nombre: 'A', apellido: null, telefono: 'x', email: null },
+    { nombre: 'A', apellido: 'B', telefono: 'x', email: null },
   )
   assertEquals(c.puntaje, -20)
   assertEquals(c.temperatura, 'FRIO')
@@ -174,7 +196,7 @@ Deno.test('calificar: curioso queda frío', () => {
 
 Deno.test('calificar: necesita vender marca posible captación', () => {
   const c = calificar('PROPIEDAD', respuestas({ pago: 'NECESITA_VENDER' }), {
-    nombre: 'A', apellido: null, telefono: 'x', email: null,
+    nombre: 'A', apellido: 'B', telefono: 'x', email: null,
   })
   assert(c.posibleCaptacion)
 })
@@ -198,7 +220,7 @@ Deno.test('armarBusqueda: alquiler no carga precios (ARS va a notas)', () => {
 
 Deno.test('armarResumen: propiedad no disponible lo dice', () => {
   const r = respuestas({ tipo_propiedad: 'CASA', presupuesto: 'USD_0_50K', visita: null })
-  const cal = calificar('GENERAL', r, { nombre: 'A', apellido: null, telefono: 'x', email: null })
+  const cal = calificar('GENERAL', r, { nombre: 'A', apellido: 'B', telefono: 'x', email: null })
   const texto = armarResumen('GENERAL', r, cal, { tipo: 'PH', zona: 'Chauvin', precio: 132000, moneda: 'USD' })
   assert(texto.includes('ya no estaba disponible'))
   assert(!texto.toLowerCase().includes('direcc'))

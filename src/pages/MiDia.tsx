@@ -6,6 +6,7 @@ import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
 import { ResumenTareasHoy } from '../components/dashboard/ResumenTareasHoy'
+import { SeccionConsultas } from '../components/dashboard/SeccionConsultas'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
 import { TarjetaSemanaGestion } from '../components/dashboard/TarjetaSemanaGestion'
 import { AvisoReporteSemanal } from '../components/reporte/AvisoReporteSemanal'
@@ -165,6 +166,10 @@ export default function MiDia() {
           a="/tareas"
         />
       </div>
+
+      {/* Leads que entran solos por el link de consultas: van antes que el
+          resto porque son lo más nuevo. Se monta solo si hay algo para ver. */}
+      <SeccionConsultas />
 
       {/* Modelo de gestión: a ancho completo, pegado a los números del día. */}
       {modeloGestion.data === true && <TarjetaSemanaGestion />}

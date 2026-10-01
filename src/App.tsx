@@ -20,6 +20,7 @@ const ConsultaPublica = lazy(() => import('./pages/ConsultaPublica'))
 const MiDia = lazy(() => import('./pages/MiDia'))
 const ContactadosHoy = lazy(() => import('./pages/ContactadosHoy'))
 const Leads = lazy(() => import('./pages/Leads'))
+const Consultas = lazy(() => import('./pages/Consultas'))
 const NuevoLead = lazy(() => import('./pages/NuevoLead'))
 const DetalleLead = lazy(() => import('./pages/DetalleLead'))
 const DetalleMatch = lazy(() => import('./pages/DetalleMatch'))
@@ -104,6 +105,7 @@ export default function App() {
                   <Route path="/leads" element={<Leads />} />
                   <Route path="/leads/nuevo" element={<NuevoLead />} />
                   <Route path="/leads/:id" element={<DetalleLead />} />
+                  <Route path="/consultas" element={<Consultas />} />
                   <Route path="/propiedades" element={<Propiedades />} />
                   <Route path="/propiedades/nueva" element={<NuevaPropiedad />} />
                   <Route path="/propiedades/:id" element={<DetallePropiedad />} />

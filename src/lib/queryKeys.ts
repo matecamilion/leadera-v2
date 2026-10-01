@@ -70,6 +70,20 @@ export const claves = {
       ['coincidencias-internas', uid, propiedadId] as const,
   },
 
+  /**
+   * Bandeja de consultas del link público. Las mutaciones invalidan `raiz`, que
+   * alcanza a la lista, al badge de la navegación y a la tarjeta de Mi día.
+   */
+  consultas: {
+    raiz: ['consultas'] as const,
+    lista: (uid: Uid, filtro: string, agenteId: string, page: number) =>
+      ['consultas', 'lista', uid, filtro, agenteId, page] as const,
+    volvieron: (uid: Uid, agenteId: string) => ['consultas', 'volvieron', uid, agenteId] as const,
+    pendientes: (uid: Uid, rol: string | undefined) =>
+      ['consultas', 'pendientes', uid, rol] as const,
+    resumen: (uid: Uid, rol: string | undefined) => ['consultas', 'resumen', uid, rol] as const,
+  },
+
   dashboard: {
     raiz: ['dashboard'] as const,
     coincidencias: (uid: Uid) => ['dashboard', 'coincidencias', uid] as const,

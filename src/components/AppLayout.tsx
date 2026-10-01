@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { usePendientesConsultas } from '../hooks/useConsultas'
 import { useUiStore } from '../stores/ui'
 import { AvisoFlash } from './AvisoFlash'
 import { BannerSuscripcion } from './BannerSuscripcion'
@@ -51,6 +52,16 @@ const NAV: ItemNav[] = [
         <path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20" />
         <circle cx="9" cy="7" r="3.5" />
         <path d="M18 8h4M20 6v4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/consultas',
+    label: 'Consultas',
+    icono: (
+      <svg {...trazo}>
+        <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z" />
+        <path d="M8.5 10.5h7M8.5 13.5h4.5" />
       </svg>
     ),
   },
@@ -139,6 +150,11 @@ export function AppLayout() {
 
   const nombreVisible = profile?.nombre ?? user?.email ?? ''
 
+  // Lo que pide acción de quien está logueado. Vive acá, y no en la página de
+  // Consultas, para que el polling corra en toda la app.
+  const pendientes = usePendientesConsultas().data ?? 0
+  const textoPendientes = pendientes > 99 ? '99+' : String(pendientes)
+
   // Mientras el profile carga se muestran sólo los links sin restricción: es
   // preferible que aparezca un link de más tarde y no que parpadee uno de menos.
   const navVisible = NAV.filter(
@@ -187,6 +203,14 @@ export function AppLayout() {
             >
               {item.icono}
               {item.label}
+              {item.to === '/consultas' && pendientes > 0 && (
+                <span
+                  aria-label={`${pendientes} pendientes`}
+                  className="ml-auto min-w-[1.4rem] rounded-full bg-caliente px-1.5 py-0.5 text-center text-[0.7rem] leading-none font-bold text-white tabular-nums"
+                >
+                  {textoPendientes}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -201,13 +225,22 @@ export function AppLayout() {
           <button
             type="button"
             onClick={alternarSidebar}
-            aria-label="Abrir el menú"
+            aria-label={
+              pendientes > 0 ? `Abrir el menú (${pendientes} consultas pendientes)` : 'Abrir el menú'
+            }
             aria-expanded={sidebarAbierto}
-            className="-ml-1 rounded-md p-2 text-ink-muted hover:bg-surface-muted hover:text-ink lg:hidden"
+            className="relative -ml-1 rounded-md p-2 text-ink-muted hover:bg-surface-muted hover:text-ink lg:hidden"
           >
             <svg {...trazo} width={20} height={20}>
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
+            {/* Con el drawer cerrado el badge del item no se ve: el punto avisa. */}
+            {pendientes > 0 && (
+              <span
+                aria-hidden
+                className="absolute top-1.5 right-1.5 size-2.5 rounded-full bg-caliente ring-2 ring-surface"
+              />
+            )}
           </button>
 
           <span className="ml-auto truncate text-sm text-ink-muted">

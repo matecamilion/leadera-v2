@@ -16,6 +16,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const RecuperarContrasena = lazy(() => import('./pages/RecuperarContrasena'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const ConsultaPublica = lazy(() => import('./pages/ConsultaPublica'))
 const MiDia = lazy(() => import('./pages/MiDia'))
 const ContactadosHoy = lazy(() => import('./pages/ContactadosHoy'))
 const Leads = lazy(() => import('./pages/Leads'))
@@ -82,6 +83,9 @@ export default function App() {
               {/* Sin guard y sin redirect por sesión: el link del mail crea una
                   sesión de recuperación real, y esta ruta tiene que mostrarse igual. */}
               <Route path="/reset-password" element={<ResetPassword />} />
+              {/* Link público de consultas: lo abre gente sin cuenta. Sin guard
+                  y sin nada que dependa de la sesión. */}
+              <Route path="/c/:slug" element={<ConsultaPublica />} />
 
               {/* Protegidas: sesión + suscripción vigente + shell con sidebar.
                   El guard va por fuera del AppLayout porque la pantalla de

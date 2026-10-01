@@ -163,6 +163,162 @@ export type Database = {
           },
         ]
       }
+      consultas: {
+        Row: {
+          agente_id: string
+          apellido: string | null
+          aviso_pendiente: string | null
+          busqueda: Json | null
+          consentimiento_at: string
+          created_at: string
+          duplicado_otro_agente: boolean
+          duplicado_por: string | null
+          email: string | null
+          estado: Database["public"]["Enums"]["estado_consulta"]
+          id: string
+          inmobiliaria_id: string
+          ip_hash: string | null
+          lead_existente_id: string | null
+          lead_id: string | null
+          link_id: string | null
+          motivo_descarte: string | null
+          nombre: string
+          posible_captacion: boolean
+          presupuesto_respondido: boolean
+          propiedad_id: string | null
+          puntaje: number
+          respuestas: Json
+          resuelta_at: string | null
+          resuelta_por: string | null
+          resumen: string | null
+          telefono: string
+          telefono_norm: string
+          temperatura: Database["public"]["Enums"]["estado_lead"]
+          volvio_a_consultar: boolean
+        }
+        Insert: {
+          agente_id: string
+          apellido?: string | null
+          aviso_pendiente?: string | null
+          busqueda?: Json | null
+          consentimiento_at: string
+          created_at?: string
+          duplicado_otro_agente?: boolean
+          duplicado_por?: string | null
+          email?: string | null
+          estado?: Database["public"]["Enums"]["estado_consulta"]
+          id?: string
+          inmobiliaria_id: string
+          ip_hash?: string | null
+          lead_existente_id?: string | null
+          lead_id?: string | null
+          link_id?: string | null
+          motivo_descarte?: string | null
+          nombre: string
+          posible_captacion?: boolean
+          presupuesto_respondido: boolean
+          propiedad_id?: string | null
+          puntaje: number
+          respuestas?: Json
+          resuelta_at?: string | null
+          resuelta_por?: string | null
+          resumen?: string | null
+          telefono: string
+          telefono_norm: string
+          temperatura: Database["public"]["Enums"]["estado_lead"]
+          volvio_a_consultar?: boolean
+        }
+        Update: {
+          agente_id?: string
+          apellido?: string | null
+          aviso_pendiente?: string | null
+          busqueda?: Json | null
+          consentimiento_at?: string
+          created_at?: string
+          duplicado_otro_agente?: boolean
+          duplicado_por?: string | null
+          email?: string | null
+          estado?: Database["public"]["Enums"]["estado_consulta"]
+          id?: string
+          inmobiliaria_id?: string
+          ip_hash?: string | null
+          lead_existente_id?: string | null
+          lead_id?: string | null
+          link_id?: string | null
+          motivo_descarte?: string | null
+          nombre?: string
+          posible_captacion?: boolean
+          presupuesto_respondido?: boolean
+          propiedad_id?: string | null
+          puntaje?: number
+          respuestas?: Json
+          resuelta_at?: string | null
+          resuelta_por?: string | null
+          resumen?: string | null
+          telefono?: string
+          telefono_norm?: string
+          temperatura?: Database["public"]["Enums"]["estado_lead"]
+          volvio_a_consultar?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultas_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_lead_existente_id_fkey"
+            columns: ["lead_existente_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links_consulta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_propiedad_id_fkey"
+            columns: ["propiedad_id"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_resuelta_por_fkey"
+            columns: ["resuelta_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eventos_facturacion: {
         Row: {
           created_at: string
@@ -603,6 +759,71 @@ export type Database = {
             columns: ["inmobiliaria_id"]
             isOneToOne: false
             referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      links_consulta: {
+        Row: {
+          activo: boolean
+          agente_id: string
+          created_at: string
+          id: string
+          inmobiliaria_id: string
+          preguntas_off: string[]
+          propiedad_id: string | null
+          slug: string
+          visitas: number
+        }
+        Insert: {
+          activo?: boolean
+          agente_id: string
+          created_at?: string
+          id?: string
+          inmobiliaria_id: string
+          preguntas_off?: string[]
+          propiedad_id?: string | null
+          slug?: string
+          visitas?: number
+        }
+        Update: {
+          activo?: boolean
+          agente_id?: string
+          created_at?: string
+          id?: string
+          inmobiliaria_id?: string
+          preguntas_off?: string[]
+          propiedad_id?: string | null
+          slug?: string
+          visitas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "links_consulta_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "links_consulta_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "links_consulta_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "links_consulta_propiedad_id_fkey"
+            columns: ["propiedad_id"]
+            isOneToOne: false
+            referencedRelation: "propiedades"
             referencedColumns: ["id"]
           },
         ]
@@ -1313,6 +1534,13 @@ export type Database = {
       }
     }
     Functions: {
+      aceptar_consulta: {
+        Args: { p_consulta_id: string }
+        Returns: {
+          lead_id: string
+          resultado: string
+        }[]
+      }
       admin_ajustar_vencimiento: {
         Args: {
           p_inmobiliaria_id: string
@@ -1380,6 +1608,20 @@ export type Database = {
           puntaje: number
         }[]
       }
+      consulta_crear_lead: {
+        Args: {
+          p_consulta_id: string
+          p_estado: Database["public"]["Enums"]["estado_consulta"]
+        }
+        Returns: {
+          lead_id: string
+          resultado: string
+        }[]
+      }
+      consulta_para_resolver: {
+        Args: { p_consulta_id: string }
+        Returns: Database["public"]["Tables"]["consultas"]["Row"]
+      }
       contar_visitas_lead: { Args: { p_lead_id: string }; Returns: number }
       conteo_operaciones_por_estado: {
         Args: never
@@ -1395,6 +1637,10 @@ export type Database = {
           p_tipo_operacion?: string
         }
         Returns: Json
+      }
+      descartar_consulta: {
+        Args: { p_consulta_id: string; p_motivo?: string }
+        Returns: undefined
       }
       detalle_gestion: {
         Args: {
@@ -1473,6 +1719,10 @@ export type Database = {
           por_agente: Json
           usados_total: number
         }[]
+      }
+      mi_link_consulta: {
+        Args: { p_propiedad_id?: string }
+        Returns: Database["public"]["Tables"]["links_consulta"]["Row"]
       }
       obtener_actividad_reciente: {
         Args: { p_limite?: number }
@@ -1578,9 +1828,19 @@ export type Database = {
           inicio: string
         }[]
       }
+      vincular_consulta: {
+        Args: { p_consulta_id: string }
+        Returns: string
+      }
     }
     Enums: {
       disposicion_propiedad: "FRENTE" | "CONTRAFRENTE" | "INTERNO"
+      estado_consulta:
+        | "PENDIENTE"
+        | "AUTO_ACEPTADA"
+        | "ACEPTADA"
+        | "DESCARTADA"
+        | "VINCULADA"
       estado_lead: "CALIENTE" | "TIBIO" | "FRIO" | "GANADO" | "INACTIVO"
       estado_operacion:
         | "PUBLICADA"
@@ -1611,6 +1871,7 @@ export type Database = {
         | "MANUAL"
         | "INSTAGRAM"
         | "FACEBOOK"
+        | "LINK_CONSULTA"
       plan_leadera: "SOLO" | "AGENCIA_CHICA" | "AGENCIA_GRANDE"
       rol_agente: "DUENO" | "AGENTE" | "ASISTENTE"
       tipo_interaccion:
@@ -1760,6 +2021,13 @@ export const Constants = {
   public: {
     Enums: {
       disposicion_propiedad: ["FRENTE", "CONTRAFRENTE", "INTERNO"],
+      estado_consulta: [
+        "PENDIENTE",
+        "AUTO_ACEPTADA",
+        "ACEPTADA",
+        "DESCARTADA",
+        "VINCULADA",
+      ],
       estado_lead: ["CALIENTE", "TIBIO", "FRIO", "GANADO", "INACTIVO"],
       estado_operacion: [
         "PUBLICADA",
@@ -1787,6 +2055,7 @@ export const Constants = {
         "MANUAL",
         "INSTAGRAM",
         "FACEBOOK",
+        "LINK_CONSULTA",
       ],
       plan_leadera: ["SOLO", "AGENCIA_CHICA", "AGENCIA_GRANDE"],
       rol_agente: ["DUENO", "AGENTE", "ASISTENTE"],

@@ -24,9 +24,21 @@ export const ORIGENES_LEAD: { valor: OrigenLead; label: string }[] = [
   { valor: 'OTRO', label: 'Otro' },
 ]
 
+/**
+ * Orígenes que solo asigna el sistema: tienen etiqueta pero no van en
+ * `ORIGENES_LEAD`, que es la lista que se ofrece al cargar un lead a mano.
+ */
+const ORIGENES_DE_SISTEMA: Partial<Record<OrigenLead, string>> = {
+  LINK_CONSULTA: 'Link de consultas',
+}
+
 export function etiquetaOrigen(origen: OrigenLead | null): string {
   if (!origen) return '—'
-  return ORIGENES_LEAD.find((o) => o.valor === origen)?.label ?? origen
+  return (
+    ORIGENES_LEAD.find((o) => o.valor === origen)?.label ??
+    ORIGENES_DE_SISTEMA[origen] ??
+    origen
+  )
 }
 
 const ESTADOS_LEAD: Record<EstadoLead, string> = {

@@ -1,79 +1,12 @@
-import { rangoPorCodigo } from '../../../supabase/functions/consulta-publica/encuesta.ts'
-import {
-  ETIQUETA_TIPO,
-  OPCIONES_GARANTIA,
-  OPCIONES_PAGO,
-  OPCIONES_PLAZO,
-  OPCIONES_PRESUPUESTO_PROPIEDAD,
-  type Opcion,
-} from '../consulta-publica/catalogo'
-import type { Operacion, TipoPropiedad } from '../consulta-publica/tipos'
+import type { ReactNode } from 'react'
+import { filasRespuestas } from './respuestas'
+import { esperaCorta, esperaLarga, nivelEspera } from './urgencia'
 
-/**
- * Las respuestas de la encuesta, legibles.
- *
- * Mismas etiquetas que vio quien consultó (`consulta-publica/catalogo.ts`) y
- * los mismos rangos que mandó la edge function (`encuesta.ts`): el agente lee
- * lo mismo que se contestó, no una traducción aparte.
- */
-
-type Respuestas = {
-  flujo?: 'GENERAL' | 'PROPIEDAD'
-  operacion?: Operacion
-  tipo_propiedad?: TipoPropiedad | null
-  zona?: string | null
-  presupuesto?: string | null
-  pago?: string | null
-  garantia?: string | null
-  plazo?: string
-  visita?: boolean | null
-  vender?: boolean | null
-}
-
-function etiqueta<T extends string>(opciones: Opcion<T>[], valor: string | null | undefined) {
-  return opciones.find((o) => o.valor === valor)?.label ?? valor ?? null
-}
-
-function siNo(valor: boolean | null | undefined): string | null {
-  if (valor === null || valor === undefined) return null
-  return valor ? 'Sí' : 'No'
-}
-
-function filasRespuestas(crudo: unknown): { label: string; valor: string }[] {
-  const r = (crudo ?? {}) as Respuestas
-  const filas: { label: string; valor: string | null }[] = []
-
-  // Mismas palabras que el resumen del lead ("Operación: Compra"), no las de
-  // la encuesta ("Comprar"), que le hablan a quien consulta.
-  if (r.operacion) filas.push({ label: 'Operación', valor: r.operacion === 'COMPRA' ? 'Compra' : 'Alquiler' })
-
-  if (r.flujo !== 'PROPIEDAD' && r.tipo_propiedad) {
-    filas.push({
-      label: 'Propiedad',
-      valor: `${ETIQUETA_TIPO[r.tipo_propiedad]}${r.zona ? ` en ${r.zona}` : ''}`,
-    })
-  }
-
-  const presupuesto = !r.presupuesto
-    ? 'No lo contestó'
-    : r.flujo === 'PROPIEDAD'
-      ? etiqueta(OPCIONES_PRESUPUESTO_PROPIEDAD, r.presupuesto)
-      : (r.operacion && rangoPorCodigo(r.operacion, r.presupuesto)?.label) || r.presupuesto
-  filas.push({ label: 'Presupuesto', valor: presupuesto })
-
-  if (r.pago) filas.push({ label: 'Pago', valor: etiqueta(OPCIONES_PAGO, r.pago) })
-  if (r.garantia) filas.push({ label: 'Garantía', valor: etiqueta(OPCIONES_GARANTIA, r.garantia) })
-  if (r.plazo) filas.push({ label: 'Plazo', valor: etiqueta(OPCIONES_PLAZO, r.plazo) })
-  filas.push({ label: 'Visita', valor: siNo(r.visita) })
-  filas.push({ label: 'Para vender', valor: siNo(r.vender) })
-
-  return filas.filter((f): f is { label: string; valor: string } => f.valor !== null)
-}
-
+/** Las respuestas completas, para el detalle desplegable de una fila. */
 export function RespuestasConsulta({ respuestas }: { respuestas: unknown }) {
   const filas = filasRespuestas(respuestas)
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.82rem]">
+    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[0.82rem] sm:grid-cols-[auto_1fr_auto_1fr]">
       {filas.map((f) => (
         <div key={f.label} className="contents">
           <dt className="text-ink-3">{f.label}</dt>
@@ -84,47 +17,161 @@ export function RespuestasConsulta({ respuestas }: { respuestas: unknown }) {
   )
 }
 
-const ESTILO_TEMPERATURA = {
-  CALIENTE: 'bg-badge-caliente-bg text-caliente',
-  TIBIO: 'bg-badge-tibio-bg text-badge-tibio-ink',
-  FRIO: 'bg-badge-frio-bg text-frio',
+// ---------------------------------------------------------------------------
+// Puntaje
+// ---------------------------------------------------------------------------
+
+const TONO_TEMPERATURA = {
+  CALIENTE: { fondo: 'bg-badge-caliente-bg', tinta: 'text-caliente', nombre: 'Caliente' },
+  TIBIO: { fondo: 'bg-badge-tibio-bg', tinta: 'text-badge-tibio-ink', nombre: 'Tibia' },
+  FRIO: { fondo: 'bg-badge-frio-bg', tinta: 'text-frio', nombre: 'Fría' },
 } as const
 
-const NOMBRE_TEMPERATURA = { CALIENTE: 'Caliente', TIBIO: 'Tibia', FRIO: 'Fría' } as const
+function tono(temperatura: string) {
+  return TONO_TEMPERATURA[(temperatura in TONO_TEMPERATURA ? temperatura : 'FRIO') as keyof typeof TONO_TEMPERATURA]
+}
 
-/** "Caliente · 85 pts": la calificación de la encuesta, no el estado del lead. */
-export function BadgeTemperatura({ temperatura, puntaje }: { temperatura: string; puntaje: number }) {
-  const t = (temperatura in ESTILO_TEMPERATURA ? temperatura : 'FRIO') as keyof typeof ESTILO_TEMPERATURA
+/**
+ * La señal dominante de la fila: el puntaje grande sobre el color de la
+ * temperatura. Es lo primero que agarra el ojo al bajar por la lista.
+ */
+export function BloquePuntaje({
+  temperatura,
+  puntaje,
+  chico = false,
+}: {
+  temperatura: string
+  puntaje: number
+  chico?: boolean
+}) {
+  const t = tono(temperatura)
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[0.72rem] font-bold whitespace-nowrap ${ESTILO_TEMPERATURA[t]}`}
+      role="img"
+      aria-label={`${t.nombre}, ${puntaje} puntos`}
+      className={[
+        'flex shrink-0 flex-col items-center justify-center rounded-xl leading-none',
+        t.fondo,
+        t.tinta,
+        chico ? 'size-10' : 'size-12',
+      ].join(' ')}
     >
-      {NOMBRE_TEMPERATURA[t]} · {puntaje} pts
+      <span className={`font-bold tabular-nums ${chico ? 'text-[0.95rem]' : 'text-[1.1rem]'}`}>
+        {puntaje}
+      </span>
+      {!chico && (
+        <span className="mt-1 text-[0.56rem] font-bold tracking-[0.06em] uppercase">{t.nombre}</span>
+      )}
     </span>
   )
 }
 
-const ESTILO_CHIP = {
-  volvio: 'bg-cool-soft text-info',
-  captacion: 'bg-brand-soft text-primary-dark',
-  duplicado: 'bg-warm-soft text-badge-tibio-ink',
-  neutro: 'bg-surface-2 text-ink-3',
+// ---------------------------------------------------------------------------
+// Espera
+// ---------------------------------------------------------------------------
+
+function IconoReloj() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  )
+}
+
+const ESTILO_ESPERA = {
+  normal: 'text-ink-3',
+  atencion: 'bg-warm-soft text-badge-tibio-ink',
+  urgente: 'bg-badge-caliente-bg text-caliente',
 } as const
 
-export function Chip({
-  tono,
-  titulo,
-  children,
-}: {
-  tono: keyof typeof ESTILO_CHIP
-  titulo?: string
-  children: React.ReactNode
-}) {
+/**
+ * Cuánto lleva esperando. Escala de gris a ámbar (1 h) y a rojo (4 h); el
+ * texto y el ícono van siempre, así el color nunca es la única señal.
+ */
+export function ChipEspera({ minutos }: { minutos: number }) {
+  const nivel = nivelEspera(minutos)
+  return (
+    <span
+      title={`Esperando hace ${esperaLarga(minutos)}`}
+      aria-label={`Esperando hace ${esperaLarga(minutos)}`}
+      className={[
+        'inline-flex shrink-0 items-center gap-1 rounded-full text-[0.74rem] font-semibold whitespace-nowrap tabular-nums',
+        nivel === 'normal' ? '' : 'px-2 py-0.5',
+        ESTILO_ESPERA[nivel],
+      ].join(' ')}
+    >
+      <IconoReloj />
+      {esperaCorta(minutos)}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Señales
+// ---------------------------------------------------------------------------
+
+const trazo = {
+  width: 13,
+  height: 13,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+  className: 'shrink-0',
+}
+
+const ICONOS = {
+  volvio: (
+    <svg {...trazo}>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+      <path d="M4 4.5v4h4" />
+    </svg>
+  ),
+  captacion: (
+    <svg {...trazo}>
+      <path d="M3.5 11 12 4l8.5 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M12 12.5v5M9.5 15h5" />
+    </svg>
+  ),
+  duplicado: (
+    <svg {...trazo}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 19.5v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" />
+      <path d="M16 5.2a3 3 0 0 1 0 5.6" />
+      <path d="M18.5 13.8a4.5 4.5 0 0 1 2.5 4v1.7" />
+    </svg>
+  ),
+  limite: (
+    <svg {...trazo}>
+      <path d="M12 4 2.8 19.5h18.4Z" />
+      <path d="M12 10v4" />
+      <path d="M12 16.8v.2" />
+    </svg>
+  ),
+} as const
+
+const ESTILO_SENAL = {
+  volvio: 'bg-cool-soft text-info',
+  captacion: 'bg-brand-soft text-primary-dark',
+  duplicado: 'bg-surface-2 text-ink-2',
+  limite: 'bg-warm-soft text-badge-tibio-ink',
+} as const
+
+export type TipoSenal = keyof typeof ESTILO_SENAL
+
+/** Ícono y una palabra: se reconoce sin leer, y el texto queda para quien lo necesite. */
+export function Senal({ tipo, titulo, children }: { tipo: TipoSenal; titulo: string; children: ReactNode }) {
   return (
     <span
       title={titulo}
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.72rem] font-semibold whitespace-nowrap ${ESTILO_CHIP[tono]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.72rem] font-semibold whitespace-nowrap ${ESTILO_SENAL[tipo]}`}
     >
+      {ICONOS[tipo]}
       {children}
     </span>
   )

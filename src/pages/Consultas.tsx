@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BarraTabs } from '../components/comunes/BarraTabs'
 import { TarjetaConsulta } from '../components/consultas/TarjetaConsulta'
@@ -59,13 +58,6 @@ export default function Consultas() {
     FILTROS_CONSULTAS.find((f) => f.id === searchParams.get('estado'))?.id ?? 'pendientes'
   const agenteId = esDueno ? (searchParams.get('agente') ?? '') : ''
   const page = leerPagina(searchParams.get('page'))
-
-  // La app no resetea el scroll al navegar: entrando desde "Ver todas" con Mi
-  // día scrolleada, la bandeja abría más abajo y el título quedaba fuera de
-  // vista en el teléfono.
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [])
 
   const lista = useConsultas(filtro, page, agenteId)
   const volvieron = useVolvieronAConsultar(agenteId, filtro === 'pendientes' && page === 1)

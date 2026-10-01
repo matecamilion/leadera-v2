@@ -148,6 +148,18 @@ export function AppLayout() {
     cerrarSidebar()
   }, [location.pathname, cerrarSidebar])
 
+  // Cada pantalla nueva arranca arriba. Sin esto el SPA conserva el scroll de
+  // la anterior: entrando a una lista desde el fondo de Mi día, el título
+  // quedaba fuera de vista en el teléfono.
+  //
+  // Solo con el cambio de ruta, no de query string: pasar de pestaña o de
+  // página en un listado no debe saltar arriba de todo. Volver atrás tampoco
+  // restaura la posición previa: eso pide el ScrollRestoration de un data
+  // router, y la app usa BrowserRouter.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const nombreVisible = profile?.nombre ?? user?.email ?? ''
 
   // Lo que pide acción de quien está logueado. Vive acá, y no en la página de

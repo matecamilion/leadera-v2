@@ -6,7 +6,65 @@
  * cualquier clave que no corresponda al flujo.
  */
 import { esPropietario } from '../../../supabase/functions/consulta-publica/encuesta.ts'
-import type { DatosLink, DatosContacto, Operacion, PayloadConsulta, Respuestas } from './tipos'
+import type {
+  DatosLink,
+  DatosContacto,
+  Operacion,
+  PayloadConsulta,
+  RangoPresupuesto,
+  Respuestas,
+} from './tipos'
+
+export type Moneda = 'ARS' | 'USD'
+
+// ---------------------------------------------------------------------------
+// Compatibilidad con lo que manda la edge
+//
+// La página y la edge se despliegan por separado. Una edge anterior manda los
+// rangos sin `moneda` y solo para COMPRA y ALQUILER: la página tiene que
+// funcionar igual, sin selector de moneda y sin las operaciones de propietario
+// (que esa edge rechazaría). Nada de lo de acá puede dejar un paso sin opciones.
+// ---------------------------------------------------------------------------
+
+/** La moneda del rango; si la edge no la manda, sale del prefijo del código. */
+export function monedaDeRango(r: Pick<RangoPresupuesto, 'codigo'> & { moneda?: Moneda | null }): Moneda | null {
+  if (r.moneda !== undefined) return r.moneda
+  if (r.codigo.startsWith('ARS_')) return 'ARS'
+  if (r.codigo.startsWith('USD_')) return 'USD'
+  return null
+}
+
+/** Las operaciones que la edge sabe atender: las que vienen con su lista de rangos. */
+export function operacionDisponible(datos: DatosLink, operacion: Operacion): boolean {
+  return (datos.rangos_presupuesto?.[operacion]?.length ?? 0) > 0
+}
+
+/**
+ * Qué rangos mostrar en el paso de presupuesto del link general.
+ *
+ * El selector de moneda aparece solo si la lista trae las dos monedas. Con él,
+ * se ven los de la moneda elegida más "No sé" (que no tiene moneda). Si el
+ * filtro no deja nada, se muestran todos: el paso nunca queda vacío, porque se
+ * avanza eligiendo un rango.
+ */
+export function rangosParaPaso(
+  datos: DatosLink,
+  operacion: Operacion | undefined,
+  moneda: Moneda,
+): { conSelector: boolean; rangos: RangoPresupuesto[] } {
+  const lista = (operacion && datos.rangos_presupuesto?.[operacion]) || []
+  const monedas = new Set(lista.map(monedaDeRango).filter((m): m is Moneda => m !== null))
+  const esAlquiler = operacion === 'ALQUILER' || operacion === 'ALQUILER_PROPIETARIO'
+  const conSelector = esAlquiler && monedas.size > 1
+
+  if (!conSelector) return { conSelector, rangos: lista }
+
+  const filtrados = lista.filter((r) => {
+    const m = monedaDeRango(r)
+    return m === moneda || m === null
+  })
+  return { conSelector, rangos: filtrados.length > 0 ? filtrados : lista }
+}
 
 export type IdPaso =
   | 'operacion'

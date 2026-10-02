@@ -33,7 +33,10 @@ import {
   armarPasos,
   armarPayload,
   conOperacion,
+  monedaDeRango,
   operacionDe,
+  operacionDisponible,
+  rangosParaPaso,
   type IdPaso,
 } from '../components/consulta-publica/pasos'
 import type {
@@ -385,12 +388,23 @@ export default function ConsultaPublica() {
             </Pregunta>
           )
         }
+        // Solo las operaciones que la edge sabe atender (una edge anterior no
+        // conoce las de propietario y las rechazaría).
+        const busco = OPCIONES_BUSCO.filter((o) => operacionDisponible(datos!, o.valor))
+        const tengo = OPCIONES_TENGO.filter((o) => operacionDisponible(datos!, o.valor))
+        if (tengo.length === 0) {
+          return (
+            <Pregunta titulo="¿Qué estás buscando?" onAtras={onAtras}>
+              <ListaOpciones opciones={busco} elegida={respuestas.operacion} onElegir={elegirOperacion} />
+            </Pregunta>
+          )
+        }
         return (
           <Pregunta titulo="¿Qué querés hacer?" onAtras={onAtras}>
             <h2 className="m-0 mb-2 text-[0.8rem] font-semibold text-ink-3">Busco</h2>
-            <ListaOpciones opciones={OPCIONES_BUSCO} elegida={respuestas.operacion} onElegir={elegirOperacion} />
+            <ListaOpciones opciones={busco} elegida={respuestas.operacion} onElegir={elegirOperacion} />
             <h2 className="m-0 mt-5 mb-2 text-[0.8rem] font-semibold text-ink-3">Tengo una propiedad</h2>
-            <ListaOpciones opciones={OPCIONES_TENGO} elegida={respuestas.operacion} onElegir={elegirOperacion} />
+            <ListaOpciones opciones={tengo} elegida={respuestas.operacion} onElegir={elegirOperacion} />
           </Pregunta>
         )
       }
@@ -434,31 +448,38 @@ export default function ConsultaPublica() {
             </Pregunta>
           )
         }
-        const rangos = operacion ? datos!.rangos_presupuesto[operacion] : []
-        const esAlquiler = operacion === 'ALQUILER' || operacion === 'ALQUILER_PROPIETARIO'
-        const elegido = rangos.find((r) => r.codigo === respuestas.presupuesto)
-        const moneda = elegido?.moneda ?? monedaAlquiler
-        // En alquiler, los de la moneda elegida más "No sé" (que no tiene moneda).
-        const visibles = esAlquiler ? rangos.filter((r) => r.moneda === moneda || r.moneda === null) : rangos
+        const todos = (operacion && datos!.rangos_presupuesto?.[operacion]) || []
+        const elegido = todos.find((r) => r.codigo === respuestas.presupuesto)
+        // Si ya hay un rango elegido (volviendo con Atrás), manda su moneda.
+        const moneda = (elegido && monedaDeRango(elegido)) ?? monedaAlquiler
+        const { conSelector, rangos: visibles } = rangosParaPaso(datos!, operacion, moneda)
 
         const textos =
           operacion === 'VENTA'
             ? { titulo: '¿Cuánto creés que vale?', ayuda: 'Un aproximado alcanza. Si no sabés, te ayudamos a tasarla.' }
             : operacion === 'ALQUILER_PROPIETARIO'
-              ? { titulo: '¿Cuánto pretendés por mes?', ayuda: 'Elegí la moneda. Si no sabés, te asesoramos.' }
+              ? {
+                  titulo: '¿Cuánto pretendés por mes?',
+                  ayuda: conSelector ? 'Elegí la moneda. Si no sabés, te asesoramos.' : 'Si no sabés, te asesoramos.',
+                }
               : operacion === 'ALQUILER'
-                ? { titulo: '¿Cuánto querés pagar por mes?', ayuda: 'Elegí la moneda en la que lo pensás.' }
+                ? {
+                    titulo: '¿Cuánto querés pagar por mes?',
+                    // Sin selector (edge anterior) no hay moneda que elegir.
+                    ayuda: conSelector ? 'Elegí la moneda en la que lo pensás.' : 'Alquiler mensual.',
+                  }
                 : { titulo: '¿Cuál es tu presupuesto?', ayuda: 'En dólares.' }
 
         return (
           <Pregunta titulo={textos.titulo} ayuda={textos.ayuda} onAtras={onAtras}>
-            {esAlquiler && (
+            {conSelector && (
               <SelectorMoneda
                 valor={moneda}
                 onCambiar={(m) => {
                   setMonedaAlquiler(m)
                   // Un rango de la otra moneda ya no vale.
-                  if (elegido?.moneda && elegido.moneda !== m) {
+                  const actual = elegido && monedaDeRango(elegido)
+                  if (actual && actual !== m) {
                     setRespuestas((r) => {
                       const { presupuesto: _, ...resto } = r
                       return resto

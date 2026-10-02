@@ -13,10 +13,11 @@ import type {
   Pago,
   Plazo,
   PreguntaOpcional,
+  Publicacion,
   TipoPropiedad,
 } from '../../../supabase/functions/consulta-publica/encuesta.ts'
 
-export type { Flujo, Garantia, Operacion, Pago, Plazo, PreguntaOpcional, TipoPropiedad }
+export type { Flujo, Garantia, Operacion, Pago, Plazo, PreguntaOpcional, Publicacion, TipoPropiedad }
 
 export interface RangoPresupuesto {
   codigo: string
@@ -60,6 +61,8 @@ export interface Respuestas {
   presupuesto?: string
   pago?: Pago
   garantia?: Garantia
+  /** Solo propietarios: si ya la tienen publicada. */
+  publicada?: Publicacion
   plazo?: Plazo
   visita?: boolean
   vender?: boolean

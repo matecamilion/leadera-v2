@@ -5,6 +5,7 @@
  * Tiene que coincidir con `validarPost` de la edge function, que rechaza
  * cualquier clave que no corresponda al flujo.
  */
+import { esPropietario } from '../../../supabase/functions/consulta-publica/encuesta.ts'
 import type { DatosLink, DatosContacto, Operacion, PayloadConsulta, Respuestas } from './tipos'
 
 export type IdPaso =
@@ -14,6 +15,7 @@ export type IdPaso =
   | 'presupuesto'
   | 'pago'
   | 'garantia'
+  | 'publicada'
   | 'plazo'
   | 'visita'
   | 'vender'
@@ -31,6 +33,12 @@ export function armarPasos(datos: DatosLink, r: Respuestas): IdPaso[] {
   const pagoOGarantia: IdPaso = operacionDe(datos, r) === 'ALQUILER' ? 'garantia' : 'pago'
 
   if (datos.flujo === 'GENERAL') {
+    // Propietario: cuánto vale (o pretende) y si ya está publicada; ni pago,
+    // ni garantía, ni "¿tenés una propiedad para vender?".
+    const op = operacionDe(datos, r)
+    if (op && esPropietario(op)) {
+      return ['operacion', 'tipo_propiedad', 'zona', 'presupuesto', 'publicada', 'plazo', 'contacto']
+    }
     return [
       'operacion',
       'tipo_propiedad',
@@ -54,15 +62,17 @@ export function armarPasos(datos: DatosLink, r: Respuestas): IdPaso[] {
 }
 
 /**
- * Al cambiar de operación se borra lo que ya no aplica: el rango de
- * presupuesto (otra moneda) y pago o garantía. Así nunca se manda una clave
- * que el servidor rechazaría.
+ * Al cambiar de operación se borra lo que ya no aplica: el rango (otra lista,
+ * quizás otra moneda), pago, garantía, publicada y, para un propietario,
+ * "vender". Así nunca se manda una clave que el servidor rechazaría.
  */
 export function conOperacion(datos: DatosLink, r: Respuestas, operacion: Operacion): Respuestas {
   if (r.operacion === operacion) return r
   const siguiente: Respuestas = { ...r, operacion }
-  if (operacion === 'COMPRA') delete siguiente.garantia
-  else delete siguiente.pago
+  delete siguiente.pago
+  delete siguiente.garantia
+  delete siguiente.publicada
+  if (esPropietario(operacion)) delete siguiente.vender
   if (datos.flujo === 'GENERAL') delete siguiente.presupuesto
   return siguiente
 }

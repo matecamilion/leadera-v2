@@ -10,8 +10,10 @@ import {
   PAGOS,
   PLAZOS,
   PRESUPUESTO_PROPIEDAD,
+  PUBLICACIONES,
   TIPOS_PROPIEDAD,
   type PresupuestoPropiedad,
+  type Publicacion,
 } from '../../../supabase/functions/consulta-publica/encuesta.ts'
 import type { Garantia, Operacion, Pago, Plazo, TipoPropiedad } from './tipos'
 
@@ -70,7 +72,20 @@ function opciones<T extends string>(lista: readonly T[], etiquetas: Record<T, st
   return lista.map((valor) => ({ valor, label: etiquetas[valor] }))
 }
 
+/** Link de propiedad con finalidad AMBAS: quien entra está interesado en ella. */
 export const OPCIONES_OPERACION = opciones<Operacion>(['COMPRA', 'ALQUILER'], ETIQUETA_OPERACION)
+
+/** Link general: dos grupos, "Busco" y "Tengo una propiedad". */
+export const OPCIONES_BUSCO = OPCIONES_OPERACION
+export const OPCIONES_TENGO = opciones<Operacion>(['VENTA', 'ALQUILER_PROPIETARIO'], ETIQUETA_OPERACION)
+
+const ETIQUETA_PUBLICADA: Record<Publicacion, string> = {
+  NO: 'No, todavía no',
+  LA_PUBLICO_YO: 'La publico yo',
+  UNA_INMOBILIARIA: 'Sí, con una inmobiliaria',
+  VARIAS: 'Sí, con varias',
+}
+export const OPCIONES_PUBLICADA = opciones(PUBLICACIONES, ETIQUETA_PUBLICADA)
 export const OPCIONES_TIPO = opciones(TIPOS_PROPIEDAD, ETIQUETA_TIPO)
 export const OPCIONES_PRESUPUESTO_PROPIEDAD = opciones(
   PRESUPUESTO_PROPIEDAD,
@@ -79,6 +94,11 @@ export const OPCIONES_PRESUPUESTO_PROPIEDAD = opciones(
 export const OPCIONES_PAGO = opciones(PAGOS, ETIQUETA_PAGO)
 export const OPCIONES_GARANTIA = opciones(GARANTIAS, ETIQUETA_GARANTIA)
 export const OPCIONES_PLAZO = opciones(PLAZOS, ETIQUETA_PLAZO)
+/** Mismos códigos; a un propietario "solo estoy mirando" no le cuadra. */
+export const OPCIONES_PLAZO_PROPIETARIO = opciones(PLAZOS, {
+  ...ETIQUETA_PLAZO,
+  SOLO_MIRANDO: 'Solo estoy averiguando',
+})
 
 export const OPCIONES_SI_NO_VISITA: Opcion<'si' | 'no'>[] = [
   { valor: 'si', label: 'Sí, me gustaría' },

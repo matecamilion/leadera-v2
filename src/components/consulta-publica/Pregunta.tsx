@@ -131,3 +131,37 @@ export function CampoZona({
     </form>
   )
 }
+
+/**
+ * Pesos o dólares, arriba de los rangos de un alquiler: hoy conviven los dos
+ * mercados y cada uno lo piensa en su moneda.
+ */
+export function SelectorMoneda({
+  valor,
+  onCambiar,
+}: {
+  valor: 'ARS' | 'USD'
+  onCambiar: (moneda: 'ARS' | 'USD') => void
+}) {
+  return (
+    <div role="group" aria-label="Moneda" className="mb-4 inline-flex rounded-lg bg-surface-muted p-1">
+      {(['ARS', 'USD'] as const).map((m) => {
+        const activa = valor === m
+        return (
+          <button
+            key={m}
+            type="button"
+            aria-pressed={activa}
+            onClick={() => onCambiar(m)}
+            className={[
+              'min-h-[40px] min-w-[96px] rounded-md px-4 text-[0.9rem] font-semibold transition-colors motion-reduce:transition-none',
+              activa ? 'bg-surface text-primary-dark shadow-sm' : 'text-ink-3 hover:text-ink',
+            ].join(' ')}
+          >
+            {m === 'ARS' ? 'Pesos' : 'Dólares'}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

@@ -3,10 +3,14 @@ import { useParams } from 'react-router-dom'
 import { obtenerLink, type ResultadoGet } from '../components/consulta-publica/api'
 import {
   formatearPrecio,
+  OPCIONES_BUSCO,
   OPCIONES_GARANTIA,
   OPCIONES_OPERACION,
   OPCIONES_PAGO,
   OPCIONES_PLAZO,
+  OPCIONES_PLAZO_PROPIETARIO,
+  OPCIONES_PUBLICADA,
+  OPCIONES_TENGO,
   OPCIONES_PRESUPUESTO_PROPIEDAD,
   OPCIONES_SI_NO,
   OPCIONES_SI_NO_VISITA,
@@ -23,7 +27,8 @@ import {
   NoDisponible,
 } from '../components/consulta-publica/Pantallas'
 import { PasoContacto } from '../components/consulta-publica/PasoContacto'
-import { CampoZona, ListaOpciones, Pregunta } from '../components/consulta-publica/Pregunta'
+import { esPropietario } from '../../supabase/functions/consulta-publica/encuesta.ts'
+import { CampoZona, ListaOpciones, Pregunta, SelectorMoneda } from '../components/consulta-publica/Pregunta'
 import {
   armarPasos,
   armarPayload,
@@ -34,6 +39,7 @@ import {
 import type {
   DatosContacto,
   DatosLink,
+  Operacion,
   PropiedadDisponible,
   Respuestas,
 } from '../components/consulta-publica/tipos'
@@ -138,6 +144,9 @@ export default function ConsultaPublica() {
   const [respuestas, setRespuestas] = useState<Respuestas>({})
   const [contacto, setContacto] = useState<DatosContacto>(CONTACTO_VACIO)
   const [mensajeInvalido, setMensajeInvalido] = useState('')
+  // Moneda elegida para los rangos de alquiler. Si ya hay un rango elegido,
+  // manda la moneda de ese rango (por ejemplo, al volver con Atrás).
+  const [monedaAlquiler, setMonedaAlquiler] = useState<'ARS' | 'USD'>('ARS')
 
   // El armado del payload necesita los datos más recientes aunque un token
   // renovado los cambie a mitad del envío.
@@ -347,6 +356,7 @@ export default function ConsultaPublica() {
   const actual = Math.min(indice, pasos.length - 1)
   const paso = pasos[actual]
   const operacion = operacionDe(datos, respuestas)
+  const propietario = operacion ? esPropietario(operacion) : false
 
   function avanzar() {
     setIndice((i) => i + 1)
@@ -362,22 +372,34 @@ export default function ConsultaPublica() {
 
   function contenido(p: IdPaso) {
     switch (p) {
-      case 'operacion':
+      case 'operacion': {
+        const elegirOperacion = (v: Operacion) => {
+          setRespuestas((r) => conOperacion(datos!, r, v))
+          avanzar()
+        }
+        // En el link de una propiedad solo entra alguien interesado en ella.
+        if (datos!.flujo !== 'GENERAL') {
+          return (
+            <Pregunta titulo="¿Qué estás buscando?" onAtras={onAtras}>
+              <ListaOpciones opciones={OPCIONES_OPERACION} elegida={respuestas.operacion} onElegir={elegirOperacion} />
+            </Pregunta>
+          )
+        }
         return (
-          <Pregunta titulo="¿Qué estás buscando?" onAtras={onAtras}>
-            <ListaOpciones
-              opciones={OPCIONES_OPERACION}
-              elegida={respuestas.operacion}
-              onElegir={(v) => {
-                setRespuestas((r) => conOperacion(datos!, r, v))
-                avanzar()
-              }}
-            />
+          <Pregunta titulo="¿Qué querés hacer?" onAtras={onAtras}>
+            <h2 className="m-0 mb-2 text-[0.8rem] font-semibold text-ink-3">Busco</h2>
+            <ListaOpciones opciones={OPCIONES_BUSCO} elegida={respuestas.operacion} onElegir={elegirOperacion} />
+            <h2 className="m-0 mt-5 mb-2 text-[0.8rem] font-semibold text-ink-3">Tengo una propiedad</h2>
+            <ListaOpciones opciones={OPCIONES_TENGO} elegida={respuestas.operacion} onElegir={elegirOperacion} />
           </Pregunta>
         )
+      }
       case 'tipo_propiedad':
         return (
-          <Pregunta titulo="¿Qué tipo de propiedad buscás?" onAtras={onAtras}>
+          <Pregunta
+            titulo={propietario ? '¿Qué tipo de propiedad es?' : '¿Qué tipo de propiedad buscás?'}
+            onAtras={onAtras}
+          >
             <ListaOpciones
               opciones={OPCIONES_TIPO}
               elegida={respuestas.tipo_propiedad}
@@ -388,8 +410,8 @@ export default function ConsultaPublica() {
       case 'zona':
         return (
           <Pregunta
-            titulo="¿En qué zona?"
-            ayuda="Un barrio o una zona. Si te da lo mismo, seguí."
+            titulo={propietario ? '¿En qué zona está?' : '¿En qué zona?'}
+            ayuda={propietario ? 'El barrio o la zona.' : 'Un barrio o una zona. Si te da lo mismo, seguí.'}
             onAtras={onAtras}
           >
             <CampoZona inicial={respuestas.zona ?? ''} onContinuar={(z) => elegir({ zona: z })} />
@@ -413,20 +435,60 @@ export default function ConsultaPublica() {
           )
         }
         const rangos = operacion ? datos!.rangos_presupuesto[operacion] : []
+        const esAlquiler = operacion === 'ALQUILER' || operacion === 'ALQUILER_PROPIETARIO'
+        const elegido = rangos.find((r) => r.codigo === respuestas.presupuesto)
+        const moneda = elegido?.moneda ?? monedaAlquiler
+        // En alquiler, los de la moneda elegida más "No sé" (que no tiene moneda).
+        const visibles = esAlquiler ? rangos.filter((r) => r.moneda === moneda || r.moneda === null) : rangos
+
+        const textos =
+          operacion === 'VENTA'
+            ? { titulo: '¿Cuánto creés que vale?', ayuda: 'Un aproximado alcanza. Si no sabés, te ayudamos a tasarla.' }
+            : operacion === 'ALQUILER_PROPIETARIO'
+              ? { titulo: '¿Cuánto pretendés por mes?', ayuda: 'Elegí la moneda. Si no sabés, te asesoramos.' }
+              : operacion === 'ALQUILER'
+                ? { titulo: '¿Cuánto querés pagar por mes?', ayuda: 'Elegí la moneda en la que lo pensás.' }
+                : { titulo: '¿Cuál es tu presupuesto?', ayuda: 'En dólares.' }
+
         return (
-          <Pregunta
-            titulo="¿Cuál es tu presupuesto?"
-            ayuda={operacion === 'ALQUILER' ? 'Alquiler mensual, en pesos.' : 'En dólares.'}
-            onAtras={onAtras}
-          >
+          <Pregunta titulo={textos.titulo} ayuda={textos.ayuda} onAtras={onAtras}>
+            {esAlquiler && (
+              <SelectorMoneda
+                valor={moneda}
+                onCambiar={(m) => {
+                  setMonedaAlquiler(m)
+                  // Un rango de la otra moneda ya no vale.
+                  if (elegido?.moneda && elegido.moneda !== m) {
+                    setRespuestas((r) => {
+                      const { presupuesto: _, ...resto } = r
+                      return resto
+                    })
+                  }
+                }}
+              />
+            )}
             <ListaOpciones
-              opciones={rangos.map((r) => ({ valor: r.codigo, label: r.label }))}
+              opciones={visibles.map((r) => ({ valor: r.codigo, label: r.label }))}
               elegida={respuestas.presupuesto}
               onElegir={(v) => elegir({ presupuesto: v })}
             />
           </Pregunta>
         )
       }
+      case 'publicada':
+        return (
+          <Pregunta
+            titulo="¿Ya la tenés publicada?"
+            ayuda="En portales, redes o con alguna inmobiliaria."
+            onAtras={onAtras}
+          >
+            <ListaOpciones
+              opciones={OPCIONES_PUBLICADA}
+              elegida={respuestas.publicada}
+              onElegir={(v) => elegir({ publicada: v })}
+            />
+          </Pregunta>
+        )
       case 'pago':
         return (
           <Pregunta titulo="¿Cómo pensás pagar?" onAtras={onAtras}>
@@ -449,9 +511,18 @@ export default function ConsultaPublica() {
         )
       case 'plazo':
         return (
-          <Pregunta titulo="¿Para cuándo lo necesitás?" onAtras={onAtras}>
+          <Pregunta
+            titulo={
+              operacion === 'VENTA'
+                ? '¿Para cuándo querés venderla?'
+                : operacion === 'ALQUILER_PROPIETARIO'
+                  ? '¿Para cuándo querés alquilarla?'
+                  : '¿Para cuándo lo necesitás?'
+            }
+            onAtras={onAtras}
+          >
             <ListaOpciones
-              opciones={OPCIONES_PLAZO}
+              opciones={propietario ? OPCIONES_PLAZO_PROPIETARIO : OPCIONES_PLAZO}
               elegida={respuestas.plazo}
               onElegir={(v) => elegir({ plazo: v })}
             />

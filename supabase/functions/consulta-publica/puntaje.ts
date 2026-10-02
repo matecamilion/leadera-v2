@@ -10,6 +10,7 @@
  */
 import {
   type ContactoValido,
+  esPropietario,
   type Flujo,
   type Operacion,
   rangoPorCodigo,
@@ -23,6 +24,12 @@ export const PUNTOS = {
   presupuestoRango: 30,
   pago: { CONTADO: 25, CREDITO_APROBADO: 25, CREDITO_TRAMITE: 10, NECESITA_VENDER: 5, NO_SABE: 0 },
   garantia: { PROPIETARIA: 25, SEGURO_CAUCION: 25, NO_TENGO: 0 },
+  /**
+   * Propietarios: sin publicar es la mejor señal (puede ser exclusiva); con
+   * varias inmobiliarias, la peor. "No sé, quiero una tasación" cuenta como
+   * valor respondido: es intención fuerte, no duda.
+   */
+  publicada: { NO: 25, LA_PUBLICO_YO: 20, UNA_INMOBILIARIA: 10, VARIAS: 5 },
   plazo: { YA: 25, MENOS_3M: 25, '3_6M': 10, MAS_6M: 0, SOLO_MIRANDO: 0 },
   visita: 10,
   email: 5,
@@ -64,6 +71,7 @@ export function calificar(
   }
   if (r.pago) puntaje += PUNTOS.pago[r.pago]
   if (r.garantia) puntaje += PUNTOS.garantia[r.garantia]
+  if (r.publicada) puntaje += PUNTOS.publicada[r.publicada]
   puntaje += PUNTOS.plazo[r.plazo]
   if (r.visita) puntaje += PUNTOS.visita
   if (contacto.email) puntaje += PUNTOS.email
@@ -80,7 +88,8 @@ export function calificar(
     temperatura,
     presupuestoRespondido,
     autoAceptable: presupuestoRespondido && puntaje >= UMBRAL_AUTO,
-    posibleCaptacion: r.pago === 'NECESITA_VENDER' || r.vender === true,
+    // Un propietario que vende o alquila lo suyo es, por definición, una captación.
+    posibleCaptacion: esPropietario(r.operacion) || r.pago === 'NECESITA_VENDER' || r.vender === true,
   }
 }
 
@@ -99,7 +108,19 @@ const ETIQUETA_TIPO: Record<TipoPropiedad, string> = {
   OTRO: 'Otro',
 }
 
-const ETIQUETA_OPERACION: Record<Operacion, string> = { COMPRA: 'Compra', ALQUILER: 'Alquiler' }
+const ETIQUETA_OPERACION: Record<Operacion, string> = {
+  COMPRA: 'Compra',
+  ALQUILER: 'Alquiler',
+  VENTA: 'Venta de su propiedad (propietario)',
+  ALQUILER_PROPIETARIO: 'Alquiler de su propiedad (propietario)',
+}
+
+const ETIQUETA_PUBLICADA: Record<string, string> = {
+  NO: 'Todavía no la publicó',
+  LA_PUBLICO_YO: 'La publica él/ella',
+  UNA_INMOBILIARIA: 'Con una inmobiliaria',
+  VARIAS: 'Con varias inmobiliarias',
+}
 
 const ETIQUETA_PRESUPUESTO_PROPIEDAD: Record<string, string> = {
   SI: 'Sí, entra en su presupuesto',
@@ -174,21 +195,30 @@ export function armarResumen(
 
   lineas.push(`Operación: ${ETIQUETA_OPERACION[r.operacion]}.`)
 
+  const propietario = esPropietario(r.operacion)
+
   if (flujo === 'GENERAL' && r.tipo_propiedad) {
-    lineas.push(`Busca: ${ETIQUETA_TIPO[r.tipo_propiedad]}${r.zona ? ` en ${r.zona}` : ''}.`)
+    const lugar = `${ETIQUETA_TIPO[r.tipo_propiedad]}${r.zona ? ` en ${r.zona}` : ''}`
+    lineas.push(propietario ? `Su propiedad: ${lugar}.` : `Busca: ${lugar}.`)
   }
 
+  const etiquetaMonto = r.operacion === 'VENTA'
+    ? 'Valor estimado'
+    : r.operacion === 'ALQUILER_PROPIETARIO'
+    ? 'Pretende'
+    : 'Presupuesto'
   if (r.presupuesto) {
     const texto = flujo === 'PROPIEDAD'
       ? ETIQUETA_PRESUPUESTO_PROPIEDAD[r.presupuesto]
-      : rangoPorCodigo(r.operacion, r.presupuesto)?.label
-    lineas.push(`Presupuesto: ${texto}.`)
+      : rangoPorCodigo(r.presupuesto)?.label
+    lineas.push(`${etiquetaMonto}: ${texto}.`)
   } else {
-    lineas.push('Presupuesto: no lo contestó.')
+    lineas.push(`${etiquetaMonto}: no lo contestó.`)
   }
 
   if (r.pago) lineas.push(`Pago: ${ETIQUETA_PAGO[r.pago]}.`)
   if (r.garantia) lineas.push(`Garantía: ${ETIQUETA_GARANTIA[r.garantia]}.`)
+  if (r.publicada) lineas.push(`Publicada: ${ETIQUETA_PUBLICADA[r.publicada]}.`)
   lineas.push(`Plazo: ${ETIQUETA_PLAZO[r.plazo]}.`)
   if (r.visita !== null) lineas.push(`Quiere coordinar visita: ${r.visita ? 'sí' : 'no'}.`)
   if (r.vender !== null) lineas.push(`Tiene una propiedad para vender: ${r.vender ? 'sí' : 'no'}.`)
@@ -212,15 +242,19 @@ export interface BusquedaSugerida {
 }
 
 /**
- * `busquedas` no tiene moneda ni operación, y las propiedades en venta están en
- * USD. Por eso los precios solo se cargan en compra y en USD; en alquiler el
- * presupuesto va en `notas`, para no mezclar pesos con dólares en el matching.
+ * `busquedas` no tiene moneda ni operación, y las propiedades se publican en
+ * USD. Por eso los precios solo se cargan cuando el rango es en USD; si es en
+ * pesos, el presupuesto va en `notas`, para no mezclar monedas en el matching.
+ *
+ * Un propietario no busca nada: devuelve null y no se crea ninguna búsqueda.
  */
 export function armarBusqueda(
   flujo: Flujo,
   r: RespuestasValidas,
   propiedad: PropiedadPublica | null,
-): BusquedaSugerida {
+): BusquedaSugerida | null {
+  if (esPropietario(r.operacion)) return null
+
   const operacion = ETIQUETA_OPERACION[r.operacion]
 
   if (flujo === 'PROPIEDAD' && propiedad) {
@@ -235,9 +269,9 @@ export function armarBusqueda(
     }
   }
 
-  const rango = r.presupuesto ? rangoPorCodigo(r.operacion, r.presupuesto) : null
+  const rango = r.presupuesto ? rangoPorCodigo(r.presupuesto) : null
 
-  if (r.operacion === 'COMPRA') {
+  if (rango?.moneda === 'USD') {
     return {
       tipo_propiedad: r.tipo_propiedad,
       zona: r.zona,

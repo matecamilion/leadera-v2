@@ -26,6 +26,7 @@ interface Respuestas {
   presupuesto?: string | null
   pago?: string | null
   garantia?: string | null
+  publicada?: string | null
   plazo?: string
   visita?: boolean | null
   vender?: boolean | null
@@ -51,7 +52,29 @@ function lugar(tipo: string | null | undefined, zona: string | null | undefined)
   return zona ? `${nombre} en ${zona}` : nombre
 }
 
-const OPERACION_CORTA: Record<Operacion, string> = { COMPRA: 'Compra', ALQUILER: 'Alquiler' }
+const OPERACION_CORTA: Record<Operacion, string> = {
+  COMPRA: 'Compra',
+  ALQUILER: 'Alquiler',
+  VENTA: 'Vende',
+  ALQUILER_PROPIETARIO: 'Pone en alquiler',
+}
+
+/** Para el detalle: deja claro que es un propietario (una captación). */
+const OPERACION_LARGA: Record<Operacion, string> = {
+  COMPRA: 'Compra',
+  ALQUILER: 'Alquiler',
+  VENTA: 'Venta de su propiedad',
+  ALQUILER_PROPIETARIO: 'Alquiler de su propiedad',
+}
+
+const PUBLICADA_CORTA: Record<string, string> = {
+  NO: 'No publicada',
+  LA_PUBLICO_YO: 'La publica el dueño',
+  UNA_INMOBILIARIA: 'Con una inmobiliaria',
+  VARIAS: 'Con varias inmobiliarias',
+}
+
+const esPropietario = (op: Operacion | undefined) => op === 'VENTA' || op === 'ALQUILER_PROPIETARIO'
 
 const PRESUPUESTO_PROPIEDAD_CORTO: Record<string, string> = {
   SI: 'Entra en presupuesto',
@@ -96,10 +119,11 @@ export function resumenCorto(crudo: unknown, propiedad: PropiedadDeOrigen | null
 
   if (!r.presupuesto) partes.push('Sin presupuesto')
   else if (r.flujo === 'PROPIEDAD') partes.push(PRESUPUESTO_PROPIEDAD_CORTO[r.presupuesto])
-  else if (r.operacion) partes.push(rangoPorCodigo(r.operacion, r.presupuesto)?.label)
+  else partes.push(rangoPorCodigo(r.presupuesto)?.label)
 
   if (r.pago) partes.push(PAGO_CORTO[r.pago])
   if (r.garantia) partes.push(GARANTIA_CORTA[r.garantia])
+  if (r.publicada) partes.push(PUBLICADA_CORTA[r.publicada])
   if (r.plazo) partes.push(PLAZO_CORTO[r.plazo])
 
   return partes.filter(Boolean).join(' · ')
@@ -111,18 +135,24 @@ export function filasRespuestas(crudo: unknown): { label: string; valor: string 
   const filas: { label: string; valor: string | null }[] = []
 
   // Mismas palabras que el resumen del lead ("Operación: Compra").
-  if (r.operacion) filas.push({ label: 'Operación', valor: OPERACION_CORTA[r.operacion] })
-  if (r.flujo !== 'PROPIEDAD') filas.push({ label: 'Busca', valor: lugar(r.tipo_propiedad, r.zona) })
+  const propietario = esPropietario(r.operacion)
+  if (r.operacion) filas.push({ label: 'Operación', valor: OPERACION_LARGA[r.operacion] })
+  if (r.flujo !== 'PROPIEDAD') {
+    filas.push({ label: propietario ? 'Propiedad' : 'Busca', valor: lugar(r.tipo_propiedad, r.zona) })
+  }
 
   const presupuesto = !r.presupuesto
     ? 'No lo contestó'
     : r.flujo === 'PROPIEDAD'
       ? etiqueta(OPCIONES_PRESUPUESTO_PROPIEDAD, r.presupuesto)
-      : (r.operacion && rangoPorCodigo(r.operacion, r.presupuesto)?.label) || r.presupuesto
-  filas.push({ label: 'Presupuesto', valor: presupuesto })
+      : rangoPorCodigo(r.presupuesto)?.label || r.presupuesto
+  const etiquetaMonto =
+    r.operacion === 'VENTA' ? 'Valor estimado' : r.operacion === 'ALQUILER_PROPIETARIO' ? 'Pretende' : 'Presupuesto'
+  filas.push({ label: etiquetaMonto, valor: presupuesto })
 
   if (r.pago) filas.push({ label: 'Pago', valor: etiqueta(OPCIONES_PAGO, r.pago) })
   if (r.garantia) filas.push({ label: 'Garantía', valor: etiqueta(OPCIONES_GARANTIA, r.garantia) })
+  if (r.publicada) filas.push({ label: 'Publicada', valor: PUBLICADA_CORTA[r.publicada] })
   if (r.plazo) filas.push({ label: 'Plazo', valor: etiqueta(OPCIONES_PLAZO, r.plazo) })
   filas.push({ label: 'Visita', valor: siNo(r.visita) })
   filas.push({ label: 'Para vender', valor: siNo(r.vender) })

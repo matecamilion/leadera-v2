@@ -33,7 +33,9 @@ export const ETIQUETA_TIPO: Record<TipoPropiedad, string> = {
 
 const ETIQUETA_OPERACION: Record<Operacion, string> = {
   COMPRA: 'Comprar',
-  ALQUILER: 'Alquilar',
+  ALQUILER: 'Alquilar una propiedad',
+  VENTA: 'Vender mi propiedad',
+  ALQUILER_PROPIETARIO: 'Poner mi propiedad en alquiler',
 }
 
 const ETIQUETA_PRESUPUESTO_PROPIEDAD: Record<PresupuestoPropiedad, string> = {

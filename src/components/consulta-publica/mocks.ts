@@ -12,6 +12,10 @@
  *   ?mock=500        el envío falla (error con reintento)
  *   ?mock=token      el primer envío vuelve con token vencido; el segundo anda
  */
+import {
+  OPERACIONES,
+  RANGOS_PRESUPUESTO,
+} from '../../../supabase/functions/consulta-publica/encuesta.ts'
 import type { ResultadoGet, ResultadoPost } from './api'
 import type { DatosLink, PayloadConsulta } from './tipos'
 
@@ -19,22 +23,13 @@ const BASE: Omit<DatosLink, 'propiedad' | 'flujo' | 'operacion_fija' | 'link'> =
   token: 'mockslug0001.0000000000000.firma',
   asesor: { nombre: 'Lucía', apellido: 'Fernández' },
   inmobiliaria: { nombre: 'Costa Propiedades' },
-  rangos_presupuesto: {
-    COMPRA: [
-      { codigo: 'USD_0_50K', label: 'Hasta USD 50.000' },
-      { codigo: 'USD_50_100K', label: 'USD 50.000 a 100.000' },
-      { codigo: 'USD_100_150K', label: 'USD 100.000 a 150.000' },
-      { codigo: 'USD_150_250K', label: 'USD 150.000 a 250.000' },
-      { codigo: 'USD_250K_MAS', label: 'Más de USD 250.000' },
-    ],
-    ALQUILER: [
-      { codigo: 'ARS_0_400K', label: 'Hasta $400.000' },
-      { codigo: 'ARS_400_700K', label: '$400.000 a $700.000' },
-      { codigo: 'ARS_700K_1M', label: '$700.000 a $1.000.000' },
-      { codigo: 'ARS_1M_1500K', label: '$1.000.000 a $1.500.000' },
-      { codigo: 'ARS_1500K_MAS', label: 'Más de $1.500.000' },
-    ],
-  },
+  // Los mismos que arma la edge function, sin min/max.
+  rangos_presupuesto: Object.fromEntries(
+    OPERACIONES.map((op) => [
+      op,
+      RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => ({ codigo, label, moneda })),
+    ]),
+  ) as DatosLink['rangos_presupuesto'],
 }
 
 const PROPIEDAD = {

@@ -21,6 +21,8 @@ export type { Flujo, Garantia, Operacion, Pago, Plazo, PreguntaOpcional, TipoPro
 export interface RangoPresupuesto {
   codigo: string
   label: string
+  /** null = no es un monto ("No sé, quiero una tasación"). */
+  moneda: 'USD' | 'ARS' | null
 }
 
 export interface PropiedadDisponible {

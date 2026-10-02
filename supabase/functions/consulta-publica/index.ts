@@ -30,6 +30,7 @@ import { buscarLeadExistente } from './duplicados.ts'
 import {
   type ContextoEncuesta,
   type Operacion,
+  OPERACIONES,
   type PreguntaOpcional,
   RANGOS_PRESUPUESTO,
   type TipoPropiedad,
@@ -271,10 +272,14 @@ async function manejarGet(req: Request): Promise<Response> {
       metros_cuadrados: p.metros_cuadrados,
       fotos_urls: p.fotos_urls,
     },
-    rangos_presupuesto: {
-      COMPRA: RANGOS_PRESUPUESTO.COMPRA.map(({ codigo, label }) => ({ codigo, label })),
-      ALQUILER: RANGOS_PRESUPUESTO.ALQUILER.map(({ codigo, label }) => ({ codigo, label })),
-    },
+    // Las cuatro operaciones, con la moneda de cada rango: en los alquileres
+    // la página filtra por la moneda que elige la persona.
+    rangos_presupuesto: Object.fromEntries(
+      OPERACIONES.map((op) => [
+        op,
+        RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => ({ codigo, label, moneda })),
+      ]),
+    ),
   })
 }
 

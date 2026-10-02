@@ -150,6 +150,98 @@ Deno.test('validarPost: apellido obligatorio (vacío, solo espacios o largo de m
   assert(con('x'.repeat(80)).ok)
 })
 
+// --- Cuatro operaciones en el link general ---------------------------------------
+
+const PROPIETARIO = { tipo_propiedad: 'CASA', zona: 'Chauvin', plazo: 'MENOS_3M' }
+
+Deno.test('validarPost: venta de propietario completa', () => {
+  const r = validarPost(
+    postGeneral({ operacion: 'VENTA', ...PROPIETARIO, presupuesto: 'USD_150_250K', publicada: 'NO' }),
+    GENERAL,
+  )
+  assert(r.ok)
+  assertEquals(r.valor.respuestas.publicada, 'NO')
+  assertEquals([r.valor.respuestas.pago, r.valor.respuestas.garantia, r.valor.respuestas.vender], [null, null, null])
+})
+
+Deno.test('validarPost: propietario no acepta pago, garantía ni vender', () => {
+  const base = { operacion: 'VENTA', ...PROPIETARIO, presupuesto: 'TASACION', publicada: 'NO' }
+  assert(validarPost(postGeneral(base), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...base, pago: 'CONTADO' }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...base, garantia: 'PROPIETARIA' }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...base, vender: true }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ operacion: 'VENTA', ...PROPIETARIO, presupuesto: 'TASACION' }), GENERAL).ok) // falta publicada
+})
+
+Deno.test('validarPost: "No sé" vale solo para la operación que corresponde', () => {
+  const venta = { operacion: 'VENTA', ...PROPIETARIO, publicada: 'NO' }
+  const alq = { operacion: 'ALQUILER_PROPIETARIO', ...PROPIETARIO, publicada: 'NO' }
+  assert(validarPost(postGeneral({ ...venta, presupuesto: 'TASACION' }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...venta, presupuesto: 'ASESORAR' }), GENERAL).ok)
+  assert(validarPost(postGeneral({ ...alq, presupuesto: 'ASESORAR' }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...alq, presupuesto: 'TASACION' }), GENERAL).ok)
+})
+
+Deno.test('validarPost: alquiler acepta pesos y dólares, no rangos de compra', () => {
+  const base = { operacion: 'ALQUILER', tipo_propiedad: 'DEPARTAMENTO', garantia: 'SEGURO_CAUCION', plazo: 'YA', vender: false }
+  assert(validarPost(postGeneral({ ...base, presupuesto: 'ARS_500_800K' }), GENERAL).ok)
+  assert(validarPost(postGeneral({ ...base, presupuesto: 'USD_800_1200' }), GENERAL).ok)
+  assert(!validarPost(postGeneral({ ...base, presupuesto: 'USD_100_150K' }), GENERAL).ok)
+})
+
+Deno.test('validarPost: rangos nuevos de compra y legacy siguen valiendo', () => {
+  const base = { operacion: 'COMPRA', tipo_propiedad: 'CASA', pago: 'CONTADO', plazo: 'YA', vender: false }
+  assert(validarPost(postGeneral({ ...base, presupuesto: 'USD_700K_MAS' }), GENERAL).ok)
+  assert(validarPost(postGeneral({ ...base, presupuesto: 'USD_0_50K' }), GENERAL).ok) // legacy
+  const alquiler = { operacion: 'ALQUILER', tipo_propiedad: 'PH', garantia: 'NO_TENGO', plazo: 'YA', vender: false }
+  assert(validarPost(postGeneral({ ...alquiler, presupuesto: 'ARS_0_400K' }), GENERAL).ok) // legacy
+})
+
+Deno.test('validarPost: el link de propiedad no acepta operaciones de propietario', () => {
+  const ambas: ContextoEncuesta = { flujo: 'PROPIEDAD', operacionFija: null, preguntasOff: [] }
+  const base = { presupuesto: 'SI', plazo: 'YA', visita: true }
+  assert(validarPost(postGeneral({ ...base, operacion: 'COMPRA', pago: 'CONTADO' }), ambas).ok)
+  assert(!validarPost(postGeneral({ ...base, operacion: 'VENTA', publicada: 'NO' }), ambas).ok)
+})
+
+Deno.test('calificar: propietario sin publicar es caliente y captación', () => {
+  const r = respuestas({
+    operacion: 'VENTA', pago: null, visita: null, presupuesto: 'USD_150_250K', publicada: 'NO', plazo: 'MENOS_3M',
+  })
+  const c = calificar('GENERAL', r, { nombre: 'A', apellido: 'B', telefono: 'x', email: 'a@b.co' })
+  assertEquals(c.puntaje, 30 + 25 + 25 + 5)
+  assertEquals(c.temperatura, 'CALIENTE')
+  assert(c.autoAceptable)
+  assert(c.posibleCaptacion)
+})
+
+Deno.test('armarBusqueda: propietario no genera búsqueda', () => {
+  const r = respuestas({ operacion: 'ALQUILER_PROPIETARIO', pago: null, visita: null, presupuesto: 'ASESORAR', publicada: 'VARIAS' })
+  assertEquals(armarBusqueda('GENERAL', r, null), null)
+})
+
+Deno.test('armarBusqueda: alquiler en USD carga precios; en pesos, a notas', () => {
+  const usd = armarBusqueda('GENERAL', respuestas({
+    operacion: 'ALQUILER', pago: null, garantia: 'PROPIETARIA', tipo_propiedad: 'PH', presupuesto: 'USD_800_1200',
+  }), null)
+  assertEquals([usd?.precio_min, usd?.precio_max], [800, 1200])
+  const ars = armarBusqueda('GENERAL', respuestas({
+    operacion: 'ALQUILER', pago: null, garantia: 'PROPIETARIA', tipo_propiedad: 'PH', presupuesto: 'ARS_500_800K',
+  }), null)
+  assertEquals([ars?.precio_min, ars?.precio_max], [null, null])
+  assert(ars?.notas.includes('$500.000 a $800.000'))
+})
+
+Deno.test('armarResumen: propietario habla de valor y publicación', () => {
+  const r = respuestas({ operacion: 'VENTA', pago: null, visita: null, tipo_propiedad: 'CASA', zona: 'Chauvin', presupuesto: 'TASACION', publicada: 'UNA_INMOBILIARIA' })
+  const cal = calificar('GENERAL', r, { nombre: 'A', apellido: 'B', telefono: 'x', email: null })
+  const texto = armarResumen('GENERAL', r, cal, null)
+  assert(texto.includes('Venta de su propiedad'))
+  assert(texto.includes('Su propiedad: Casa en Chauvin'))
+  assert(texto.includes('Valor estimado: No sé, quiero una tasación'))
+  assert(texto.includes('Publicada: Con una inmobiliaria'))
+})
+
 // --- Puntaje ------------------------------------------------------------------
 
 function respuestas(over: Record<string, unknown> = {}) {
@@ -160,6 +252,7 @@ function respuestas(over: Record<string, unknown> = {}) {
     presupuesto: 'SI',
     pago: 'CONTADO' as const,
     garantia: null,
+    publicada: null,
     plazo: 'YA' as const,
     visita: true,
     vender: null,
@@ -207,15 +300,15 @@ Deno.test('armarBusqueda: compra general carga rango USD', () => {
   const b = armarBusqueda('GENERAL', respuestas({
     tipo_propiedad: 'CASA', zona: 'Centro', presupuesto: 'USD_100_150K', visita: null,
   }), null)
-  assertEquals([b.precio_min, b.precio_max], [100_000, 150_000])
+  assertEquals([b?.precio_min, b?.precio_max], [100_000, 150_000])
 })
 
 Deno.test('armarBusqueda: alquiler no carga precios (ARS va a notas)', () => {
   const b = armarBusqueda('GENERAL', respuestas({
     operacion: 'ALQUILER', pago: null, garantia: 'PROPIETARIA', tipo_propiedad: 'PH', presupuesto: 'ARS_0_400K',
   }), null)
-  assertEquals([b.precio_min, b.precio_max], [null, null])
-  assert(b.notas.includes('Hasta $400.000'))
+  assertEquals([b?.precio_min, b?.precio_max], [null, null])
+  assert(b?.notas.includes('Hasta $400.000'))
 })
 
 Deno.test('armarResumen: propiedad no disponible lo dice', () => {

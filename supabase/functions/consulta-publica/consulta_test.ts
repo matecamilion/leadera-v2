@@ -197,6 +197,96 @@ Deno.test('validarPost: rangos nuevos de compra y legacy siguen valiendo', () =>
   assert(validarPost(postGeneral({ ...alquiler, presupuesto: 'ARS_0_400K' }), GENERAL).ok) // legacy
 })
 
+// --- Monto del rango abierto ----------------------------------------------------
+
+const COMPRA_ALTA = {
+  operacion: 'COMPRA', tipo_propiedad: 'CASA', presupuesto: 'USD_700K_MAS', pago: 'CONTADO', plazo: 'YA', vender: false,
+}
+
+function montoValidado(respuestas: Record<string, unknown>) {
+  const r = validarPost(postGeneral(respuestas), GENERAL)
+  assert(r.ok)
+  return r.valor.respuestas.presupuesto_monto
+}
+
+Deno.test('validarPost: monto válido en los tres rangos abiertos', () => {
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 900_000 }), 900_000)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 700_000 }), 700_000) // el piso vale
+  const alquiler = { operacion: 'ALQUILER', tipo_propiedad: 'PH', garantia: 'PROPIETARIA', plazo: 'YA', vender: false }
+  assertEquals(montoValidado({ ...alquiler, presupuesto: 'ARS_2M_MAS', presupuesto_monto: 2_500_000 }), 2_500_000)
+  assertEquals(montoValidado({ ...alquiler, presupuesto: 'USD_2000_MAS', presupuesto_monto: 3_000 }), 3_000)
+  // Propietarios también.
+  const venta = { operacion: 'VENTA', tipo_propiedad: 'CASA', presupuesto: 'USD_700K_MAS', publicada: 'NO', plazo: 'YA' }
+  assertEquals(montoValidado({ ...venta, presupuesto_monto: 1_200_000 }), 1_200_000)
+})
+
+Deno.test('validarPost: sin monto, queda null', () => {
+  assertEquals(montoValidado(COMPRA_ALTA), null)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: null }), null)
+})
+
+Deno.test('validarPost: monto bajo el piso o sobre el tope se descarta, sin rechazar', () => {
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 699_999 }), null)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 35_000_001 }), null)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 35_000_000 }), 35_000_000)
+})
+
+Deno.test('validarPost: monto que no es entero se descarta', () => {
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: 900_000.5 }), null)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: '900000' }), null)
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto_monto: -1 }), null)
+})
+
+Deno.test('validarPost: monto con un rango que no es abierto se descarta', () => {
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto: 'USD_400_700K', presupuesto_monto: 900_000 }), null)
+  // Rango abierto de la primera versión: la página vieja no pregunta el monto.
+  assertEquals(montoValidado({ ...COMPRA_ALTA, presupuesto: 'USD_250K_MAS', presupuesto_monto: 900_000 }), null)
+  // Sin presupuesto tampoco.
+  const { presupuesto: _, ...sinRango } = COMPRA_ALTA
+  assertEquals(montoValidado({ ...sinRango, presupuesto_monto: 900_000 }), null)
+})
+
+Deno.test('validarPost: el link de propiedad no acepta monto', () => {
+  const r = validarPost(postGeneral({ presupuesto: 'SI', pago: 'CONTADO', plazo: 'YA', visita: true, presupuesto_monto: 900_000 }), PROP_VENTA)
+  assert(!r.ok)
+})
+
+Deno.test('calificar: el monto no cambia el puntaje', () => {
+  const sin = calificar('GENERAL', respuestas({ presupuesto: 'USD_700K_MAS', visita: null }), CONTACTO)
+  const con = calificar('GENERAL', respuestas({ presupuesto: 'USD_700K_MAS', presupuesto_monto: 900_000, visita: null }), CONTACTO)
+  assertEquals(con, sin)
+})
+
+Deno.test('armarResumen: rango abierto con monto', () => {
+  const r = respuestas({ presupuesto: 'USD_700K_MAS', presupuesto_monto: 900_000, visita: null })
+  const texto = armarResumen('GENERAL', r, calificar('GENERAL', r, CONTACTO), null)
+  assert(texto.includes('Presupuesto: Más de USD 700.000 (indicó USD 900.000).'))
+  const sin = respuestas({ presupuesto: 'USD_700K_MAS', visita: null })
+  assert(armarResumen('GENERAL', sin, calificar('GENERAL', sin, CONTACTO), null).includes('Presupuesto: Más de USD 700.000.'))
+})
+
+Deno.test('armarBusqueda: USD con monto, el monto es el techo', () => {
+  const b = armarBusqueda('GENERAL', respuestas({ presupuesto: 'USD_700K_MAS', presupuesto_monto: 900_000, visita: null }), null)
+  assertEquals([b?.precio_min, b?.precio_max], [700_000, 900_000])
+  const alquiler = armarBusqueda('GENERAL', respuestas({
+    operacion: 'ALQUILER', pago: null, garantia: 'PROPIETARIA', presupuesto: 'USD_2000_MAS', presupuesto_monto: 3_000,
+  }), null)
+  assertEquals([alquiler?.precio_min, alquiler?.precio_max], [2_000, 3_000])
+})
+
+Deno.test('armarBusqueda: USD sin monto, sin techo como hoy', () => {
+  const b = armarBusqueda('GENERAL', respuestas({ presupuesto: 'USD_700K_MAS', visita: null }), null)
+  assertEquals([b?.precio_min, b?.precio_max], [700_000, null])
+})
+
+Deno.test('armarBusqueda: pesos con monto, a notas y sin precios', () => {
+  const b = armarBusqueda('GENERAL', respuestas({
+    operacion: 'ALQUILER', pago: null, garantia: 'PROPIETARIA', presupuesto: 'ARS_2M_MAS', presupuesto_monto: 2_500_000,
+  }), null)
+  assertEquals([b?.precio_min, b?.precio_max], [null, null])
+  assert(b?.notas.includes('presupuesto: Más de $2.000.000 (indicó $2.500.000)'))
+})
+
 Deno.test('validarPost: el link de propiedad no acepta operaciones de propietario', () => {
   const ambas: ContextoEncuesta = { flujo: 'PROPIEDAD', operacionFija: null, preguntasOff: [] }
   const base = { presupuesto: 'SI', plazo: 'YA', visita: true }
@@ -250,6 +340,7 @@ function respuestas(over: Record<string, unknown> = {}) {
     tipo_propiedad: null,
     zona: null,
     presupuesto: 'SI',
+    presupuesto_monto: null,
     pago: 'CONTADO' as const,
     garantia: null,
     publicada: null,

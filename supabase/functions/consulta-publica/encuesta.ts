@@ -165,6 +165,23 @@ export function rangoValido(operacion: Operacion, codigo: string): RangoPresupue
   )
 }
 
+/**
+ * El monto que puede indicar quien elige un rango abierto ("Más de USD
+ * 700.000"): desde el piso del rango hasta este múltiplo del piso.
+ */
+export const TOPE_MONTO_POR_PISO = 50
+
+/**
+ * Límites del monto para ese rango, o null si el rango no lo lleva. Solo los
+ * rangos abiertos vigentes, no los de la primera versión: la página vieja no
+ * pregunta el monto.
+ */
+export function limitesMonto(operacion: Operacion, codigo: string): { min: number; max: number } | null {
+  const r = RANGOS_PRESUPUESTO[operacion].find((x) => x.codigo === codigo)
+  if (!r || r.max !== null || r.moneda === null || r.min === null) return null
+  return { min: r.min, max: r.min * TOPE_MONTO_POR_PISO }
+}
+
 /** Para etiquetar un código guardado, sea de la operación que sea. */
 export function rangoPorCodigo(codigo: string): RangoPresupuesto | null {
   for (const op of OPERACIONES) {
@@ -188,6 +205,8 @@ export interface RespuestasValidas {
   zona: string | null
   /** Código de rango (GENERAL) o SI/UN_POCO_MAS/NO (PROPIEDAD). null = no contestó. */
   presupuesto: string | null
+  /** Solo con un rango abierto: el monto que indicó. No suma puntos. */
+  presupuesto_monto: number | null
   pago: Pago | null
   garantia: Garantia | null
   /** Solo propietarios. */
@@ -295,6 +314,7 @@ export function validarPost(datos: unknown, ctx: ContextoEncuesta): Resultado<Po
   if (general) {
     permitidas.add('tipo_propiedad')
     permitidas.add('zona')
+    permitidas.add('presupuesto_monto')
     // "¿Tenés una propiedad para vender?" no tiene sentido para quien ya vende.
     if (!propietario && !off.has('vender')) permitidas.add('vender')
   } else if (!off.has('visita')) {
@@ -332,6 +352,15 @@ export function validarPost(datos: unknown, ctx: ContextoEncuesta): Resultado<Po
       if (!p.ok) return p
       presupuesto = p.valor
     }
+  }
+
+  // El monto es opcional y aproximado: si no sirve (fuera de los límites, de
+  // otro rango, no entero) se descarta y la consulta sigue igual.
+  let presupuesto_monto: number | null = null
+  const limites = presupuesto ? limitesMonto(operacion, presupuesto) : null
+  const m = r.presupuesto_monto
+  if (limites && typeof m === 'number' && Number.isSafeInteger(m) && m >= limites.min && m <= limites.max) {
+    presupuesto_monto = m
   }
 
   let pago: Pago | null = null
@@ -408,6 +437,7 @@ export function validarPost(datos: unknown, ctx: ContextoEncuesta): Resultado<Po
         tipo_propiedad,
         zona,
         presupuesto,
+        presupuesto_monto,
         pago,
         garantia,
         publicada,

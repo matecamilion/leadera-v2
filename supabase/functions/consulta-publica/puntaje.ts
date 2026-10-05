@@ -162,6 +162,14 @@ export function formatearPrecio(precio: number | null, moneda: string): string |
   return moneda === 'ARS' ? `$${numero}` : `${moneda} ${numero}`
 }
 
+/** "Más de USD 700.000 (indicó USD 900.000)"; sin monto, solo el label. */
+function etiquetaRango(codigo: string, monto: number | null): string | undefined {
+  const rango = rangoPorCodigo(codigo)
+  if (!rango) return undefined
+  const indicado = rango.moneda ? formatearPrecio(monto, rango.moneda) : null
+  return indicado ? `${rango.label} (indicó ${indicado})` : rango.label
+}
+
 function describirPropiedad(p: PropiedadPublica): string {
   const partes = [ETIQUETA_TIPO[p.tipo]]
   if (p.zona) partes.push(`en ${p.zona}`)
@@ -210,7 +218,7 @@ export function armarResumen(
   if (r.presupuesto) {
     const texto = flujo === 'PROPIEDAD'
       ? ETIQUETA_PRESUPUESTO_PROPIEDAD[r.presupuesto]
-      : rangoPorCodigo(r.presupuesto)?.label
+      : etiquetaRango(r.presupuesto, r.presupuesto_monto)
     lineas.push(`${etiquetaMonto}: ${texto}.`)
   } else {
     lineas.push(`${etiquetaMonto}: no lo contestó.`)
@@ -271,21 +279,23 @@ export function armarBusqueda(
 
   const rango = r.presupuesto ? rangoPorCodigo(r.presupuesto) : null
 
+  // En un rango abierto ("Más de USD 700.000"), el monto que indicó es el techo.
   if (rango?.moneda === 'USD') {
     return {
       tipo_propiedad: r.tipo_propiedad,
       zona: r.zona,
       precio_min: rango?.min ?? null,
-      precio_max: rango?.max ?? null,
+      precio_max: rango?.max ?? r.presupuesto_monto,
       notas: `${operacion} · desde link de consultas`,
     }
   }
 
+  const presupuesto = r.presupuesto ? etiquetaRango(r.presupuesto, r.presupuesto_monto) : undefined
   return {
     tipo_propiedad: r.tipo_propiedad,
     zona: r.zona,
     precio_min: null,
     precio_max: null,
-    notas: `${operacion} · presupuesto: ${rango?.label ?? 'no lo contestó'} · desde link de consultas`,
+    notas: `${operacion} · presupuesto: ${presupuesto ?? 'no lo contestó'} · desde link de consultas`,
   }
 }

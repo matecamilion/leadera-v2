@@ -29,6 +29,7 @@ import { normalizarTelefonoAR } from '../_shared/telefono.ts'
 import { buscarLeadExistente } from './duplicados.ts'
 import {
   type ContextoEncuesta,
+  limitesMonto,
   type Operacion,
   OPERACIONES,
   type PreguntaOpcional,
@@ -273,11 +274,16 @@ async function manejarGet(req: Request): Promise<Response> {
       fotos_urls: p.fotos_urls,
     },
     // Las cuatro operaciones, con la moneda de cada rango: en los alquileres
-    // la página filtra por la moneda que elige la persona.
+    // la página filtra por la moneda que elige la persona. Los rangos abiertos
+    // ("Más de …") traen `monto`: la página pide el monto solo si viene, así
+    // nunca lo manda a una edge que lo rechazaría.
     rangos_presupuesto: Object.fromEntries(
       OPERACIONES.map((op) => [
         op,
-        RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => ({ codigo, label, moneda })),
+        RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => {
+          const monto = limitesMonto(op, codigo)
+          return { codigo, label, moneda, ...(monto ? { monto } : {}) }
+        }),
       ]),
     ),
   })

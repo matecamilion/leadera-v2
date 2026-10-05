@@ -1,6 +1,7 @@
 import { rangoPorCodigo } from '../../../supabase/functions/consulta-publica/encuesta.ts'
 import {
   ETIQUETA_TIPO,
+  formatearPrecio,
   OPCIONES_GARANTIA,
   OPCIONES_PAGO,
   OPCIONES_PLAZO,
@@ -24,6 +25,8 @@ interface Respuestas {
   tipo_propiedad?: TipoPropiedad | null
   zona?: string | null
   presupuesto?: string | null
+  /** Solo con un rango abierto ("Más de USD 700.000"), si lo indicó. */
+  presupuesto_monto?: number | null
   pago?: string | null
   garantia?: string | null
   publicada?: string | null
@@ -76,6 +79,14 @@ const PUBLICADA_CORTA: Record<string, string> = {
 
 const esPropietario = (op: Operacion | undefined) => op === 'VENTA' || op === 'ALQUILER_PROPIETARIO'
 
+/** "Más de USD 700.000 · indicó USD 900.000"; sin monto, solo el rango. */
+function rangoConMonto(codigo: string, monto: number | null | undefined): string | undefined {
+  const rango = rangoPorCodigo(codigo)
+  if (!rango) return undefined
+  const indicado = rango.moneda && typeof monto === 'number' ? formatearPrecio(monto, rango.moneda) : null
+  return indicado ? `${rango.label} · indicó ${indicado}` : rango.label
+}
+
 const PRESUPUESTO_PROPIEDAD_CORTO: Record<string, string> = {
   SI: 'Entra en presupuesto',
   UN_POCO_MAS: 'Algo por encima',
@@ -119,7 +130,7 @@ export function resumenCorto(crudo: unknown, propiedad: PropiedadDeOrigen | null
 
   if (!r.presupuesto) partes.push('Sin presupuesto')
   else if (r.flujo === 'PROPIEDAD') partes.push(PRESUPUESTO_PROPIEDAD_CORTO[r.presupuesto])
-  else partes.push(rangoPorCodigo(r.presupuesto)?.label)
+  else partes.push(rangoConMonto(r.presupuesto, r.presupuesto_monto))
 
   if (r.pago) partes.push(PAGO_CORTO[r.pago])
   if (r.garantia) partes.push(GARANTIA_CORTA[r.garantia])
@@ -145,7 +156,7 @@ export function filasRespuestas(crudo: unknown): { label: string; valor: string 
     ? 'No lo contestó'
     : r.flujo === 'PROPIEDAD'
       ? etiqueta(OPCIONES_PRESUPUESTO_PROPIEDAD, r.presupuesto)
-      : rangoPorCodigo(r.presupuesto)?.label || r.presupuesto
+      : rangoConMonto(r.presupuesto, r.presupuesto_monto) ?? r.presupuesto
   const etiquetaMonto =
     r.operacion === 'VENTA' ? 'Valor estimado' : r.operacion === 'ALQUILER_PROPIETARIO' ? 'Pretende' : 'Presupuesto'
   filas.push({ label: etiquetaMonto, valor: presupuesto })

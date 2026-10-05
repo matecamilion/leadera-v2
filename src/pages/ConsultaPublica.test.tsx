@@ -2,11 +2,13 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  limitesMonto,
   OPERACIONES,
   RANGOS_PRESUPUESTO,
 } from '../../supabase/functions/consulta-publica/encuesta.ts'
 import { obtenerLink } from '../components/consulta-publica/api'
-import type { DatosLink } from '../components/consulta-publica/tipos'
+import { armarPayload } from '../components/consulta-publica/pasos'
+import type { DatosLink, Respuestas } from '../components/consulta-publica/tipos'
 import ConsultaPublica from './ConsultaPublica'
 
 vi.mock('../components/consulta-publica/api', () => ({
@@ -24,8 +26,22 @@ const BASE: Omit<DatosLink, 'rangos_presupuesto'> = {
   propiedad: null,
 }
 
-/** Lo que manda la edge actual: las 4 operaciones, con moneda. */
+/** Lo que manda la edge actual: las 4 operaciones, con moneda y `monto` en los rangos abiertos. */
 const EDGE_ACTUAL: DatosLink = {
+  ...BASE,
+  rangos_presupuesto: Object.fromEntries(
+    OPERACIONES.map((op) => [
+      op,
+      RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => {
+        const monto = limitesMonto(op, codigo)
+        return { codigo, label, moneda, ...(monto ? { monto } : {}) }
+      }),
+    ]),
+  ) as DatosLink['rangos_presupuesto'],
+}
+
+/** La edge anterior al monto: con moneda, sin `monto`. Rechazaría `presupuesto_monto`. */
+const EDGE_SIN_MONTO: DatosLink = {
   ...BASE,
   rangos_presupuesto: Object.fromEntries(
     OPERACIONES.map((op) => [
@@ -129,5 +145,157 @@ describe('paso de precio de alquiler', () => {
     expect(await screen.findByRole('button', { name: 'Comprar' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Vender mi propiedad' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Poner mi propiedad en alquiler' })).toBeNull()
+  })
+})
+
+describe('monto del rango abierto', () => {
+  beforeEach(() => vi.mocked(obtenerLink).mockReset())
+
+  const NOMBRE_CAMPO = /¿Cuánto, más o menos\?/
+  const campo = () => screen.queryByRole<HTMLInputElement>('textbox', { name: NOMBRE_CAMPO })
+
+  async function escribirMonto(valor: string) {
+    fireEvent.change(await screen.findByRole('textbox', { name: NOMBRE_CAMPO }), { target: { value: valor } })
+  }
+
+  it('aparece solo con el rango abierto, y el rango abierto no avanza solo', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Comprar')
+    expect(campo()).toBeNull()
+
+    await clic('Más de USD 700.000')
+    expect(screen.getByRole('heading', { name: '¿Cuál es tu presupuesto?' })).toBeTruthy()
+    expect(campo()).toBeTruthy()
+    expect(screen.getByText('USD')).toBeTruthy()
+
+    // Con otro rango, avanza como siempre.
+    await clic('USD 400.000 a 700.000')
+    expect(await screen.findByRole('heading', { name: '¿Cómo pensás pagar?' })).toBeTruthy()
+  })
+
+  it('formatea con separador de miles mientras se escribe', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Comprar')
+    await clic('Más de USD 700.000')
+    await escribirMonto('900000')
+    expect(campo()?.value).toBe('900.000')
+    await escribirMonto('1.2a50000')
+    expect(campo()?.value).toBe('1.250.000')
+  })
+
+  it('en alquiler en pesos lleva $ y en dólares USD', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Alquilar una propiedad')
+    await clic('Más de $2.000.000')
+    expect(campo()).toBeTruthy()
+    expect(screen.getByText('$')).toBeTruthy()
+
+    await clic('Dólares')
+    expect(campo()).toBeNull()
+    await clic('Más de USD 2.000')
+    expect(campo()).toBeTruthy()
+    expect(screen.getByText('USD')).toBeTruthy()
+  })
+
+  it('no deja seguir fuera de los límites; sí con el campo vacío', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Comprar')
+    await clic('Más de USD 700.000')
+
+    await escribirMonto('500000')
+    await clic('Continuar')
+    expect(screen.getByText('Tiene que ser de USD 700.000 o más.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '¿Cuál es tu presupuesto?' })).toBeTruthy()
+
+    await escribirMonto('99000000')
+    await clic('Continuar')
+    expect(screen.getByText('Revisá el monto: el máximo es USD 35.000.000.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '¿Cuál es tu presupuesto?' })).toBeTruthy()
+
+    await escribirMonto('')
+    await clic('Continuar')
+    expect(await screen.findByRole('heading', { name: '¿Cómo pensás pagar?' })).toBeTruthy()
+  })
+
+  it('se borra al elegir otro rango', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Comprar')
+    await clic('Más de USD 700.000')
+    await escribirMonto('900000')
+    await clic('Continuar')
+
+    await clic('Atrás')
+    expect(campo()?.value).toBe('900.000')
+    await clic('USD 400.000 a 700.000')
+    await clic('Atrás')
+    await clic('Más de USD 700.000')
+    expect(campo()?.value).toBe('')
+  })
+
+  it('se borra al cambiar de moneda', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Alquilar una propiedad')
+    await clic('Más de $2.000.000')
+    await escribirMonto('2500000')
+    await clic('Continuar')
+
+    await clic('Atrás')
+    expect(campo()?.value).toBe('2.500.000')
+    await clic('Dólares')
+    await clic('Pesos')
+    expect(campo()).toBeNull()
+    await clic('Más de $2.000.000')
+    expect(campo()?.value).toBe('')
+  })
+
+  it('se borra al cambiar de operación', async () => {
+    montar(EDGE_ACTUAL)
+    await irAlPrecio('Comprar', 'Casa')
+    await clic('Más de USD 700.000')
+    await escribirMonto('900000')
+    await clic('Continuar')
+
+    // Pago → precio → zona → tipo → operación.
+    for (let i = 0; i < 4; i++) await clic('Atrás')
+    await irAlPrecio('Vender mi propiedad', 'Casa')
+    await clic('Más de USD 700.000')
+    expect(campo()?.value).toBe('')
+  })
+
+  it('con la edge sin monto: no aparece el campo y el rango abierto avanza solo', async () => {
+    montar(EDGE_SIN_MONTO)
+    await irAlPrecio('Comprar')
+    await clic('Más de USD 700.000')
+    expect(await screen.findByRole('heading', { name: '¿Cómo pensás pagar?' })).toBeTruthy()
+    expect(campo()).toBeNull()
+  })
+})
+
+describe('payload con monto', () => {
+  const contacto = { nombre: 'Ana', apellido: 'Gómez', telefono: '2235551234', email: '' }
+  const compra: Respuestas = {
+    operacion: 'COMPRA',
+    tipo_propiedad: 'CASA',
+    presupuesto: 'USD_700K_MAS',
+    presupuesto_monto: 900_000,
+    pago: 'CONTADO',
+    plazo: 'YA',
+    vender: false,
+  }
+  const enviado = (datos: DatosLink, r: Respuestas) => armarPayload(datos, 't', r, contacto, '').respuestas
+
+  it('se manda si la edge trae monto en el rango', () => {
+    expect(enviado(EDGE_ACTUAL, compra).presupuesto_monto).toBe(900_000)
+  })
+
+  it('no se manda si la edge no trae monto en el rango', () => {
+    const r = enviado(EDGE_SIN_MONTO, compra)
+    expect(r.presupuesto).toBe('USD_700K_MAS')
+    expect('presupuesto_monto' in r).toBe(false)
+  })
+
+  it('no se manda con un rango que no es abierto, ni fuera de los límites', () => {
+    expect('presupuesto_monto' in enviado(EDGE_ACTUAL, { ...compra, presupuesto: 'USD_400_700K' })).toBe(false)
+    expect('presupuesto_monto' in enviado(EDGE_ACTUAL, { ...compra, presupuesto_monto: 1 })).toBe(false)
   })
 })

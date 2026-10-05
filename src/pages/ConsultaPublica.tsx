@@ -28,15 +28,18 @@ import {
 } from '../components/consulta-publica/Pantallas'
 import { PasoContacto } from '../components/consulta-publica/PasoContacto'
 import { esPropietario } from '../../supabase/functions/consulta-publica/encuesta.ts'
-import { CampoZona, ListaOpciones, Pregunta, SelectorMoneda } from '../components/consulta-publica/Pregunta'
+import { CampoMonto, CampoZona, ListaOpciones, Pregunta, SelectorMoneda } from '../components/consulta-publica/Pregunta'
 import {
   armarPasos,
   armarPayload,
+  conMonto,
   conOperacion,
+  conPresupuesto,
   monedaDeRango,
   operacionDe,
   operacionDisponible,
   rangosParaPaso,
+  sinPresupuesto,
   type IdPaso,
 } from '../components/consulta-publica/pasos'
 import type {
@@ -477,22 +480,35 @@ export default function ConsultaPublica() {
                 valor={moneda}
                 onCambiar={(m) => {
                   setMonedaAlquiler(m)
-                  // Un rango de la otra moneda ya no vale.
+                  // Un rango de la otra moneda ya no vale, ni su monto.
                   const actual = elegido && monedaDeRango(elegido)
-                  if (actual && actual !== m) {
-                    setRespuestas((r) => {
-                      const { presupuesto: _, ...resto } = r
-                      return resto
-                    })
-                  }
+                  if (actual && actual !== m) setRespuestas(sinPresupuesto)
                 }}
               />
             )}
             <ListaOpciones
               opciones={visibles.map((r) => ({ valor: r.codigo, label: r.label }))}
               elegida={respuestas.presupuesto}
-              onElegir={(v) => elegir({ presupuesto: v })}
+              onElegir={(v) => {
+                // Un rango abierto que trae `monto` no avanza solo: abajo
+                // aparece el campo para indicarlo, con su "Continuar".
+                setRespuestas((r) => conPresupuesto(r, v))
+                if (!todos.find((r) => r.codigo === v)?.monto) avanzar()
+              }}
             />
+            {elegido?.monto && (
+              <CampoMonto
+                key={elegido.codigo}
+                // Con un rango elegido, `moneda` es la suya.
+                moneda={moneda}
+                limites={elegido.monto}
+                inicial={respuestas.presupuesto_monto}
+                onContinuar={(monto) => {
+                  setRespuestas((r) => conMonto(r, monto))
+                  avanzar()
+                }}
+              />
+            )}
           </Pregunta>
         )
       }

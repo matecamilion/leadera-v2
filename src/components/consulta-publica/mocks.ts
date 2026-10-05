@@ -13,6 +13,7 @@
  *   ?mock=token      el primer envío vuelve con token vencido; el segundo anda
  */
 import {
+  limitesMonto,
   OPERACIONES,
   RANGOS_PRESUPUESTO,
 } from '../../../supabase/functions/consulta-publica/encuesta.ts'
@@ -23,11 +24,15 @@ const BASE: Omit<DatosLink, 'propiedad' | 'flujo' | 'operacion_fija' | 'link'> =
   token: 'mockslug0001.0000000000000.firma',
   asesor: { nombre: 'Lucía', apellido: 'Fernández' },
   inmobiliaria: { nombre: 'Costa Propiedades' },
-  // Los mismos que arma la edge function, sin min/max.
+  // Los mismos que arma la edge function: sin min/max, y con `monto` en los
+  // rangos abiertos.
   rangos_presupuesto: Object.fromEntries(
     OPERACIONES.map((op) => [
       op,
-      RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => ({ codigo, label, moneda })),
+      RANGOS_PRESUPUESTO[op].map(({ codigo, label, moneda }) => {
+        const monto = limitesMonto(op, codigo)
+        return { codigo, label, moneda, ...(monto ? { monto } : {}) }
+      }),
     ]),
   ) as DatosLink['rangos_presupuesto'],
 }

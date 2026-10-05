@@ -66,6 +66,40 @@ export function rangosParaPaso(
   return { conSelector, rangos: filtrados.length > 0 ? filtrados : lista }
 }
 
+/** El rango elegido en el link general, con lo que mandó la edge. */
+export function rangoElegido(datos: DatosLink, r: Respuestas): RangoPresupuesto | undefined {
+  const op = operacionDe(datos, r)
+  if (datos.flujo !== 'GENERAL' || !op || !r.presupuesto) return undefined
+  return datos.rangos_presupuesto?.[op]?.find((x) => x.codigo === r.presupuesto)
+}
+
+/** El monto entra en los límites que mandó la edge para ese rango. */
+export function montoEnLimites(monto: number, limites: { min: number; max: number }): boolean {
+  return Number.isSafeInteger(monto) && monto >= limites.min && monto <= limites.max
+}
+
+function sinMonto(r: Respuestas): Respuestas {
+  const { presupuesto_monto: _, ...resto } = r
+  return resto
+}
+
+/** Elegir un rango. Si es otro, el monto del anterior ya no vale. */
+export function conPresupuesto(r: Respuestas, codigo: string): Respuestas {
+  if (r.presupuesto === codigo) return r
+  return { ...sinMonto(r), presupuesto: codigo }
+}
+
+/** Sin rango (cambió la moneda): tampoco hay monto. */
+export function sinPresupuesto(r: Respuestas): Respuestas {
+  const { presupuesto: _, ...resto } = sinMonto(r)
+  return resto
+}
+
+/** El monto del rango abierto; undefined lo borra (se dejó vacío). */
+export function conMonto(r: Respuestas, monto: number | undefined): Respuestas {
+  return monto === undefined ? sinMonto(r) : { ...r, presupuesto_monto: monto }
+}
+
 export type IdPaso =
   | 'operacion'
   | 'tipo_propiedad'
@@ -121,12 +155,13 @@ export function armarPasos(datos: DatosLink, r: Respuestas): IdPaso[] {
 
 /**
  * Al cambiar de operación se borra lo que ya no aplica: el rango (otra lista,
- * quizás otra moneda), pago, garantía, publicada y, para un propietario,
+ * quizás otra moneda) y su monto, pago, garantía, publicada y, para un propietario,
  * "vender". Así nunca se manda una clave que el servidor rechazaría.
  */
 export function conOperacion(datos: DatosLink, r: Respuestas, operacion: Operacion): Respuestas {
   if (r.operacion === operacion) return r
   const siguiente: Respuestas = { ...r, operacion }
+  delete siguiente.presupuesto_monto
   delete siguiente.pago
   delete siguiente.garantia
   delete siguiente.publicada
@@ -135,9 +170,13 @@ export function conOperacion(datos: DatosLink, r: Respuestas, operacion: Operaci
   return siguiente
 }
 
-/** Las respuestas que se mandan: solo las de los pasos de este flujo. */
-export function respuestasParaEnviar(datos: DatosLink, r: Respuestas): Record<string, string | boolean> {
-  const salida: Record<string, string | boolean> = {}
+/**
+ * Las respuestas que se mandan: solo las de los pasos de este flujo, más el
+ * monto si el rango elegido lo admite (la edge lo anunció) y entra en sus
+ * límites.
+ */
+export function respuestasParaEnviar(datos: DatosLink, r: Respuestas): Record<string, string | boolean | number> {
+  const salida: Record<string, string | boolean | number> = {}
   for (const paso of armarPasos(datos, r)) {
     if (paso === 'contacto') continue
     if (paso === 'operacion' && datos.operacion_fija) continue
@@ -145,6 +184,10 @@ export function respuestasParaEnviar(datos: DatosLink, r: Respuestas): Record<st
     if (valor === undefined) continue
     if (paso === 'zona' && typeof valor === 'string' && !valor.trim()) continue
     salida[paso] = typeof valor === 'string' ? valor.trim() : valor
+  }
+  const limites = rangoElegido(datos, r)?.monto
+  if (salida.presupuesto && limites && r.presupuesto_monto !== undefined && montoEnLimites(r.presupuesto_monto, limites)) {
+    salida.presupuesto_monto = r.presupuesto_monto
   }
   return salida
 }

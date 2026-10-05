@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import type { Opcion } from './catalogo'
+import { formatearPrecio, type Opcion } from './catalogo'
 
 /**
  * Marco de una pregunta: Atrás, título y contenido.
@@ -127,6 +127,116 @@ export function CampoZona({
         className="min-h-[48px] w-full rounded-md bg-primary px-4 py-3 text-[0.95rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-hover active:bg-primary-active motion-reduce:transition-none"
       >
         {zona.trim() ? 'Continuar' : 'No tengo preferencia'}
+      </button>
+    </form>
+  )
+}
+
+const miles = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
+
+/** Un ejemplo redondo un poco arriba del piso: 875.000, 2.500.000, 2.500. */
+function ejemplo(min: number): string {
+  const paso = 10 ** Math.max(0, String(min).length - 2)
+  return miles.format(Math.round((min * 1.25) / paso) * paso)
+}
+
+/**
+ * El monto, opcional, de un rango abierto ("Más de USD 700.000"). Los límites
+ * los manda la edge. Vacío se puede seguir; fuera de los límites, no.
+ *
+ * Se enfoca al montarse: aparece cuando la persona elige el rango. Volviendo
+ * con Atrás se monta junto con el paso, y el foco se lo queda el título
+ * (el efecto del padre corre después).
+ */
+export function CampoMonto({
+  moneda,
+  limites,
+  inicial,
+  onContinuar,
+}: {
+  moneda: 'USD' | 'ARS'
+  limites: { min: number; max: number }
+  inicial: number | undefined
+  onContinuar: (monto: number | undefined) => void
+}) {
+  const [texto, setTexto] = useState(inicial === undefined ? '' : miles.format(inicial))
+  const [mostrarError, setMostrarError] = useState(false)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    ref.current?.focus()
+  }, [])
+
+  const digitos = texto.replace(/\D/g, '')
+  const monto = digitos ? Number(digitos) : undefined
+  const error =
+    monto === undefined
+      ? null
+      : monto < limites.min
+        ? `Tiene que ser de ${formatearPrecio(limites.min, moneda)} o más.`
+        : monto > limites.max
+          ? `Revisá el monto: el máximo es ${formatearPrecio(limites.max, moneda)}.`
+          : null
+
+  function cambiar(valor: string) {
+    // Solo dígitos, sin ceros adelante, con el punto de miles mientras escribe.
+    const d = valor.replace(/\D/g, '').replace(/^0+/, '').slice(0, 12)
+    setTexto(d ? miles.format(Number(d)) : '')
+  }
+
+  function enviar(e: FormEvent) {
+    e.preventDefault()
+    if (error) return setMostrarError(true)
+    onContinuar(monto)
+  }
+
+  const verError = mostrarError && error !== null
+
+  return (
+    <form onSubmit={enviar} noValidate className="mt-4 flex flex-col gap-3">
+      <div>
+        <label htmlFor="monto" className="block text-sm font-medium text-ink">
+          ¿Cuánto, más o menos?
+          <span className="font-normal text-ink-subtle"> (opcional)</span>
+        </label>
+        <div className="relative mt-1.5">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-base font-medium text-ink-muted"
+          >
+            {moneda === 'USD' ? 'USD' : '$'}
+          </span>
+          <input
+            ref={ref}
+            id="monto"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={texto}
+            onChange={(e) => cambiar(e.target.value)}
+            onBlur={() => setMostrarError(true)}
+            placeholder={`Ej.: ${ejemplo(limites.min)}`}
+            aria-invalid={verError ? true : undefined}
+            aria-describedby={verError ? 'monto-error' : undefined}
+            className={[
+              'block w-full rounded-md border bg-surface py-3 pr-3.5 text-base text-ink tabular-nums placeholder:text-ink-subtle focus:outline-2 focus:outline-offset-0',
+              moneda === 'USD' ? 'pl-14' : 'pl-8',
+              verError
+                ? 'border-danger focus:border-danger focus:outline-danger'
+                : 'border-border hover:border-ink-subtle focus:border-primary focus:outline-primary',
+            ].join(' ')}
+          />
+        </div>
+        {verError && (
+          <p id="monto-error" className="mt-1.5 text-sm text-danger">
+            {error}
+          </p>
+        )}
+      </div>
+      <button
+        type="submit"
+        className="min-h-[48px] w-full rounded-md bg-primary px-4 py-3 text-[0.95rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-hover active:bg-primary-active motion-reduce:transition-none"
+      >
+        Continuar
       </button>
     </form>
   )

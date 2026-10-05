@@ -24,6 +24,12 @@ export interface RangoPresupuesto {
   label: string
   /** null = no es un monto ("No sé, quiero una tasación"). */
   moneda: 'USD' | 'ARS' | null
+  /**
+   * Solo en los rangos abiertos ("Más de USD 700.000"): los límites del monto
+   * que se puede indicar. Sin esto (una edge anterior) el monto no se pide,
+   * porque esa edge lo rechazaría.
+   */
+  monto?: { min: number; max: number }
 }
 
 export interface PropiedadDisponible {
@@ -59,6 +65,8 @@ export interface Respuestas {
   tipo_propiedad?: TipoPropiedad
   zona?: string
   presupuesto?: string
+  /** Opcional, solo con un rango que trae `monto`. */
+  presupuesto_monto?: number
   pago?: Pago
   garantia?: Garantia
   /** Solo propietarios: si ya la tienen publicada. */
@@ -79,6 +87,6 @@ export interface PayloadConsulta {
   token: string
   hp: string
   consentimiento: true
-  respuestas: Record<string, string | boolean>
+  respuestas: Record<string, string | boolean | number>
   contacto: { nombre: string; apellido: string; telefono: string; email?: string }
 }

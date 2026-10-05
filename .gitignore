@@ -32,3 +32,6 @@ dist-ssr
 dev-dist
 supabase/.temp/
 reference-angular-front.zip
+
+# Lock que genera deno test / deno check
+deno.lock

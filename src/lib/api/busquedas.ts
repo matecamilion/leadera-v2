@@ -1,9 +1,22 @@
 import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 import type { TipoPropiedad } from './propiedades'
+import type { TipoOperacion } from './operaciones'
 import { interpretarErrorSupabase } from '../errores'
 
 export type Busqueda = Database['public']['Tables']['busquedas']['Row']
+
+/**
+ * El `tipo_operacion` de la búsqueda según el tipo de la operación que la usa.
+ *
+ * La columna admite 'COMPRA', 'ALQUILER' o null ("sin definir"). VENTA y
+ * ALQUILER son el lado que ofrece y no llevan búsqueda, así que dan null.
+ */
+export function tipoOperacionDeBusqueda(tipo: TipoOperacion): 'COMPRA' | 'ALQUILER' | null {
+  if (tipo === 'COMPRA') return 'COMPRA'
+  if (tipo === 'BUSQUEDA_ALQUILER') return 'ALQUILER'
+  return null
+}
 
 /**
  * Los criterios que carga el agente. Todos opcionales.
@@ -127,7 +140,7 @@ export async function guardarBusqueda(
 
   const { data: operacion, error: errorOperacion } = await supabase
     .from('operaciones')
-    .select('busqueda_id')
+    .select('busqueda_id, tipo')
     .eq('id', operacionId)
     .maybeSingle()
 
@@ -136,11 +149,15 @@ export async function guardarBusqueda(
   }
   if (!operacion) throw new Error('No tenés permiso para editar esta operación.')
 
+  // Sale de la operación ya guardada, no del formulario: los criterios se
+  // guardan después de la operación, así que el tipo leído es el vigente.
+  const tipo_operacion = tipoOperacionDeBusqueda(operacion.tipo)
+
   // --- La operación ya tiene búsqueda: se actualiza esa fila ---
   if (operacion.busqueda_id) {
     const { data, error } = await supabase
       .from('busquedas')
-      .update(criterios)
+      .update({ ...criterios, tipo_operacion })
       .eq('id', operacion.busqueda_id)
       .select('id')
       .maybeSingle()
@@ -155,6 +172,7 @@ export async function guardarBusqueda(
     .from('busquedas')
     .insert({
       ...criterios,
+      tipo_operacion,
       lead_id: leadId,
       inmobiliaria_id: perfil.inmobiliaria_id,
       agente_id: perfil.id,
@@ -182,6 +200,35 @@ export async function guardarBusqueda(
   }
 
   return creada.id
+}
+
+/**
+ * Alinea el `tipo_operacion` de la búsqueda vinculada con el tipo de la
+ * operación, para cuando la operación pasa de COMPRA a BUSQUEDA_ALQUILER o al
+ * revés sin que se vuelvan a guardar los criterios (`guardarBusqueda` ya lo
+ * escribe cuando sí se guardan).
+ *
+ * Con un tipo que no busca (VENTA, ALQUILER) no hace nada: la búsqueda queda
+ * como estaba. Si ya tenía el valor correcto, el filtro hace que no se escriba.
+ */
+export async function sincronizarTipoOperacionBusqueda(
+  busquedaId: string,
+  tipo: TipoOperacion,
+): Promise<void> {
+  const tipo_operacion = tipoOperacionDeBusqueda(tipo)
+  if (!tipo_operacion) return
+
+  const { error } = await supabase
+    .from('busquedas')
+    .update({ tipo_operacion })
+    .eq('id', busquedaId)
+    .or(`tipo_operacion.is.null,tipo_operacion.neq.${tipo_operacion}`)
+
+  if (error) {
+    throw new Error(
+      interpretarErrorSupabase(error, 'La operación se guardó, pero no se pudo actualizar el tipo de la búsqueda.'),
+    )
+  }
 }
 
 // ---------------------------------------------------------------------------

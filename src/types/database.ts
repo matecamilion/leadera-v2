@@ -87,9 +87,11 @@ export type Database = {
           inmobiliaria_id: string
           lead_id: string
           m2_min: number | null
+          moneda: string
           notas: string | null
           precio_max: number | null
           precio_min: number | null
+          tipo_operacion: string | null
           tipo_propiedad: Database["public"]["Enums"]["tipo_propiedad"] | null
           updated_at: string
           zona: string | null
@@ -106,9 +108,11 @@ export type Database = {
           inmobiliaria_id: string
           lead_id: string
           m2_min?: number | null
+          moneda?: string
           notas?: string | null
           precio_max?: number | null
           precio_min?: number | null
+          tipo_operacion?: string | null
           tipo_propiedad?: Database["public"]["Enums"]["tipo_propiedad"] | null
           updated_at?: string
           zona?: string | null
@@ -125,9 +129,11 @@ export type Database = {
           inmobiliaria_id?: string
           lead_id?: string
           m2_min?: number | null
+          moneda?: string
           notas?: string | null
           precio_max?: number | null
           precio_min?: number | null
+          tipo_operacion?: string | null
           tipo_propiedad?: Database["public"]["Enums"]["tipo_propiedad"] | null
           updated_at?: string
           zona?: string | null
@@ -1620,7 +1626,44 @@ export type Database = {
       }
       consulta_para_resolver: {
         Args: { p_consulta_id: string }
-        Returns: Database["public"]["Tables"]["consultas"]["Row"]
+        Returns: {
+          agente_id: string
+          apellido: string | null
+          aviso_pendiente: string | null
+          busqueda: Json | null
+          consentimiento_at: string
+          created_at: string
+          duplicado_otro_agente: boolean
+          duplicado_por: string | null
+          email: string | null
+          estado: Database["public"]["Enums"]["estado_consulta"]
+          id: string
+          inmobiliaria_id: string
+          ip_hash: string | null
+          lead_existente_id: string | null
+          lead_id: string | null
+          link_id: string | null
+          motivo_descarte: string | null
+          nombre: string
+          posible_captacion: boolean
+          presupuesto_respondido: boolean
+          propiedad_id: string | null
+          puntaje: number
+          respuestas: Json
+          resuelta_at: string | null
+          resuelta_por: string | null
+          resumen: string | null
+          telefono: string
+          telefono_norm: string
+          temperatura: Database["public"]["Enums"]["estado_lead"]
+          volvio_a_consultar: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "consultas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       contar_visitas_lead: { Args: { p_lead_id: string }; Returns: number }
       conteo_operaciones_por_estado: {
@@ -1722,7 +1765,23 @@ export type Database = {
       }
       mi_link_consulta: {
         Args: { p_propiedad_id?: string }
-        Returns: Database["public"]["Tables"]["links_consulta"]["Row"]
+        Returns: {
+          activo: boolean
+          agente_id: string
+          created_at: string
+          id: string
+          inmobiliaria_id: string
+          preguntas_off: string[]
+          propiedad_id: string | null
+          slug: string
+          visitas: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "links_consulta"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       obtener_actividad_reciente: {
         Args: { p_limite?: number }
@@ -1828,10 +1887,7 @@ export type Database = {
           inicio: string
         }[]
       }
-      vincular_consulta: {
-        Args: { p_consulta_id: string }
-        Returns: string
-      }
+      vincular_consulta: { Args: { p_consulta_id: string }; Returns: string }
     }
     Enums: {
       disposicion_propiedad: "FRENTE" | "CONTRAFRENTE" | "INTERNO"

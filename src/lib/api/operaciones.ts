@@ -2,6 +2,7 @@ import { supabase } from '../supabase'
 import { sanearBusqueda } from './filtros'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { sincronizarTipoOperacionBusqueda } from './busquedas'
 
 export type Operacion = Database['public']['Tables']['operaciones']['Row']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
@@ -325,6 +326,17 @@ export async function crearOperacion(
     .single()
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo crear la operación.'))
+
+  // Una búsqueda existente vinculada en el alta toma el tipo de la operación.
+  // No se propaga el error: la operación ya existe, y si el alta fallara acá
+  // reintentar crearía una duplicada.
+  if (data.busqueda_id) {
+    try {
+      await sincronizarTipoOperacionBusqueda(data.busqueda_id, data.tipo)
+    } catch (err) {
+      console.error('No se pudo actualizar el tipo de la búsqueda vinculada', err)
+    }
+  }
   return data
 }
 
@@ -829,6 +841,12 @@ export async function actualizarOperacion(
 
   // Sin error y sin fila: RLS la tapó (otra inmobiliaria) o ya no existe.
   if (!data) throw new Error('No tenés permiso para editar esta operación.')
+
+  // La búsqueda vinculada —recién elegida o la de siempre con otro tipo— tiene
+  // que reflejar el tipo de la operación. Si ya lo refleja, no se escribe.
+  if (data.busqueda_id) {
+    await sincronizarTipoOperacionBusqueda(data.busqueda_id, data.tipo)
+  }
   return data
 }
 

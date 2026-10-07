@@ -11,8 +11,10 @@
    (/login, /signup, /c/:slug, ...) y en /admin nunca se pone: se ven
    siempre en claro.
 
-   Sin tocar: sidebar (ya es oscuro), --color-white, sombras y los colores de
-   temperatura (caliente/tibio/frío/inactivo, que son fondos con texto blanco).
+   Sin tocar: los tokens sidebar-* (el sidebar usa bg-surface desde el
+   rediseño, así que sigue al tema con las superficies de abajo),
+   --color-white, sombras y los colores de temperatura
+   (caliente/tibio/frío/inactivo, que son fondos con texto blanco).
 --------------------------------------------------------------------------- */
 
 html.dark {

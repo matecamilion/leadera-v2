@@ -125,4 +125,62 @@
   *:focus-visible {
     @apply outline-primary outline-2 outline-offset-2;
   }
+
+  /* Controles nativos (scrollbars, selects, date pickers) en claro. El modo
+     oscuro lo cambia a `dark` desde src/styles/tema-oscuro.css, sólo bajo
+     html.dark: las rutas públicas nunca tienen esa clase y quedan en claro. */
+  :root {
+    color-scheme: light;
+  }
+
+  /* -------------------------------------------------------------------------
+     Scrollbars: finas, sin flechas, thumb redondeado y track transparente.
+     Casi invisibles en reposo; se marcan al pasar por el contenedor que
+     scrollea y un poco más sobre el propio thumb. Los colores salen de
+     `ink-4` / `ink-3`, así que siguen al tema solos.
+
+     En `@layer base` a propósito: los contenedores que esconden su barra
+     (`[scrollbar-width:none]`, `[&::-webkit-scrollbar]:hidden`) son
+     utilidades, y la capa de utilidades le gana a esta.
+     ------------------------------------------------------------------------- */
+
+  /* WebKit / Chromium. 8px de canal, con 2px de borde transparente alrededor
+     del thumb: se ve una barra de 4px que no toca los bordes. */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: color-mix(in oklab, var(--color-ink-4) 25%, transparent);
+  }
+  *:hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--color-ink-4) 60%, transparent);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-3);
+  }
+
+  /* Firefox, con las propiedades estándar. Sólo donde no existe
+     ::-webkit-scrollbar: Chromium también entiende `scrollbar-width` y
+     `scrollbar-color`, y si las ve ignora todo lo de arriba (perdería el
+     thumb redondeado y el borde). */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--color-ink-4) 35%, transparent) transparent;
+    }
+    *:hover {
+      scrollbar-color: color-mix(in oklab, var(--color-ink-4) 70%, transparent) transparent;
+    }
+  }
 }

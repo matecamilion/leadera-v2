@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ComboboxLead } from '../comunes/ComboboxLead'
 import { useAuth } from '../../contexts/AuthContext'
+import { useEquipo } from '../../hooks/useEquipo'
 import { useCrearTarea } from '../../hooks/useTareas'
 import { MAX_OCURRENCIAS, generarFechas } from '../../lib/api/tareas'
 import { esDiaPasado, hoyComoClave } from '../../lib/calendario'
-import type { Miembro } from '../../lib/api/equipo'
+import type { Miembro, RolAgente } from '../../lib/api/equipo'
 import type { Recurrencia } from '../../types/database'
 
 const RECURRENCIAS: { valor: Recurrencia; label: string }[] = [
@@ -17,9 +18,32 @@ const etiquetaCampo = 'mb-1.5 block text-xs font-semibold text-ink-3 uppercase'
 const campo =
   'w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-[0.9rem] text-ink focus:border-primary focus:outline-none focus:[box-shadow:var(--shadow-focus)]'
 
+/** Valor del selector para "Yo": se resuelve al id propio al enviar. */
+const YO = 'yo'
+
+/**
+ * A quién más, además de uno mismo, se le puede asignar una tarea.
+ *
+ *  - ASISTENTE: el agente al que asiste.
+ *  - AGENTE: sus asistentes (`listarEquipo` ya los trae filtrados).
+ *  - DUENO: cualquier otro miembro activo de la inmobiliaria.
+ *
+ * Es la misma regla que aplican las policies de INSERT de `tareas`; esto sólo
+ * decide qué se ofrece.
+ */
+function otrosDestinatarios(
+  rol: RolAgente | undefined,
+  miId: string,
+  asisteA: string | null,
+  miembros: Miembro[],
+): Miembro[] {
+  if (rol === 'ASISTENTE') return miembros.filter((m) => m.id === asisteA)
+  if (rol === 'AGENTE') return miembros.filter((m) => m.asisteA?.id === miId)
+  if (rol === 'DUENO') return miembros.filter((m) => m.id !== miId && m.activo)
+  return []
+}
+
 interface ModalNuevaTareaProps {
-  /** Asistentes a los que se le puede asignar. Vacío para un dueño. */
-  asistentes: Miembro[]
   /** Día preseleccionado, el que esté abierto en el calendario. */
   fechaInicial: string
   /**
@@ -35,7 +59,6 @@ interface ModalNuevaTareaProps {
 }
 
 export function ModalNuevaTarea({
-  asistentes,
   fechaInicial,
   leadFijo,
   onCerrar,
@@ -44,7 +67,9 @@ export function ModalNuevaTarea({
   const [descripcion, setDescripcion] = useState('')
   const [fecha, setFecha] = useState(fechaInicial)
   const [hora, setHora] = useState('')
-  const [asignadoA, setAsignadoA] = useState(asistentes[0]?.id ?? '')
+  // Arranca siempre en "Yo": así el selector nunca queda vacío y no hay que
+  // esperar al equipo para poder guardar.
+  const [asignadoA, setAsignadoA] = useState(YO)
   // Opcional a propósito: no entra en `faltaAlgo`. Una tarea suelta —"cerrar
   // la caja", "pedir las llaves"— no es de nadie en particular. Con `leadFijo`
   // el estado arranca ya resuelto y el combobox no llega a montarse.
@@ -54,10 +79,10 @@ export function ModalNuevaTarea({
   const [hasta, setHasta] = useState('')
 
   const { profile } = useAuth()
-  // El dueño no reparte trabajo: su tarea es siempre para él. Se saca el
-  // selector en vez de dejarlo con una sola opción, que sería ruido.
-  const esDueno = profile?.rol === 'DUENO'
-  const destinatario = esDueno ? (profile?.id ?? '') : asignadoA
+  const miId = profile?.id ?? ''
+  const equipo = useEquipo(profile?.rol, profile?.id)
+  const otros = otrosDestinatarios(profile?.rol, miId, profile?.asiste_a ?? null, equipo.data ?? [])
+  const destinatario = asignadoA === YO ? miId : asignadoA
 
   const crear = useCrearTarea()
 
@@ -132,9 +157,7 @@ export function ModalNuevaTarea({
           Nueva tarea
         </h2>
         <p className="mt-1 text-[0.85rem] text-ink-3">
-          {esDueno
-            ? 'Queda en tu calendario, a tu nombre.'
-            : 'Se la asignás a tu asistente y le aparece en su calendario.'}
+          Le aparece en el calendario a quien se la asignes.
         </p>
 
         <div className="mt-5 flex flex-col gap-4">
@@ -223,25 +246,24 @@ export function ModalNuevaTarea({
             </div>
           </div>
 
-          {!esDueno && (
-            <div>
-              <label htmlFor="tarea-asignado" className={etiquetaCampo}>
-                Para quién
-              </label>
-              <select
-                id="tarea-asignado"
-                value={asignadoA}
-                onChange={(e) => setAsignadoA(e.target.value)}
-                className={campo}
-              >
-                {asistentes.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre} {a.apellido}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label htmlFor="tarea-asignado" className={etiquetaCampo}>
+              Para quién
+            </label>
+            <select
+              id="tarea-asignado"
+              value={asignadoA}
+              onChange={(e) => setAsignadoA(e.target.value)}
+              className={campo}
+            >
+              <option value={YO}>Yo</option>
+              {otros.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre} {a.apellido}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="rounded-xl border border-border p-3.5">
             <label className="flex cursor-pointer items-center gap-2.5">
@@ -327,7 +349,7 @@ export function ModalNuevaTarea({
           <button
             type="submit"
             disabled={faltaAlgo || crear.isPending}
-            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
             {crear.isPending ? 'Creando…' : 'Crear tarea'}
           </button>

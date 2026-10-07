@@ -154,7 +154,7 @@ export function AjustesLink({
                 ref={refPausar}
                 onClick={() => cambiarActivo(false)}
                 disabled={activo.isPending}
-                className="inline-flex min-h-[40px] items-center rounded-lg bg-ink px-4 text-[0.84rem] font-semibold text-white hover:bg-ink-2 disabled:opacity-60"
+                className="inline-flex min-h-[40px] items-center rounded-lg bg-ink px-4 text-[0.84rem] font-semibold text-surface hover:bg-ink-2 disabled:opacity-60"
               >
                 {activo.isPending ? 'Pausando…' : 'Pausar'}
               </button>

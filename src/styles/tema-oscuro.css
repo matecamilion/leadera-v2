@@ -1,0 +1,99 @@
+/* ---------------------------------------------------------------------------
+   Modo oscuro.
+
+   Pisa los tokens de @theme (src/index.css) cuando <html> tiene la clase
+   `dark`. Tailwind v4 publica los tokens como variables en :root dentro de
+   @layer theme; estas reglas van sin capa, así que ganan sin importar el
+   orden.
+
+   Quién pone la clase: el script inline de index.html en la primera carga
+   (sin flash) y después src/hooks/useTema.ts. En las rutas públicas
+   (/login, /signup, /c/:slug, ...) y en /admin nunca se pone: se ven
+   siempre en claro.
+
+   Sin tocar: sidebar (ya es oscuro), --color-white, sombras y los colores de
+   temperatura (caliente/tibio/frío/inactivo, que son fondos con texto blanco).
+--------------------------------------------------------------------------- */
+
+html.dark {
+  color-scheme: dark;
+
+  /* Superficies */
+  --color-background: #0f1115;
+  --color-surface: #171a20;
+  --color-surface-muted: #1e222a;
+  --color-surface-2: #1e222a;
+  --color-border: #2a2f38;
+
+  /* Texto: la escala invertida */
+  --color-ink: #e6e9ed;
+  --color-ink-2: #c9d0d8;
+  --color-ink-3: #a3adb9;
+  /* #7d8690 y no más oscuro: es el mínimo que da 4,5:1 con primary-contrast
+     encima (botones deshabilitados) y como texto sobre las tarjetas. */
+  --color-ink-4: #7d8690;
+  --color-ink-muted: #a0a9b4;
+  --color-ink-subtle: #7c8590;
+
+  /* Marca: el mismo teal, más claro, para que se lea como texto sobre el
+     fondo, las tarjetas y brand-soft (≥ 4,5:1 en los tres). `primary-dark`
+     y los estados hover/active van todavía más claros: en oscuro "más
+     énfasis" es más luz. */
+  --color-primary: #3bbaa1;
+  --color-primary-hover: #45c4ab;
+  --color-primary-active: #51c8b0;
+  --color-primary-dark: #5cccb5;
+  --color-primary-soft: #143a32;
+  /* Texto sobre fondo de marca: oscuro, porque el verde ahora es claro. */
+  --color-primary-contrast: #06201a;
+
+  /* Fondos suaves: el mismo tono, oscuro */
+  --color-brand-soft: #143a32;
+  --color-brand-softer: #11241f;
+  --color-hot-soft: #3a2018;
+  --color-warm-soft: #3a2d14;
+  --color-cool-soft: #172a40;
+
+  /* Badges de estado */
+  --color-badge-caliente-bg: #45221a;
+  --color-badge-tibio-bg: #3d3012;
+  --color-badge-tibio-ink: #f5c46b;
+  --color-badge-frio-bg: #172b45;
+  --color-badge-ganado-bg: #133a2c;
+
+  /* Eliminar: textos y bordes claros, fondo oscuro */
+  --color-peligro-ink: #f87171;
+  --color-peligro-borde: #5c2323;
+  --color-peligro-soft: #3a1717;
+
+  /* Semánticos: versiones claras para que se lean sobre oscuro */
+  --color-success: #4fb58a;
+  --color-warning: #e0a23a;
+  --color-danger: #ef6b5e;
+  --color-info: #6aa5e6;
+}
+
+html.dark,
+html.dark body {
+  background-color: #0f1115;
+}
+
+/* Overlay de los modales (<dialog> con `backdrop:bg-[rgba(15,23,42,0.6)]`):
+   el slate al 60 % casi no se distingue del fondo. */
+html.dark [class~='backdrop:bg-[rgba(15,23,42,0.6)]']::backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Velos sobre `bg-ink/…` (modales hechos con <div>, el drawer del menú, el
+   visor de fotos): con --color-ink invertido quedarían grises claros. En
+   oscuro el velo tiene que oscurecer, así que van sobre negro. El del 40 %
+   sube al 60 %: sobre un fondo ya oscuro, un negro al 40 % casi no se ve. */
+html.dark .bg-ink\/40 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+html.dark .bg-ink\/60 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+html.dark .bg-ink\/85 {
+  background-color: rgb(0 0 0 / 0.85);
+}

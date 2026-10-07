@@ -396,6 +396,7 @@ export async function mensajeDeFuncion(error: unknown, porDefecto: string): Prom
       // El body no era JSON: se cae al mensaje por defecto.
     }
   }
-  if (error instanceof Error && error.message) return error.message
+  // Sin body propio no hay mensaje nuestro: el `message` de supabase-js es en
+  // inglés ("Edge Function returned a non-2xx status code"), no se muestra.
   return porDefecto
 }

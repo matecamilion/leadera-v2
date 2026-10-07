@@ -411,7 +411,7 @@ export function FilaConsulta({
                     type="button"
                     onClick={onDescartar}
                     disabled={descartar.isPending}
-                    className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-ink px-4 text-[0.86rem] font-semibold text-white transition-colors hover:bg-ink-2 disabled:opacity-60 motion-reduce:transition-none"
+                    className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-ink px-4 text-[0.86rem] font-semibold text-surface transition-colors hover:bg-ink-2 disabled:opacity-60 motion-reduce:transition-none"
                   >
                     {descartar.isPending && <Girando />}
                     Descartar

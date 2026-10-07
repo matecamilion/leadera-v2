@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react'
-import type { EstadoLead } from '../../lib/api/leads'
+import { etiquetaEstado, type EstadoLead } from '../../lib/etiquetasLead'
 import { IconoCalavera, IconoCopo, IconoFuego, IconoTermometro } from './Iconos'
 
 interface Opcion {
   valor: EstadoLead
-  label: string
   clases: string
   icono: React.ReactNode
 }
@@ -13,25 +12,21 @@ interface Opcion {
 const OPCIONES: Opcion[] = [
   {
     valor: 'CALIENTE',
-    label: 'CALIENTE',
     clases: 'bg-peligro-soft text-peligro-ink hover:brightness-95',
     icono: <IconoFuego className="size-5" />,
   },
   {
     valor: 'TIBIO',
-    label: 'TIBIO',
     clases: 'bg-badge-tibio-bg text-badge-tibio-ink hover:brightness-95',
     icono: <IconoTermometro className="size-5" />,
   },
   {
     valor: 'FRIO',
-    label: 'FRÍO',
     clases: 'bg-badge-frio-bg text-frio hover:brightness-95',
     icono: <IconoCopo className="size-5" />,
   },
   {
     valor: 'INACTIVO',
-    label: 'INACTIVO',
     clases: 'bg-surface-2 text-ink-2 hover:brightness-95',
     icono: <IconoCalavera className="size-5" />,
   },
@@ -88,10 +83,12 @@ export function ModalCambiarEstado({
               type="button"
               disabled={guardando}
               onClick={() => onElegir(opcion.valor)}
-              className={`flex items-center justify-center gap-2.5 rounded-xl border-none p-3.5 font-bold transition disabled:opacity-60 motion-reduce:transition-none ${opcion.clases}`}
+              // `uppercase` conserva el look de antes, cuando el texto venía
+              // escrito en mayúsculas acá; ahora sale del mapa central.
+              className={`flex items-center justify-center gap-2.5 rounded-xl border-none p-3.5 font-bold uppercase transition disabled:opacity-60 motion-reduce:transition-none ${opcion.clases}`}
             >
               {opcion.icono}
-              {opcion.label}
+              {etiquetaEstado(opcion.valor)}
             </button>
           ))}
         </div>

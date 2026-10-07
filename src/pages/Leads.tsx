@@ -23,7 +23,7 @@ import {
   type FiltroEstado,
   type Lead,
 } from '../lib/api/leads'
-import { FILTROS_ROL, type FiltroRol } from '../lib/api/rolLead'
+import { FILTROS_ROL, etiquetaFiltroRol, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { leerPagina } from '../lib/parametrosDeUrl'
@@ -236,7 +236,7 @@ export default function Leads() {
           <span className="text-ink">
             {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
             {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
-            {filtroRol && ` · ${filtroRol}`}
+            {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
           </span>
         </div>
 
@@ -245,7 +245,7 @@ export default function Leads() {
 
           <Link
             to="/leads/nuevo"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-white transition-colors hover:bg-primary-dark motion-reduce:transition-none"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
           >
             <IconoMas className="size-5" />
             Nuevo Lead

@@ -1,6 +1,6 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AdminGuard } from './components/AdminGuard'
 import { AppLayout } from './components/AppLayout'
 import { AdminLayout } from './components/admin/AdminLayout'
@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Spinner } from './components/Spinner'
 import { SuscripcionGuard } from './components/SuscripcionGuard'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { aplicarTemaSegunRuta } from './hooks/useTema'
 import { esPaginaFueraDeRango } from './lib/mensajesDeError'
 
 // Una página por chunk: el bundle inicial baja a lo que hace falta para
@@ -55,6 +56,19 @@ const queryClient = new QueryClient({
   },
 })
 
+/**
+ * Aplica el tema en cada navegación: las rutas públicas y /admin siempre en
+ * claro, el resto según la preferencia. Va acá y no en AppLayout porque las
+ * redirecciones al login (sesión vencida, ruta inexistente) no lo montan.
+ */
+function SincronizarTema() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    aplicarTemaSegunRuta(pathname)
+  }, [pathname])
+  return null
+}
+
 /** La raíz manda a la app o al login según haya sesión. */
 function Inicio() {
   const { user, loading } = useAuth()
@@ -70,6 +84,7 @@ export default function App() {
         // y reduce la superficie de cambio si migramos a React Router 7.
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
+        <SincronizarTema />
         <AuthProvider>
           {/* Boundary externo: cubre las pantallas públicas y la primera carga,
               donde todavía no hay shell que preservar. Las rutas de adentro del

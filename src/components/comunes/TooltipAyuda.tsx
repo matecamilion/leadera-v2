@@ -163,7 +163,7 @@ export function TooltipAyuda({ etiqueta, children }: TooltipAyudaProps) {
             maxWidth: ANCHO_MAX,
             visibility: pos ? 'visible' : 'hidden',
           }}
-          className="z-50 rounded-md bg-ink px-3 py-2 text-[0.8rem] leading-relaxed text-white shadow-modal"
+          className="z-50 rounded-md bg-ink px-3 py-2 text-[0.8rem] leading-relaxed text-surface shadow-modal"
         >
           {children}
         </div>

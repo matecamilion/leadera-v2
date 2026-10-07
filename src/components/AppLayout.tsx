@@ -5,6 +5,7 @@ import { usePendientesConsultas } from '../hooks/useConsultas'
 import { useUiStore } from '../stores/ui'
 import { AvisoFlash } from './AvisoFlash'
 import { BannerSuscripcion } from './BannerSuscripcion'
+import { BotonTema } from './BotonTema'
 import { Marca } from './Marca'
 import { Spinner } from './Spinner'
 
@@ -258,6 +259,8 @@ export function AppLayout() {
           <span className="ml-auto truncate text-sm text-ink-muted">
             {nombreVisible}
           </span>
+
+          <BotonTema trazo={trazo} />
 
           <button
             type="button"

@@ -25,6 +25,16 @@ export type FiltroRol = 'compradores' | 'vendedores'
 
 export const FILTROS_ROL: FiltroRol[] = ['compradores', 'vendedores']
 
+/** Cómo se nombra cada corte en pantalla. El valor de arriba es sólo para la URL. */
+const ETIQUETA_FILTRO_ROL: Record<FiltroRol, string> = {
+  compradores: 'Compradores',
+  vendedores: 'Vendedores',
+}
+
+export function etiquetaFiltroRol(filtro: FiltroRol): string {
+  return ETIQUETA_FILTRO_ROL[filtro]
+}
+
 export function etiquetaRol(rol: RolLead): string {
   if (rol === 'COMPRADOR') return 'Comprador'
   if (rol === 'VENDEDOR') return 'Vendedor'

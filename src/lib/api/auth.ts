@@ -161,10 +161,9 @@ async function invokeEdgeFunction<T>(name: string, body: object): Promise<T> {
     // FunctionsHttpError trae la respuesta original: intentamos leer el { error, code }.
     const parsed = await parseFunctionError(error)
     if (parsed) throw new ApiError(parsed.message, parsed.code)
-    throw new ApiError(
-      error.message || 'No se pudo conectar con el servidor',
-      'ERROR_DE_RED',
-    )
+    // `error.message` es el texto de supabase-js, en inglés ("Failed to send a
+    // request to the Edge Function"): no se muestra.
+    throw new ApiError('No pudimos completar la acción. Intentá de nuevo.', 'ERROR_DE_RED')
   }
 
   if (isEdgeError(data)) {

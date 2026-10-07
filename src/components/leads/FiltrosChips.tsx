@@ -1,4 +1,4 @@
-import type { EstadoLead } from '../../lib/api/leads'
+import { etiquetaEstadoPlural, type EstadoLead } from '../../lib/etiquetasLead'
 
 /** `undefined` = "Todos": el listado sin filtro de estado. */
 export type ValorFiltro = EstadoLead | undefined
@@ -16,29 +16,29 @@ const OPCIONES: Opcion[] = [
     valor: undefined,
     label: 'Todos',
     dot: 'bg-primary',
-    activo: 'border-primary bg-primary text-white',
+    activo: 'border-primary bg-primary text-primary-contrast',
   },
   {
     valor: 'CALIENTE',
-    label: 'Calientes',
+    label: etiquetaEstadoPlural('CALIENTE'),
     dot: 'bg-caliente',
     activo: 'border-caliente bg-caliente text-white',
   },
   {
     valor: 'TIBIO',
-    label: 'Tibios',
+    label: etiquetaEstadoPlural('TIBIO'),
     dot: 'bg-tibio',
     activo: 'border-tibio bg-tibio text-white',
   },
   {
     valor: 'FRIO',
-    label: 'Frios',
+    label: etiquetaEstadoPlural('FRIO'),
     dot: 'bg-frio',
     activo: 'border-frio bg-frio text-white',
   },
   {
     valor: 'INACTIVO',
-    label: 'Inactivos',
+    label: etiquetaEstadoPlural('INACTIVO'),
     dot: 'bg-inactivo',
     activo: 'border-inactivo bg-inactivo text-white',
   },
@@ -80,7 +80,7 @@ export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
             ].join(' ')}
           >
             <span
-              className={`size-2 shrink-0 rounded-full ${activo ? 'bg-white/70' : opcion.dot}`}
+              className={`size-2 shrink-0 rounded-full ${activo ? 'bg-current/70' : opcion.dot}`}
             />
             {opcion.label}
             {opcion.valor === undefined && total !== undefined && ` (${total})`}

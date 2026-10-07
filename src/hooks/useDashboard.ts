@@ -47,6 +47,7 @@ export function useLeadsDelDia(): {
   isPending: boolean
   isError: boolean
   error: Error | null
+  refetch: () => void
 } {
   const candidatos = useCandidatosDelDia()
 
@@ -60,6 +61,7 @@ export function useLeadsDelDia(): {
     isPending: candidatos.isPending,
     isError: candidatos.isError,
     error: candidatos.error,
+    refetch: () => void candidatos.refetch(),
   }
 }
 

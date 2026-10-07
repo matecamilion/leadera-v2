@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CardKpi } from '../components/comunes/CardKpi'
+import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
@@ -22,6 +23,7 @@ import { useCoincidenciasDelDia, useLeadsDelDia } from '../hooks/useDashboard'
 import { useModeloGestionActivo } from '../hooks/useModeloGestion'
 import { useEventosCalendario } from '../hooks/useTareas'
 import { hoyComoClave } from '../lib/calendario'
+import { mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
 import type { Lead } from '../lib/api/leads'
@@ -42,7 +44,7 @@ const RUTA_LISTA = {
 
 export default function MiDia() {
   const { profile } = useAuth()
-  const { data, isPending, isError, error } = useLeadsDelDia()
+  const { data, isPending, isError, error, refetch } = useLeadsDelDia()
   const coincidencias = useCoincidenciasDelDia()
   // Mientras el flag carga `data` es undefined y la tarjeta no se monta: sin
   // parpadeo para las cuentas que no lo tienen, que son casi todas.
@@ -63,22 +65,24 @@ export default function MiDia() {
   // acá abajo: los hooks no pueden quedar detrás de un `if`.
   const [leadARegistrar, setLeadARegistrar] = useState<Lead | null>(null)
 
-  // `!data` además de `isPending`: el hook deriva de otra query y devuelve las
-  // banderas sueltas, así que no es la unión discriminada de react-query.
-  if (isPending || !data) return <Skeleton />
-
+  // El error va antes que el skeleton: con la query fallada `data` queda
+  // undefined, y si el `!data` de abajo se evaluara primero el error no se
+  // mostraría nunca.
   if (isError) {
     return (
       <div className="mx-auto max-w-[1120px]">
-        <p
-          role="alert"
-          className="rounded-lg border border-peligro-borde bg-peligro-soft px-4 py-3 text-[0.9rem] text-peligro-ink"
-        >
-          {error instanceof Error ? error.message : 'No pudimos cargar tu jornada.'}
-        </p>
+        <EstadoError
+          titulo="No pudimos cargar tu jornada"
+          mensaje={mensajeDeListado(error)}
+          accion={<BotonError onClick={refetch}>Reintentar</BotonError>}
+        />
       </div>
     )
   }
+
+  // `!data` además de `isPending`: el hook deriva de otra query y devuelve las
+  // banderas sueltas, así que no es la unión discriminada de react-query.
+  if (isPending || !data) return <Skeleton />
 
   const { prioritarios, nuevos, seguimientos } = data
 

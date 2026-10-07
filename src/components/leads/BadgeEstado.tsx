@@ -1,4 +1,4 @@
-import type { EstadoLead } from '../../lib/api/leads'
+import { etiquetaEstado, type EstadoLead } from '../../lib/etiquetasLead'
 
 type Clave = EstadoLead | 'NUEVO'
 
@@ -36,7 +36,7 @@ export function BadgeEstado({ estado, chico = false }: BadgeEstadoProps) {
     <span
       className={`inline-block rounded-sm font-bold uppercase ${chico ? 'px-2 py-0.5 text-[9.5px]' : 'px-2.5 py-1 text-[10px]'} ${ESTILOS[clave]}`}
     >
-      {clave}
+      {etiquetaEstado(estado)}
     </span>
   )
 }

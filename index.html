@@ -13,6 +13,29 @@
     <meta name="apple-mobile-web-app-title" content="LeadEra" />
 
     <title>LeadEra</title>
+
+    <!-- Tema oscuro sin flash: pone la clase antes de que pinte React. Después
+         lo maneja src/hooks/useTema.ts, que tiene la misma lista de rutas
+         públicas y la misma exclusión de /admin: si cambia una, cambiar la
+         otra. "/" tampoco se toca: sin sesión redirige al login sin pasar por
+         la app. -->
+    <script>
+      (function () {
+        try {
+          var ruta = location.pathname;
+          if (ruta === '/' || /^\/(login|signup|recuperar-contrasena|reset-password|c\/[^/]+)\/?$/.test(ruta)) return;
+          if (/^\/admin(\/|$)/.test(ruta)) return;
+          var tema = null;
+          try {
+            tema = localStorage.getItem('leadera-tema');
+          } catch (e) {}
+          var oscuro =
+            tema === 'oscuro' ||
+            (tema !== 'claro' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (oscuro) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

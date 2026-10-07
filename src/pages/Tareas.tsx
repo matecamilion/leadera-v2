@@ -40,10 +40,7 @@ export default function Tareas() {
   const rol = profile?.rol
   const miId = profile?.id ?? ''
   const esAgente = rol === 'AGENTE'
-  // El dueño usa la pantalla para su propia agenda: crea tareas a su nombre,
-  // pero no le asigna nada a nadie, así que nunca necesita el equipo.
   const esDueno = rol === 'DUENO'
-  const puedeCrear = esAgente || esDueno
 
   // El rango que se pide es el de la grilla completa, no el del mes: si no, los
   // días de relleno saldrían siempre vacíos aunque tengan eventos.
@@ -154,19 +151,16 @@ export default function Tareas() {
             </BotonMes>
           </div>
 
-          {puedeCrear && !sinAsistentes && (
-            <button
-              type="button"
-              onClick={() => abrirModal(null)}
-              // Un agente sin asistentes no tiene a quién asignarle; un dueño
-              // se la asigna a sí mismo, así que nunca queda bloqueado.
-              disabled={!esDueno && asistentes.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-white transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
-            >
-              <IconoMas className="size-5" />
-              Nueva tarea
-            </button>
-          )}
+          {/* Todos los roles crean tareas: como mínimo para sí mismos, y además
+              para quien les toca según el rol (lo resuelve el modal). */}
+          <button
+            type="button"
+            onClick={() => abrirModal(null)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
+          >
+            <IconoMas className="size-5" />
+            Nueva tarea
+          </button>
 
           {/* Sin restricción de rol: agendar una visita a su nombre es algo que
               hace cualquiera, incluido un asistente. */}
@@ -199,8 +193,8 @@ export default function Tareas() {
       {sinAsistentes && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-surface px-4 py-3">
           <p className="m-0 text-[0.85rem] text-ink-3">
-            Todavía no tenés asistentes para asignarles tareas. Podés agendar
-            visitas y ver tus seguimientos igual.
+            Todavía no tenés asistentes para asignarles tareas. Mientras tanto
+            podés crearte tareas a vos, agendar visitas y ver tus seguimientos.
           </p>
           <Link
             to="/equipo"
@@ -233,7 +227,7 @@ export default function Tareas() {
               eventos={eventos.data}
               diaSeleccionado={diaSel}
               onSelectDia={setDiaSel}
-              onNuevaTareaEnDia={puedeCrear ? abrirModal : undefined}
+              onNuevaTareaEnDia={abrirModal}
             />
           )}
 
@@ -266,7 +260,6 @@ export default function Tareas() {
 
       {modalAbierto && (
         <ModalNuevaTarea
-          asistentes={asistentes}
           fechaInicial={fechaPrellenada ?? diaSel}
           onCerrar={cerrarModal}
         />

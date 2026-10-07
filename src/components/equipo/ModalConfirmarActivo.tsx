@@ -64,9 +64,11 @@ export function ModalConfirmarActivo({
             onClick={onConfirmar}
             disabled={guardando}
             className={[
-              'rounded-lg px-4 py-2 text-[0.85rem] font-semibold text-white',
+              'rounded-lg px-4 py-2 text-[0.85rem] font-semibold',
               'transition-colors disabled:opacity-60 motion-reduce:transition-none',
-              desactivando ? 'bg-peligro hover:bg-peligro-hover' : 'bg-primary hover:bg-primary-dark',
+              desactivando
+                ? 'bg-peligro text-white hover:bg-peligro-hover'
+                : 'bg-primary text-primary-contrast hover:bg-primary-dark',
             ].join(' ')}
           >
             {guardando ? 'Guardando…' : desactivando ? 'Desactivar' : 'Activar'}

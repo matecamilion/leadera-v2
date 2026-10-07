@@ -1,4 +1,4 @@
-import type { FiltroRol } from '../../lib/api/rolLead'
+import { etiquetaFiltroRol, type FiltroRol } from '../../lib/api/rolLead'
 
 interface Opcion {
   /** `undefined` = "Todos": sin filtro de rol. */
@@ -8,8 +8,8 @@ interface Opcion {
 
 const OPCIONES: Opcion[] = [
   { valor: undefined, label: 'Todos' },
-  { valor: 'compradores', label: 'Compradores' },
-  { valor: 'vendedores', label: 'Vendedores' },
+  { valor: 'compradores', label: etiquetaFiltroRol('compradores') },
+  { valor: 'vendedores', label: etiquetaFiltroRol('vendedores') },
 ]
 
 interface FiltroRolChipsProps {
@@ -44,7 +44,7 @@ export function FiltroRolChips({ valor, onCambiar }: FiltroRolChipsProps) {
               'rounded-full px-3.5 py-[5px] text-[0.82rem] font-semibold whitespace-nowrap',
               'transition-colors motion-reduce:transition-none',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-              activo ? 'bg-ink text-white' : 'text-ink-3 hover:bg-background hover:text-ink',
+              activo ? 'bg-ink text-surface' : 'text-ink-3 hover:bg-background hover:text-ink',
             ].join(' ')}
           >
             {opcion.label}

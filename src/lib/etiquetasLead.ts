@@ -54,3 +54,13 @@ export function etiquetaEstado(estado: EstadoLead | null): string {
   if (!estado) return 'Nuevo'
   return ESTADOS_LEAD[estado] ?? estado
 }
+
+/**
+ * La misma etiqueta en plural, para los filtros ("Fríos", "Calientes").
+ *
+ * Todas las etiquetas terminan en vocal, así que alcanza con la "s": se deriva
+ * de `etiquetaEstado` para que el singular y el plural no puedan divergir.
+ */
+export function etiquetaEstadoPlural(estado: EstadoLead | null): string {
+  return `${etiquetaEstado(estado)}s`
+}

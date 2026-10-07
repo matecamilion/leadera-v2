@@ -11,7 +11,6 @@ import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { TooltipAyuda } from '../components/comunes/TooltipAyuda'
-import { useEquipo } from '../hooks/useEquipo'
 import { useRolesPorLead } from '../hooks/useOperacionesPorLead'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
 import {
@@ -21,7 +20,6 @@ import {
   useLead,
 } from '../hooks/useLead'
 import { hoyComoClave } from '../lib/calendario'
-import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
 
 type ModalAbierto = 'estado' | 'contacto' | 'interaccion' | 'tarea' | 'eliminar' | null
@@ -34,13 +32,6 @@ export default function DetalleLead() {
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   const [modal, setModal] = useState<ModalAbierto>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
-
-  const { profile } = useAuth()
-  // A quién se le puede asignar la tarea. Un agente reparte a sus asistentes;
-  // para el resto la lista viene vacía y el modal la asigna a quien la crea.
-  const rol = profile?.rol
-  const esAgente = rol === 'AGENTE'
-  const equipo = useEquipo(esAgente ? rol : undefined, esAgente ? profile?.id : undefined)
 
   // El mismo cálculo que el listado, para un solo lead. Antes de los returns
   // tempranos: es un hook.
@@ -252,7 +243,6 @@ export default function DetalleLead() {
           campos limpios en cada alta, sin necesidad de resetearlos a mano. */}
       {modal === 'tarea' && (
         <ModalNuevaTarea
-          asistentes={equipo.data ?? []}
           fechaInicial={hoyComoClave()}
           leadFijo={{ id: lead.id, nombre: lead.nombre, apellido: lead.apellido }}
           onCerrar={() => setModal(null)}
@@ -320,7 +310,7 @@ function Aviso({ titulo, detalle }: { titulo: string; detalle: string }) {
         <p className="mt-1 text-sm text-ink-3">{detalle}</p>
         <Link
           to="/leads"
-          className="mt-5 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+          className="mt-5 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-contrast hover:bg-primary-dark"
         >
           Volver a leads
         </Link>

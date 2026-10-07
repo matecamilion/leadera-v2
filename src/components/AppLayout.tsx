@@ -254,7 +254,7 @@ export function AppLayout() {
   ]
 
   const itemsUsuario: ItemMenu[] = [
-    { label: 'Perfil', to: '/perfil' },
+    { label: 'Configuración', to: '/perfil' },
     ...(esDueno ? [{ label: 'Suscripción', to: '/suscripcion' }] : []),
     { label: 'Cerrar sesión', onSelect: signOut },
   ]

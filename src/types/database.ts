@@ -1606,6 +1606,40 @@ export type Database = {
           score_pct: number
         }[]
       }
+      buscar_compradores: {
+        Args: {
+          p_ambientes?: number
+          p_banos?: number
+          p_cocheras?: number
+          p_expensas?: number
+          p_m2?: number
+          p_moneda?: string
+          p_precio?: number
+          p_tipo_operacion?: string
+          p_tipo_propiedad?: Database["public"]["Enums"]["tipo_propiedad"]
+          p_zona?: string
+        }
+        Returns: {
+          ambientes_min: number
+          apellido: string
+          busqueda_created_at: string
+          busqueda_id: string
+          criterios_cumplidos: number
+          criterios_evaluados: number
+          dif_presupuesto_pct: number
+          estado: Database["public"]["Enums"]["estado_lead"]
+          lead_id: string
+          moneda: string
+          nombre: string
+          precio_max: number
+          precio_min: number
+          score_pct: number
+          telefono: string
+          tipo_operacion: string
+          tipo_propiedad: Database["public"]["Enums"]["tipo_propiedad"]
+          zona: string
+        }[]
+      }
       buscar_propiedad_por_direccion: {
         Args: { p_direccion: string; p_inmobiliaria_id: string }
         Returns: {

@@ -321,3 +321,232 @@ export async function obtenerCoincidencias(
     ]
   })
 }
+
+// ---------------------------------------------------------------------------
+// Compradores para algo que se ofrece
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el agente tiene para ofrecer. Todo opcional: lo que falta no filtra
+ * ni puntúa. `moneda` sólo pesa cuando viene `precio`.
+ */
+export interface CriteriosOferta {
+  tipoOperacion: 'COMPRA' | 'ALQUILER' | null
+  precio: number | null
+  moneda: 'USD' | 'ARS'
+  tipoPropiedad: TipoPropiedad | null
+  zona: string | null
+  ambientes: number | null
+  m2: number | null
+  banos: number | null
+  cocheras: number | null
+  expensas: number | null
+}
+
+/**
+ * ¿Hay algo para buscar? La operación y la moneda no cuentan: tienen siempre
+ * un valor por defecto, y solas devolverían a todos los compradores.
+ */
+export function hayCriterioDeOferta(c: CriteriosOferta): boolean {
+  return (
+    c.precio != null ||
+    c.tipoPropiedad != null ||
+    (c.zona != null && c.zona.trim() !== '') ||
+    c.ambientes != null ||
+    c.m2 != null ||
+    c.banos != null ||
+    c.cocheras != null ||
+    c.expensas != null
+  )
+}
+
+type FilaComprador =
+  Database['public']['Functions']['buscar_compradores']['Returns'][number]
+
+/**
+ * Una fila del RPC con la nulabilidad real.
+ *
+ * El generador de tipos marca todas las columnas de un `returns table` como no
+ * nulas, pero estas pueden venir vacías: el lead sin apellido ni teléfono, la
+ * búsqueda sin zona ni rango, el score sin criterios evaluados.
+ */
+export type CompradorParaOferta = Omit<
+  FilaComprador,
+  | 'apellido'
+  | 'telefono'
+  | 'estado'
+  | 'tipo_operacion'
+  | 'tipo_propiedad'
+  | 'zona'
+  | 'precio_min'
+  | 'precio_max'
+  | 'ambientes_min'
+  | 'score_pct'
+  | 'dif_presupuesto_pct'
+> & {
+  apellido: string | null
+  telefono: string | null
+  estado: FilaComprador['estado'] | null
+  tipo_operacion: 'COMPRA' | 'ALQUILER' | null
+  tipo_propiedad: TipoPropiedad | null
+  zona: string | null
+  precio_min: number | null
+  precio_max: number | null
+  ambientes_min: number | null
+  score_pct: number | null
+  dif_presupuesto_pct: number | null
+}
+
+/**
+ * Búsquedas activas de compradores donde encaja lo que se ofrece.
+ *
+ * Una fila por búsqueda, ordenadas por score (sin score al final) y después
+ * por la más reciente. El agrupado por lead lo hace la pantalla. Corre con la
+ * RLS del usuario: cada uno ve sólo los compradores de los leads que ve.
+ */
+export async function buscarCompradores(
+  criterios: CriteriosOferta,
+): Promise<CompradorParaOferta[]> {
+  const zona = criterios.zona?.trim()
+
+  // Sin `undefined` en el objeto: lo que no vino ni se manda, y el RPC usa su
+  // default (null; 'USD' para la moneda).
+  const args: Database['public']['Functions']['buscar_compradores']['Args'] = {
+    p_moneda: criterios.moneda,
+    ...(criterios.tipoOperacion && { p_tipo_operacion: criterios.tipoOperacion }),
+    ...(criterios.precio != null && { p_precio: criterios.precio }),
+    ...(criterios.tipoPropiedad && { p_tipo_propiedad: criterios.tipoPropiedad }),
+    ...(zona && { p_zona: zona }),
+    ...(criterios.ambientes != null && { p_ambientes: criterios.ambientes }),
+    ...(criterios.m2 != null && { p_m2: criterios.m2 }),
+    ...(criterios.banos != null && { p_banos: criterios.banos }),
+    ...(criterios.cocheras != null && { p_cocheras: criterios.cocheras }),
+    ...(criterios.expensas != null && { p_expensas: criterios.expensas }),
+  }
+
+  const { data, error } = await supabase.rpc('buscar_compradores', args)
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar compradores.'))
+  return (data ?? []) as CompradorParaOferta[]
+}
+
+/**
+ * Una fila por lead: la búsqueda que mejor encaja. Gana el score más alto (sin
+ * score cuenta como el peor); a igual score, la búsqueda más reciente.
+ *
+ * El RPC ya viene en ese orden, pero el criterio se escribe acá igual: la
+ * pantalla no tiene que depender de cómo ordena la base.
+ */
+export function mejorBusquedaPorLead(filas: CompradorParaOferta[]): CompradorParaOferta[] {
+  const gana = (a: CompradorParaOferta, b: CompradorParaOferta) => {
+    const sa = a.score_pct ?? -1
+    const sb = b.score_pct ?? -1
+    if (sa !== sb) return sa > sb
+    // Como fecha y no como texto: el ISO de PostgREST no siempre trae la misma
+    // cantidad de decimales, y comparar strings los ordenaría mal.
+    return Date.parse(a.busqueda_created_at) > Date.parse(b.busqueda_created_at)
+  }
+
+  const porLead = new Map<string, CompradorParaOferta>()
+  for (const fila of filas) {
+    const actual = porLead.get(fila.lead_id)
+    if (!actual || gana(fila, actual)) porLead.set(fila.lead_id, fila)
+  }
+
+  return [...porLead.values()].sort((a, b) => (gana(a, b) ? -1 : gana(b, a) ? 1 : 0))
+}
+
+/** Para comparar zonas: sin mayúsculas, sin acentos y sin espacios de más. */
+function claveDeZona(zona: string): string {
+  return zona
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Las zonas que ya se usan, en propiedades y en búsquedas, para sugerirlas al
+ * tipear. Sin duplicados: "Güemes", "guemes" y "GUEMES " son una sola, y queda
+ * la primera forma que aparece (las de propiedades primero, que suelen estar
+ * mejor escritas). Ordenadas alfabéticamente.
+ *
+ * Corre con la RLS del usuario, así que son las zonas de su inmobiliaria.
+ */
+export async function listarZonasConocidas(): Promise<string[]> {
+  const [propiedades, busquedas] = await Promise.all([
+    supabase.from('propiedades').select('zona').not('zona', 'is', null),
+    supabase.from('busquedas').select('zona').not('zona', 'is', null),
+  ])
+
+  const fallo = propiedades.error ?? busquedas.error
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudieron cargar las zonas.'))
+
+  const porClave = new Map<string, string>()
+  for (const { zona } of [...(propiedades.data ?? []), ...(busquedas.data ?? [])]) {
+    const limpia = zona?.replace(/\s+/g, ' ').trim()
+    if (!limpia) continue
+    const clave = claveDeZona(limpia)
+    if (!porClave.has(clave)) porClave.set(clave, limpia)
+  }
+
+  return [...porClave.values()].sort((a, b) => a.localeCompare(b, 'es'))
+}
+
+/** La demanda activa resumida, para el estado inicial de Coincidencias. */
+export interface DemandaActiva {
+  /** Búsquedas activas de leads que no están GANADO. */
+  total: number
+  /** De más a menos. `tipo` null = "le sirve cualquier tipo". */
+  porTipo: { tipo: TipoPropiedad | null; cantidad: number }[]
+  /** Las más buscadas primero, sin duplicados por mayúsculas ni acentos. */
+  zonas: { zona: string; cantidad: number }[]
+}
+
+/**
+ * Cuánta demanda hay y de qué: total, desglose por tipo y zonas más buscadas.
+ *
+ * Mismo universo que `buscar_compradores`: búsquedas activas de leads que no
+ * están GANADO y que el usuario ve (el `!inner` deja afuera las búsquedas de
+ * leads que la RLS le tapa). Se agrega acá porque son pocas filas por
+ * inmobiliaria y así no hace falta otra función en la base.
+ */
+export async function resumirDemandaActiva(): Promise<DemandaActiva> {
+  const { data, error } = await supabase
+    .from('busquedas')
+    .select('tipo_propiedad, zona, lead:leads!inner(estado)')
+    .eq('activa', true)
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la demanda activa.'))
+
+  type Fila = {
+    tipo_propiedad: TipoPropiedad | null
+    zona: string | null
+    lead: { estado: string | null } | null
+  }
+  const filas = ((data ?? []) as unknown as Fila[]).filter((f) => f.lead?.estado !== 'GANADO')
+
+  const tipos = new Map<TipoPropiedad | null, number>()
+  const zonas = new Map<string, { zona: string; cantidad: number }>()
+  for (const f of filas) {
+    tipos.set(f.tipo_propiedad, (tipos.get(f.tipo_propiedad) ?? 0) + 1)
+
+    const limpia = f.zona?.replace(/\s+/g, ' ').trim()
+    if (!limpia) continue
+    const clave = claveDeZona(limpia)
+    const actual = zonas.get(clave)
+    if (actual) actual.cantidad += 1
+    else zonas.set(clave, { zona: limpia, cantidad: 1 })
+  }
+
+  return {
+    total: filas.length,
+    porTipo: [...tipos.entries()]
+      .map(([tipo, cantidad]) => ({ tipo, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad),
+    zonas: [...zonas.values()].sort(
+      (a, b) => b.cantidad - a.cantidad || a.zona.localeCompare(b.zona, 'es'),
+    ),
+  }
+}

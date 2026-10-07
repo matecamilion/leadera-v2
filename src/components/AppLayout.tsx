@@ -78,6 +78,16 @@ const NAV: ItemNav[] = [
     ),
   },
   {
+    to: '/coincidencias',
+    label: 'Coincidencias',
+    icono: (
+      <svg {...trazo}>
+        <circle cx="9" cy="12" r="5.5" />
+        <circle cx="15" cy="12" r="5.5" />
+      </svg>
+    ),
+  },
+  {
     to: '/operaciones',
     label: 'Operaciones',
     icono: (

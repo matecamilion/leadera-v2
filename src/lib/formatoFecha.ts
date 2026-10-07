@@ -47,3 +47,28 @@ export function formatearFecha(fecha: string | null | undefined): string {
     year: 'numeric',
   })
 }
+
+/**
+ * Cuánto pasó, para usar dentro de una frase: "hoy", "ayer", "hace 5 días",
+ * "hace 4 semanas", "hace 3 meses", "hace 2 años". Vacío si no hay fecha.
+ *
+ * A diferencia de `tiempoTranscurrido`, no cae a una fecha suelta después de
+ * un mes: sirve para frases como "Buscaba hace 4 semanas".
+ */
+export function haceCuantoTiempo(fecha: string | null | undefined): string {
+  if (!fecha) return ''
+  const pasada = new Date(fecha)
+  if (Number.isNaN(pasada.getTime())) return ''
+
+  const dias = Math.max(0, Math.floor((Date.now() - pasada.getTime()) / 86_400_000))
+  if (dias === 0) return 'hoy'
+  if (dias === 1) return 'ayer'
+  if (dias < 14) return `hace ${dias} días`
+  if (dias < 60) return `hace ${Math.floor(dias / 7)} semanas`
+  if (dias < 365) {
+    const meses = Math.floor(dias / 30)
+    return `hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`
+  }
+  const anios = Math.floor(dias / 365)
+  return `hace ${anios} ${anios === 1 ? 'año' : 'años'}`
+}

@@ -1,10 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { obtenerDetalleMatch, type DetalleMatch } from '../lib/api/detalleMatch'
 import {
+  buscarCompradores,
   guardarBusqueda,
+  hayCriterioDeOferta,
+  listarZonasConocidas,
+  resumirDemandaActiva,
   obtenerCoincidencias,
   obtenerCriterios,
+  type CompradorParaOferta,
   type CriteriosBusqueda,
+  type CriteriosOferta,
+  type DemandaActiva,
   type PropiedadCoincidente,
 } from '../lib/api/busquedas'
 import { claves } from '../lib/queryKeys'
@@ -83,5 +90,46 @@ export function useDetalleMatch(
     queryKey: claves.detalleMatch.detalle(uid, busquedaId, propiedadId),
     queryFn: () => obtenerDetalleMatch(busquedaId as string, propiedadId as string),
     enabled: !!uid && Boolean(busquedaId && propiedadId),
+  })
+}
+
+/**
+ * Compradores donde encaja algo que se ofrece.
+ *
+ * Apagado sin ningún criterio: operación y moneda solas devolverían a todos
+ * los compradores, que ya es la lista normal. `staleTime` en 0 por lo mismo
+ * que las coincidencias: las búsquedas cambian por fuera de esta pantalla.
+ */
+export function useBuscarCompradores(criterios: CriteriosOferta) {
+  const uid = useUid()
+  return useQuery<CompradorParaOferta[]>({
+    queryKey: claves.compradoresParaOferta.deCriterios(uid, criterios),
+    queryFn: () => buscarCompradores(criterios),
+    enabled: !!uid && hayCriterioDeOferta(criterios),
+    staleTime: 0,
+  })
+}
+
+/**
+ * Zonas para el datalist de Coincidencias. Cambian poco: cinco minutos de
+ * frescura alcanzan y evitan releerlas en cada visita.
+ */
+export function useZonasConocidas() {
+  const uid = useUid()
+  return useQuery<string[]>({
+    queryKey: claves.zonasConocidas.todas(uid),
+    queryFn: listarZonasConocidas,
+    enabled: !!uid,
+    staleTime: 5 * 60_000,
+  })
+}
+
+/** Demanda activa para el estado inicial de Coincidencias. */
+export function useDemandaActiva(habilitado: boolean) {
+  const uid = useUid()
+  return useQuery<DemandaActiva>({
+    queryKey: claves.demandaActiva.resumen(uid),
+    queryFn: resumirDemandaActiva,
+    enabled: !!uid && habilitado,
   })
 }

@@ -284,6 +284,17 @@ export default function Leads() {
         <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
       </div>
 
+      {filtroRol === 'compradores' && (
+        <p className="-mt-2 mb-5 text-right text-[0.85rem]">
+          <Link
+            to="/coincidencias"
+            className="font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Buscar compradores para algo que tengas →
+          </Link>
+        </p>
+      )}
+
       {isPending ? (
         <Skeleton />
       ) : isError ? (

@@ -64,6 +64,25 @@ export const claves = {
       ['coincidencias-busqueda', uid, busquedaId] as const,
   },
 
+  /** Compradores donde encaja algo que se ofrece (`buscar_compradores`). */
+  compradoresParaOferta: {
+    raiz: ['compradores-para-oferta'] as const,
+    deCriterios: (uid: Uid, criterios: unknown) =>
+      ['compradores-para-oferta', uid, criterios] as const,
+  },
+
+  /** Zonas ya usadas en propiedades y búsquedas, para sugerir al tipear. */
+  zonasConocidas: {
+    raiz: ['zonas-conocidas'] as const,
+    todas: (uid: Uid) => ['zonas-conocidas', uid] as const,
+  },
+
+  /** Resumen de búsquedas activas: el estado inicial de Coincidencias. */
+  demandaActiva: {
+    raiz: ['demanda-activa'] as const,
+    resumen: (uid: Uid) => ['demanda-activa', uid] as const,
+  },
+
   coincidenciasInternas: {
     raiz: ['coincidencias-internas'] as const,
     dePropiedad: (uid: Uid, propiedadId: string | undefined) =>

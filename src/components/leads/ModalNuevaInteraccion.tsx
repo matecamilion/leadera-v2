@@ -262,7 +262,7 @@ export function ModalNuevaInteraccion({
                 key={atajo.dias}
                 type="button"
                 onClick={() => setProximo(enDias(atajo.dias))}
-                className="flex-1 rounded-lg border border-border bg-surface p-2 text-[0.8rem] font-semibold text-ink-3 transition-colors hover:border-primary hover:bg-primary hover:text-white motion-reduce:transition-none"
+                className="flex-1 rounded-lg border border-border bg-surface p-2 text-[0.8rem] font-semibold text-ink-3 transition-colors hover:border-primary hover:bg-primary hover:text-primary-contrast motion-reduce:transition-none"
               >
                 {atajo.label}
               </button>
@@ -304,7 +304,7 @@ export function ModalNuevaInteraccion({
           <button
             type="submit"
             disabled={!valido || crear.isPending}
-            className="flex-1 rounded-lg border-none bg-primary px-4 py-2.5 font-bold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
+            className="flex-1 rounded-lg border-none bg-primary px-4 py-2.5 font-bold text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
           >
             {crear.isPending ? 'Guardando…' : 'Guardar interacción'}
           </button>

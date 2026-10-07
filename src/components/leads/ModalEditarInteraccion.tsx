@@ -240,7 +240,7 @@ export function ModalEditarInteraccion({
           <button
             type="submit"
             disabled={!valido || guardando}
-            className="flex-1 rounded-lg border-none bg-primary px-4 py-2.5 font-bold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
+            className="flex-1 rounded-lg border-none bg-primary px-4 py-2.5 font-bold text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
           >
             {guardando ? 'Guardando…' : 'Guardar cambios'}
           </button>

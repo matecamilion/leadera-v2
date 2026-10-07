@@ -35,7 +35,7 @@ export function ChipsCategoriaReunion({ valor, onCambiar }: ChipsCategoriaReunio
                 'transition-colors motion-reduce:transition-none',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
                 activo
-                  ? 'border-primary bg-primary text-white'
+                  ? 'border-primary bg-primary text-primary-contrast'
                   : 'border-border bg-surface text-ink hover:bg-background',
               ].join(' ')}
             >

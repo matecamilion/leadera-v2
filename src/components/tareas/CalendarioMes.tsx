@@ -120,7 +120,7 @@ export function CalendarioMes({
               <span
                 className={[
                   'grid size-6 shrink-0 place-items-center rounded-full text-[0.75rem] tabular-nums',
-                  esHoy ? 'bg-primary font-bold text-white' : '',
+                  esHoy ? 'bg-primary font-bold text-primary-contrast' : '',
                   delMes ? (esHoy ? '' : 'text-ink-2') : 'text-ink-4',
                 ].join(' ')}
               >

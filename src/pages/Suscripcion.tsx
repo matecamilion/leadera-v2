@@ -676,7 +676,7 @@ function TarjetaPlan({
       ].join(' ')}
     >
       {destacado && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[0.75rem] leading-none font-semibold whitespace-nowrap text-white">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-[0.75rem] leading-none font-semibold whitespace-nowrap text-primary-contrast">
           Recomendado
         </span>
       )}
@@ -742,7 +742,7 @@ function TarjetaPlan({
           // Sólo el plan destacado lleva el botón relleno. Tres botones sólidos
           // iguales no le dicen al ojo por dónde empezar.
           destacado
-            ? 'bg-primary text-white hover:bg-primary-dark'
+            ? 'bg-primary text-primary-contrast hover:bg-primary-dark'
             : 'border border-primary bg-surface text-primary hover:bg-brand-soft',
         ].join(' ')}
       >

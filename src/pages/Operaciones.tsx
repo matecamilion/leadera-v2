@@ -138,7 +138,7 @@ export default function Operaciones() {
           <AlternadorVista actual="lista" />
           <Link
             to="/operaciones/nueva"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-white transition-colors hover:bg-primary-dark motion-reduce:transition-none"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
           >
             + Nueva Operación
           </Link>

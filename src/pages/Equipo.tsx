@@ -109,7 +109,7 @@ export default function Equipo() {
             onClick={() => setModalAbierto(true)}
             disabled={sinCupo}
             title={sinCupo ? 'No te quedan lugares en el plan' : undefined}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
           >
             <IconoPersonaMas className="size-5" />
             Invitar

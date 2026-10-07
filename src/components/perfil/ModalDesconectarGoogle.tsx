@@ -73,7 +73,7 @@ export function ModalDesconectarGoogle({
             type="button"
             onClick={onConfirmar}
             disabled={desconectando}
-            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
             {desconectando ? 'Desconectando…' : 'Desconectar'}
           </button>

@@ -178,7 +178,7 @@ export function GraficoEvolucion() {
                 className={[
                   'rounded-md px-2.5 py-1 text-[0.78rem] font-semibold transition-colors motion-reduce:transition-none',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-                  activo ? 'bg-primary text-white' : 'text-ink-2 hover:bg-surface',
+                  activo ? 'bg-primary text-primary-contrast' : 'text-ink-2 hover:bg-surface',
                 ].join(' ')}
               >
                 {p.label}

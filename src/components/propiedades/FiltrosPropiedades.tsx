@@ -164,7 +164,7 @@ export function FiltrosPropiedades({
         >
           Más filtros
           {activos > 0 && (
-            <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[0.7rem] font-bold text-white">
+            <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[0.7rem] font-bold text-primary-contrast">
               {activos}
             </span>
           )}

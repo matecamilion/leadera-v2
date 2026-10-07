@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 const BASE =
   'px-3 py-2 text-[0.85rem] font-semibold transition-colors motion-reduce:transition-none'
-const ACTIVO = 'bg-primary text-white'
+const ACTIVO = 'bg-primary text-primary-contrast'
 const INACTIVO = 'bg-surface text-ink-3 hover:text-ink'
 
 /**

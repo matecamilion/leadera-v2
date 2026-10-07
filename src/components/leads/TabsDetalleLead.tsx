@@ -114,7 +114,7 @@ export function TabsDetalleLead({
               <button
                 type="button"
                 onClick={onNuevaInteraccion}
-                className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-white motion-reduce:transition-none"
+                className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
               >
                 + Nueva interacción
               </button>
@@ -274,7 +274,7 @@ function PanelTareas({
         <button
           type="button"
           onClick={onNuevaTarea}
-          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-white motion-reduce:transition-none"
+          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
         >
           + Nueva tarea
         </button>
@@ -371,7 +371,7 @@ function PanelPropiedades({
         accion={
           <Link
             to={`/propiedades/nueva?propietario=${leadId}`}
-            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-white motion-reduce:transition-none"
+            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
           >
             + Nueva propiedad
           </Link>
@@ -385,7 +385,7 @@ function PanelPropiedades({
       <div className="mb-4 flex justify-end">
         <Link
           to={`/propiedades/nueva?propietario=${leadId}`}
-          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-white motion-reduce:transition-none"
+          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
         >
           + Nueva propiedad
         </Link>

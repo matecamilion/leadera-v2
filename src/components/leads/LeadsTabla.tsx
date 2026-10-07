@@ -129,7 +129,7 @@ export function LeadsTabla({
                       type="button"
                       onClick={() => onRegistrar(lead)}
                       aria-label={`Registrar una interacción con ${lead.nombre}`}
-                      className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-primary bg-primary px-3 text-[0.78rem] font-semibold whitespace-nowrap text-white transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
+                      className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-primary bg-primary px-3 text-[0.78rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
                     >
                       Registrar
                     </button>

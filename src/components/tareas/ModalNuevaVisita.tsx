@@ -335,7 +335,7 @@ export function ModalNuevaVisita({
           <button
             type="submit"
             disabled={faltaAlgo || crear.isPending}
-            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+            className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
             {crear.isPending ? 'Agendando…' : 'Agendar visita'}
           </button>

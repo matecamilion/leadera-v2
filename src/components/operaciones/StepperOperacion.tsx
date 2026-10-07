@@ -26,7 +26,7 @@ function estadoDelPaso(paso: EstadoOperacion, actual: EstadoOperacion): EstadoPa
 }
 
 const PUNTO: Record<EstadoPaso, string> = {
-  completado: 'border-primary bg-primary text-white',
+  completado: 'border-primary bg-primary text-primary-contrast',
   activo: 'border-tibio bg-tibio text-white',
   pendiente: 'border-border bg-surface text-ink-4',
 }

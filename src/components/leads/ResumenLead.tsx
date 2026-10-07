@@ -711,7 +711,7 @@ function SeccionSobreLead({ lead }: { lead: Lead }) {
               <button
                 type="submit"
                 disabled={guardar.isPending}
-                className="rounded-lg border-none bg-primary px-3 py-1.5 text-[0.82rem] font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+                className="rounded-lg border-none bg-primary px-3 py-1.5 text-[0.82rem] font-bold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
               >
                 {guardar.isPending ? 'Guardando…' : 'Guardar'}
               </button>

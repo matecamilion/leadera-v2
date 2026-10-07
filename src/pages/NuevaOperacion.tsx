@@ -368,7 +368,7 @@ export default function NuevaOperacion() {
           <button
             type="submit"
             disabled={!valido || crear.isPending || guardarCriterios.isPending}
-            className="rounded-md border-none bg-primary px-8 py-3 font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
+            className="rounded-md border-none bg-primary px-8 py-3 font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
           >
             {crear.isPending || guardarCriterios.isPending
               ? 'Creando…'

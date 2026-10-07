@@ -167,7 +167,7 @@ export function ModalInvitar({ miRol, miId, agentes, onCerrar }: ModalInvitarPro
                 type="button"
                 onClick={generar}
                 disabled={invitar.isPending || faltaElegirAgente}
-                className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+                className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
               >
                 {invitar.isPending ? 'Generando…' : 'Generar link'}
               </button>
@@ -201,7 +201,7 @@ export function ModalInvitar({ miRol, miId, agentes, onCerrar }: ModalInvitarPro
                 type="button"
                 onClick={() => copiar(invitacion.link)}
                 className={[
-                  'inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[0.85rem] font-semibold text-white',
+                  'inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast',
                   'transition-colors motion-reduce:transition-none',
                   copiado ? 'bg-primary-dark' : 'bg-primary hover:bg-primary-dark',
                 ].join(' ')}

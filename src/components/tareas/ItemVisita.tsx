@@ -120,7 +120,7 @@ export function ItemVisita({
             type="button"
             onClick={() => onMarcarRealizada(visita)}
             disabled={cambiando}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[0.78rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[0.78rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
           >
             <IconoCheck className="size-3.5" />
             Marcar realizada

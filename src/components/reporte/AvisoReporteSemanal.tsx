@@ -92,7 +92,7 @@ export function AvisoReporteSemanal() {
               cambiar.reset()
               setConfirmando(true)
             }}
-            className="rounded-lg bg-brand-soft px-3 py-1.5 text-[0.8rem] font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+            className="rounded-lg bg-brand-soft px-3 py-1.5 text-[0.8rem] font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
           >
             Activar
           </button>

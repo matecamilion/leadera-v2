@@ -198,7 +198,7 @@ export function FilaLead({ lead, onRegistrar, enLugarDelTiempo, densa = false }:
           type="button"
           onClick={() => onRegistrar(lead)}
           aria-label={`Registrar una interacción con ${nombreCompleto}`}
-          className="ml-auto rounded-lg bg-brand-soft px-3 py-2 text-[0.78rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[40rem]:ml-0"
+          className="ml-auto rounded-lg bg-brand-soft px-3 py-2 text-[0.78rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[40rem]:ml-0"
         >
           Interacción
         </button>
@@ -266,7 +266,7 @@ function FilaLeadDensa({
           type="button"
           onClick={() => onRegistrar(lead)}
           aria-label={`Registrar una interacción con ${nombreCompleto}`}
-          className="ml-auto rounded-lg bg-brand-soft px-2.5 py-1.5 text-[0.74rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[28rem]:ml-0"
+          className="ml-auto rounded-lg bg-brand-soft px-2.5 py-1.5 text-[0.74rem] font-semibold whitespace-nowrap text-primary transition-colors hover:bg-primary hover:text-primary-contrast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none @[28rem]:ml-0"
         >
           Interacción
         </button>

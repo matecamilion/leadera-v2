@@ -454,7 +454,7 @@ function Aviso({ titulo, detalle }: { titulo: string; detalle: string }) {
         <p className="mt-1 text-sm text-ink-3">{detalle}</p>
         <Link
           to="/operaciones"
-          className="mt-5 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+          className="mt-5 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-contrast hover:bg-primary-dark"
         >
           Volver a operaciones
         </Link>
@@ -535,7 +535,7 @@ function SeguimientoEditable({
           <button
             type="submit"
             disabled={pasado || guardando}
-            className="rounded-lg bg-primary px-3 py-1.5 text-[0.8rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
+            className="rounded-lg bg-primary px-3 py-1.5 text-[0.8rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-55 motion-reduce:transition-none"
           >
             {guardando ? 'Guardando…' : 'Guardar'}
           </button>

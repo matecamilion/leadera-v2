@@ -512,7 +512,7 @@ function Fila({ fila }: { fila: FilaDetalleGestion }) {
 }
 
 const BOTON_PRIMARIO =
-  `inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white no-underline transition-colors hover:bg-primary-dark motion-reduce:transition-none ${FOCO}`
+  `inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-primary-contrast no-underline transition-colors hover:bg-primary-dark motion-reduce:transition-none ${FOCO}`
 const BOTON_SECUNDARIO =
   `inline-flex items-center justify-center rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.85rem] font-semibold text-ink-2 no-underline transition-colors hover:border-primary hover:text-primary motion-reduce:transition-none ${FOCO}`
 

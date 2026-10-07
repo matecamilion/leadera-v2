@@ -244,7 +244,7 @@ export default function DetalleMatch() {
               href={whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
             >
               <IconoChat className="size-4" />
               Escribirle por WhatsApp
@@ -389,7 +389,7 @@ function Aviso({ titulo, detalle }: { titulo: string; detalle: string }) {
         <p className="mt-1.5 text-[0.9rem] text-ink-3">{detalle}</p>
         <Link
           to="/mi-dia"
-          className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-white transition-colors hover:bg-primary-dark motion-reduce:transition-none"
+          className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
         >
           Volver a Mi día
         </Link>

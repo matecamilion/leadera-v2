@@ -124,7 +124,7 @@ export function MetaMensual({ ganadosMes, meta, diasRestantes }: MetaMensualProp
               <button
                 type="submit"
                 disabled={guardar.isPending}
-                className="rounded-lg bg-primary px-3 py-1.5 text-[0.82rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
+                className="rounded-lg bg-primary px-3 py-1.5 text-[0.82rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
               >
                 {guardar.isPending ? 'Guardando…' : 'Guardar'}
               </button>

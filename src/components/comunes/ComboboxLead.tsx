@@ -272,7 +272,7 @@ function FormularioRapido({
           type="button"
           onClick={guardar}
           disabled={!completo || guardando}
-          className="flex-1 rounded-md bg-primary px-3 py-1.5 text-[0.8rem] font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
+          className="flex-1 rounded-md bg-primary px-3 py-1.5 text-[0.8rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
         >
           {guardando ? 'Creando…' : 'Crear y seleccionar'}
         </button>

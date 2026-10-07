@@ -106,7 +106,7 @@ export function LeadsCards({
               <button
                 type="button"
                 onClick={() => onRegistrar(lead)}
-                className="flex-1 rounded-lg border border-primary bg-primary px-3 py-2.5 text-center text-[0.9rem] font-semibold text-white transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
+                className="flex-1 rounded-lg border border-primary bg-primary px-3 py-2.5 text-center text-[0.9rem] font-semibold text-primary-contrast transition-colors hover:border-primary-dark hover:bg-primary-dark motion-reduce:transition-none"
               >
                 + Interacción
               </button>

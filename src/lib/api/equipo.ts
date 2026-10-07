@@ -400,3 +400,30 @@ export async function mensajeDeFuncion(error: unknown, porDefecto: string): Prom
   // inglés ("Edge Function returned a non-2xx status code"), no se muestra.
   return porDefecto
 }
+
+/** Lo que muestra el pie del menú al dueño. */
+export interface ResumenCupo {
+  plan: Database['public']['Enums']['plan_leadera'] | null
+  agentesUsados: number
+  /** null = el plan no tiene tope de agentes. */
+  maxAgentes: number | null
+}
+
+/**
+ * Plan y agentes de la propia inmobiliaria, desde `mi_cupo()`.
+ *
+ * El RPC es SECURITY DEFINER y siempre responde por la cuenta de quien llama:
+ * es la única forma de leer el plan, porque `inmobiliarias` no se ve desde el
+ * cliente. null si no vino ninguna fila.
+ */
+export async function obtenerResumenCupo(): Promise<ResumenCupo | null> {
+  const { data, error } = await supabase.rpc('mi_cupo')
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo leer el plan.'))
+  const fila = data?.[0]
+  if (!fila) return null
+  return {
+    plan: fila.plan ?? null,
+    agentesUsados: fila.agentes_usados,
+    maxAgentes: fila.max_agentes ?? null,
+  }
+}

@@ -4,10 +4,12 @@ import {
   listarEquipo,
   listarLeadsDelEquipo,
   obtenerCupo,
+  obtenerResumenCupo,
   obtenerStatsEquipo,
   toggleActivoMiembro,
   type CupoEquipo,
   type LeadsEquipoResult,
+  type ResumenCupo,
   type Miembro,
   type RolAgente,
   type StatsEquipo,
@@ -106,5 +108,17 @@ export function useToggleActivo() {
       // Afecta a la lista y también a las stats agregadas.
       queryClient.invalidateQueries({ queryKey: claves.equipo.raiz })
     },
+  })
+}
+
+/** Plan y agentes para el pie del menú. Sólo lo pide quien lo va a ver (el dueño). */
+export function useResumenCupo(habilitado: boolean) {
+  const uid = useUid()
+  return useQuery<ResumenCupo | null>({
+    queryKey: claves.equipo.resumenCupo(uid),
+    queryFn: obtenerResumenCupo,
+    enabled: !!uid && habilitado,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
   })
 }

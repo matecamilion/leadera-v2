@@ -125,6 +125,7 @@ export const claves = {
     stats: (uid: Uid) => ['equipo', 'stats', uid] as const,
     leads: (uid: Uid, page: number) => ['equipo', 'leads', uid, page] as const,
     invitaciones: (uid: Uid) => ['equipo', 'invitaciones', uid] as const,
+    resumenCupo: (uid: Uid) => ['equipo', 'resumen-cupo', uid] as const,
   },
 
   googleCalendar: {
@@ -173,6 +174,8 @@ export const claves = {
       ['leads', 'total', uid, rol, busqueda] as const,
     delDia: (uid: Uid) => ['leads', 'del-dia', uid] as const,
     contactadosHoy: (uid: Uid) => ['leads', 'contactados-hoy', uid] as const,
+    /** Conteo para el badge del menú. Bajo `leads`: lo refresca cualquier invalidación de leads. */
+    nuevos: (uid: Uid) => ['leads', 'nuevos', uid] as const,
   },
 
   leadsCombobox: {

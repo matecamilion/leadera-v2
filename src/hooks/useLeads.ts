@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   contarLeads,
+  contarLeadsNuevos,
   listarLeads,
   type FiltroDelDia,
   type FiltroEstado,
@@ -45,5 +46,20 @@ export function useTotalLeads(busqueda: string, rol?: FiltroRol) {
     queryFn: () => contarLeads(busqueda, rol),
     enabled: !!uid,
     placeholderData: anteriorDelMismoUsuario(uid),
+  })
+}
+
+/**
+ * Leads nuevos, para el badge del menú. Se refresca al volver a la pestaña
+ * (la app lo tiene apagado por defecto) y cada vez que algo invalida `leads`.
+ */
+export function useLeadsNuevos() {
+  const uid = useUid()
+  return useQuery<number>({
+    queryKey: claves.leads.nuevos(uid),
+    queryFn: contarLeadsNuevos,
+    enabled: !!uid,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   })
 }

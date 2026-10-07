@@ -13,6 +13,7 @@ import { interpretarErrorSupabase } from '../errores'
 import {
   interaccionesDeHoy,
   limitesDelDia,
+  soloNuevos,
   soloPrioritarios,
   soloSeguimientosDeHoy,
   type QueryDeLeads,
@@ -675,4 +676,23 @@ export async function obtenerNombreAgente(agenteId: string): Promise<string | nu
 
   if (error || !data) return null
   return `${data.nombre} ${data.apellido ?? ''}`.trim() || null
+}
+
+/**
+ * Cuántos leads nuevos hay, para el badge de Leads en el menú.
+ *
+ * Misma definición que "Nuevos" en Mi día (`soloNuevos`): nunca contactados y
+ * no ganados. Mi día además descarta los que tuvieron una interacción hoy,
+ * pero esa resta no cambia nada: cualquier interacción le llena
+ * `fecha_primer_contacto_real` (trigger `actualizar_fechas_contacto`), así que
+ * un lead contactado hoy ya no es nuevo.
+ *
+ * Sólo el conteo (`head: true`): no viaja ninguna fila.
+ */
+export async function contarLeadsNuevos(): Promise<number> {
+  const { count, error } = await soloNuevos(
+    supabase.from('leads').select('id', { count: 'exact', head: true }),
+  )
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron contar los leads nuevos.'))
+  return count ?? 0
 }

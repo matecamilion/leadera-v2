@@ -27,7 +27,7 @@ export const colors = {
   tempCaliente: '#C2410C',
   tempTibio: '#A16207',
   tempFrio: '#1F65B3',
-  tempInactivo: '#64748B',
+  tempInactivo: '#5B6B80',
   tempGanado: '#3F7D20',
   alerta: '#BE123C',
 

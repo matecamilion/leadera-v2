@@ -19,10 +19,15 @@ interface CardKpiProps {
    * dejaría de ser hija directa de la grilla y no se estiraría con las demás.
    */
   a?: string
+  /** Experimento: degradado de acento en la esquina de la card. */
+  acento?: boolean
+  /** Pinta el número con el color de alerta (hay algo que atender). */
+  alerta?: boolean
 }
 
 /** Card de un número. El sparkline llega en la Fase 6b. */
-export function CardKpi({ label, valor, contexto, icono, tono = 'brand', a }: CardKpiProps) {
+export function CardKpi({ label, valor, contexto, icono, tono = 'brand', a, acento = false, alerta = false }: CardKpiProps) {
+  const clases = acento ? `${CLASES} acento-degradado` : CLASES
   const contenido = (
     <>
       {/* El label toma el renglón entero: antes compartía la línea con el
@@ -46,7 +51,7 @@ export function CardKpi({ label, valor, contexto, icono, tono = 'brand', a }: Ca
         {/* `min-w-0` para que el `truncate` funcione: un ítem de flex no baja
             de su ancho de contenido sin eso, y un valor largo empujaría el
             número fuera de la card en vez de recortarse. */}
-        <span className="min-w-0 truncate text-[1.4rem] leading-none font-bold text-ink tabular-nums">
+        <span className={`min-w-0 truncate text-[1.4rem] leading-none font-bold tabular-nums ${alerta ? 'text-alerta' : 'text-ink'}`}>
           {valor}
         </span>
       </div>
@@ -55,14 +60,14 @@ export function CardKpi({ label, valor, contexto, icono, tono = 'brand', a }: Ca
     </>
   )
 
-  if (!a) return <article className={CLASES}>{contenido}</article>
+  if (!a) return <article className={clases}>{contenido}</article>
 
   // El borde se oscurece en hover en vez de levantar la card: el resto de la
   // pantalla es plano y una card que flota rompería el conjunto.
   return (
     <Link
       to={a}
-      className={`${CLASES} transition-colors hover:border-ink-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none`}
+      className={`${clases} transition-colors hover:border-ink-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none`}
     >
       {contenido}
     </Link>

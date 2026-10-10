@@ -147,6 +147,8 @@ export default function MiDia() {
           tono="caliente"
           icono={<IconoAlerta className="size-[18px]" />}
           a={RUTA_LISTA.prioritarios}
+          acento
+          alerta={prioritarios.total > 0}
         />
         <CardKpi
           label="Nuevos"

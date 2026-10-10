@@ -148,6 +148,24 @@
   --shadow-focus: 0 0 0 3px rgba(15, 110, 92, 0.12);
 }
 
+/* Experimento: acento con degradado (hoy sólo en la card Prioritarios de
+   Mi día). Token plano en :root y no en @theme: no es de un namespace de
+   Tailwind, y el modo oscuro lo pisa en src/styles/tema-oscuro.css.
+   Radial desde la esquina superior izquierda: `primary` al 10 % que se
+   disuelve en transparente, o sea hacia el `surface` de la card. */
+:root {
+  --gradiente-acento: radial-gradient(
+    circle at 0% 0%,
+    color-mix(in oklab, var(--color-primary) 10%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* Uso: class="acento-degradado" junto a `bg-surface`. */
+@utility acento-degradado {
+  background-image: var(--gradiente-acento);
+}
+
 @layer base {
   html {
     background-color: var(--color-background);

@@ -64,9 +64,9 @@ html.dark {
   --color-badge-ganado-bg: #133a2c;
 
   /* Eliminar: textos y bordes claros, fondo oscuro */
-  --color-peligro-ink: #f87171;
-  --color-peligro-borde: #5c2323;
-  --color-peligro-soft: #3a1717;
+  --color-peligro-ink: #f4728a;
+  --color-peligro-borde: #5c2330;
+  --color-peligro-soft: #3a1720;
 
   /* Color con significado: temperatura y urgencia, claros sobre oscuro */
   --color-temp-caliente: #f08a5d;

@@ -38,7 +38,7 @@ export const colors = {
 } as const
 
 export const fonts = {
-  sans: "'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif",
+  sans: "'Figtree Variable', 'Figtree', system-ui, -apple-system, sans-serif",
 } as const
 
 /** Valor usado por <meta name="theme-color"> y por el manifest de la PWA. */

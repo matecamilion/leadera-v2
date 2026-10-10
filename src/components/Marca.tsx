@@ -6,7 +6,7 @@
  * `currentColor` en vez del primario fijo: el lockup se monta sobre el sidebar
  * oscuro (en blanco) y sobre fondo claro (en primario), y el color plano del
  * SVG original no sobreviviría al primero. El wordmark va como texto HTML para
- * que herede Inter, la tipografía de la app.
+ * que herede Figtree, la tipografía de la app.
  */
 export function Marca({ className = '' }: { className?: string }) {
   return (

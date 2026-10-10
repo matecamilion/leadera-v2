@@ -3,39 +3,36 @@ import { etiquetaEstado, type EstadoLead } from '../../lib/etiquetasLead'
 type Clave = EstadoLead | 'NUEVO'
 
 /**
- * Colores exactos de `.badge-estado` del Angular. Clases literales y no
- * armadas por template string: Tailwind escanea el fuente y no encontraría
- * `bg-badge-${x}-bg`.
+ * Temperatura del lead: punto + texto del color de la temperatura, sin caja
+ * ni fondo. Es el único badge con color de la app (ver tokens `temp-*` en
+ * src/index.css). Clases literales: Tailwind escanea el fuente y no
+ * encontraría `text-temp-${x}`.
  *
- * NUEVO no existe en el original: es la variante para `estado IS NULL`,
- * construida con los tokens de marca para no inventar un color nuevo.
+ * NUEVO (`estado IS NULL`) no es una temperatura: va en gris.
  */
 const ESTILOS: Record<Clave, string> = {
-  CALIENTE: 'bg-badge-caliente-bg text-caliente',
-  TIBIO: 'bg-badge-tibio-bg text-badge-tibio-ink',
-  FRIO: 'bg-badge-frio-bg text-frio',
-  INACTIVO: 'bg-background text-inactivo',
-  GANADO: 'bg-badge-ganado-bg text-primary-dark',
-  NUEVO: 'bg-brand-soft text-primary',
+  CALIENTE: 'text-temp-caliente',
+  TIBIO: 'text-temp-tibio',
+  FRIO: 'text-temp-frio',
+  INACTIVO: 'text-temp-inactivo',
+  GANADO: 'text-temp-ganado',
+  NUEVO: 'text-ink-3',
 }
 
 interface BadgeEstadoProps {
   estado: EstadoLead | null
-  /**
-   * Un escalón más chico, para las filas de una línea de Mi día: ahí el badge
-   * comparte renglón con las acciones y el botón de interacción. En el resto
-   * de las pantallas se queda en el tamaño del original.
-   */
+  /** Se conserva por compatibilidad con las filas de Mi día; ya no cambia el tamaño. */
   chico?: boolean
 }
 
-export function BadgeEstado({ estado, chico = false }: BadgeEstadoProps) {
+export function BadgeEstado({ estado }: BadgeEstadoProps) {
   const clave: Clave = estado ?? 'NUEVO'
 
   return (
     <span
-      className={`inline-block rounded-sm font-bold uppercase ${chico ? 'px-2 py-0.5 text-[9.5px]' : 'px-2.5 py-1 text-[10px]'} ${ESTILOS[clave]}`}
+      className={`inline-flex items-center gap-1.5 text-meta font-semibold whitespace-nowrap ${ESTILOS[clave]}`}
     >
+      <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />
       {etiquetaEstado(estado)}
     </span>
   )

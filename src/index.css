@@ -90,8 +90,44 @@
   --color-danger: #c0392b;
   --color-info: #2c6fb5;
 
-  /* Tipografía */
+  /* ---------------------------------------------------------------------
+     Color con significado. Sólo estos tres grupos llevan color; todo lo
+     demás (rol, plan, origen, estados neutros) es gris o borde fino.
+     Son colores de TEXTO / PUNTO sobre `surface` (≥ 4,5:1), nunca fondos.
+     --------------------------------------------------------------------- */
+
+  /* 1 · Temperatura del lead. Un color cada uno, contenido. */
+  --color-temp-caliente: #c2410c;
+  --color-temp-tibio: #a16207;
+  --color-temp-frio: #1f65b3;
+  --color-temp-inactivo: #64748b;
+  --color-temp-ganado: #3f7d20;
+
+  /* 2 · Urgencia: vencido / sin mover. Un solo color de alerta, de otro tono
+     que `caliente` (carmín, no naranja) para que no se confundan. */
+  --color-alerta: #be123c;
+
+  /* 3 · Acento de marca = --color-primary (arriba): botón primario, foco,
+     selección y estado activo del sidebar. No hay un segundo acento. */
+
+  /* Tipografía. Una sola familia (Inter); la jerarquía sale del peso, no de
+     cajas ni de más tamaños. Cuatro tamaños, con nombre por función.
+       meta     12px  · metadatos, etiquetas, pie de dato
+       cuerpo   14px  · texto, filas, botones, inputs
+       titulo   18px  · título de sección / de pantalla
+       display  28px  · cifras grandes (anillos, totales)
+     Los text-[0.xxrem] sueltos del repo migran a estos al tocar cada pantalla. */
   --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1.0625rem;
+  --text-cuerpo: 0.875rem;
+  --text-cuerpo--line-height: 1.35rem;
+  --text-titulo: 1.125rem;
+  --text-titulo--line-height: 1.5rem;
+  --text-titulo--letter-spacing: -0.01em;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2rem;
+  --text-display--letter-spacing: -0.02em;
 
   /* Radios — escala del original (--r-sm / --r-md / --r-lg) */
   --radius-card: 0.75rem;
@@ -117,9 +153,16 @@
   }
 
   body {
+    /* cv11: "a" de un piso, más cercana a la escritura que a la plantilla. */
+    font-feature-settings: 'cv11', 'calt';
     @apply bg-background text-ink font-sans antialiased;
     margin: 0;
     min-height: 100dvh;
+  }
+
+  /* Cifras de ancho fijo para montos, contadores y columnas de datos. */
+  .num {
+    font-variant-numeric: tabular-nums;
   }
 
   *:focus-visible {

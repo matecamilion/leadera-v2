@@ -68,6 +68,14 @@ html.dark {
   --color-peligro-borde: #5c2323;
   --color-peligro-soft: #3a1717;
 
+  /* Color con significado: temperatura y urgencia, claros sobre oscuro */
+  --color-temp-caliente: #f08a5d;
+  --color-temp-tibio: #e5b04a;
+  --color-temp-frio: #6fa8e8;
+  --color-temp-inactivo: #8b96a5;
+  --color-temp-ganado: #8fc46a;
+  --color-alerta: #f4728a;
+
   /* Semánticos: versiones claras para que se lean sobre oscuro */
   --color-success: #4fb58a;
   --color-warning: #e0a23a;

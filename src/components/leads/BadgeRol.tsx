@@ -1,19 +1,9 @@
 import { etiquetaRol, type RolLead } from '../../lib/api/rolLead'
 
 /**
- * Comprador / vendedor, al lado del badge de estado.
- *
- * Misma forma que `BadgeEstado` —chico, en mayúsculas, esquinas apenas
- * redondeadas— pero con borde y fondo blanco en vez de relleno: el color
- * relleno ya significa temperatura, y un segundo badge relleno se leería como
- * otro estado. El rol es otra dimensión y tiene que verse como tal.
+ * Comprador / vendedor: dato neutro, texto gris. El color queda reservado
+ * para la temperatura (`BadgeEstado`); el rol es otra dimensión y no compite.
  */
-const ESTILOS: Record<RolLead, string> = {
-  COMPRADOR: 'border-info/40 text-info',
-  VENDEDOR: 'border-primary/40 text-primary-dark',
-  AMBOS: 'border-ink-3/40 text-ink-2',
-}
-
 interface BadgeRolProps {
   rol: RolLead | null
 }
@@ -23,9 +13,7 @@ export function BadgeRol({ rol }: BadgeRolProps) {
   if (!rol) return null
 
   return (
-    <span
-      className={`inline-block shrink-0 rounded-sm border bg-surface px-2 py-[3px] text-[10px] font-bold whitespace-nowrap uppercase ${ESTILOS[rol]}`}
-    >
+    <span className="inline-block shrink-0 text-meta font-medium whitespace-nowrap text-ink-3">
       {etiquetaRol(rol)}
     </span>
   )

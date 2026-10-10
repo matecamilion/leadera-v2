@@ -24,6 +24,13 @@ export const colors = {
   inkMuted: '#5B6570',
   inkSubtle: '#8B949E',
 
+  tempCaliente: '#C2410C',
+  tempTibio: '#A16207',
+  tempFrio: '#1F65B3',
+  tempInactivo: '#64748B',
+  tempGanado: '#3F7D20',
+  alerta: '#BE123C',
+
   success: '#2E7D5B',
   warning: '#B7791F',
   danger: '#C0392B',

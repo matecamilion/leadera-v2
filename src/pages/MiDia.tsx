@@ -156,6 +156,7 @@ export default function MiDia() {
           tono="brand"
           icono={<IconoPersonaMas className="size-[18px]" />}
           a={RUTA_LISTA.nuevos}
+          acento
         />
         <CardKpi
           label="Seguimientos"
@@ -163,6 +164,7 @@ export default function MiDia() {
           tono="tibio"
           icono={<IconoReloj className="size-[18px]" />}
           a={RUTA_LISTA.seguimientos}
+          acento
         />
         <CardKpi
           label="Visitas hoy"
@@ -170,6 +172,7 @@ export default function MiDia() {
           tono="frio"
           icono={<IconoCasa className="size-[18px]" />}
           a="/tareas"
+          acento
         />
       </div>
 

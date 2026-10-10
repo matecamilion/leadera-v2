@@ -289,7 +289,13 @@ function Marco({
   children: ReactNode
 }) {
   return (
-    <SeccionCard icono={<IconoCheck className="size-4" />} tono="brand" titulo={TITULOS[vista]} subtitulo={subtitulo}>
+    <SeccionCard
+      icono={<IconoCheck className="size-4" />}
+      tono="brand"
+      titulo={TITULOS[vista]}
+      subtitulo={subtitulo}
+      className="acento-degradado"
+    >
       {/* La ayuda del título va acá y no al lado de "Tu semana": `SeccionCard`
           recibe el título como string y no admite un nodo al lado. Por lo
           mismo el selector va en esta fila y no en el header. */}

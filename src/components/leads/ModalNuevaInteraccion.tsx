@@ -1,3 +1,4 @@
+import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useCrearInteraccion } from '../../hooks/useInteracciones'
 import { useModeloGestionActivo } from '../../hooks/useModeloGestion'
@@ -122,6 +123,8 @@ export function ModalNuevaInteraccion({
       setTocado(false)
       resetMutacion()
       dialog.showModal()
+      // La cruz va primero en el DOM: sin esto robaría el foco inicial.
+      dialog.querySelector<HTMLElement>('input, select, textarea, button:not([aria-label="Cerrar"])')?.focus()
     }
 
     if (!abierto && dialog.open) dialog.close()
@@ -192,7 +195,8 @@ export function ModalNuevaInteraccion({
         noValidate
         className="box-border max-h-[85vh] overflow-y-auto p-[30px] text-left"
       >
-        <h3 className="mb-1 text-center text-lg font-bold text-ink">
+        <BotonCerrarModal onCerrar={onCerrar} />
+        <h3 className="mb-1 px-8 text-center text-lg font-bold text-ink">
           Nueva interacción
         </h3>
         <p className="mb-5 text-center text-[0.85rem] text-ink-3">

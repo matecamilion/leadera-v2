@@ -1,3 +1,4 @@
+import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, ErrorCampo, Input } from '../comunes/CampoFormulario'
 import { ComboboxLead } from '../comunes/ComboboxLead'
@@ -159,6 +160,8 @@ export function ModalEditarOperacion({
       // Los criterios NO se resetean acá: los maneja el efecto de arriba, que
       // depende de `abierto` justamente para poder repoblarlos al reabrir.
       dialog.showModal()
+      // La cruz va primero en el DOM: sin esto robaría el foco inicial.
+      dialog.querySelector<HTMLElement>('input, select, textarea, button:not([aria-label="Cerrar"])')?.focus()
     }
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, operacion])
@@ -223,7 +226,8 @@ export function ModalEditarOperacion({
         noValidate
         className="box-border max-h-[85vh] overflow-y-auto p-[30px] text-left"
       >
-        <h3 className="mb-5 text-center text-lg font-bold text-ink">Editar operación</h3>
+        <BotonCerrarModal onCerrar={onCerrar} />
+        <h3 className="mb-5 px-8 text-center text-lg font-bold text-ink">Editar operación</h3>
 
         <div className="grid grid-cols-1 gap-4 min-[651px]:grid-cols-2 min-[651px]:gap-5">
           <Campo label="Tipo *">

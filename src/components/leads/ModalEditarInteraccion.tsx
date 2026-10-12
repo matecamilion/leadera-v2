@@ -1,3 +1,4 @@
+import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { esMomentoFuturo } from '../../lib/calendario'
@@ -90,6 +91,8 @@ export function ModalEditarInteraccion({
       setFecha(aLocal(interaccion.fecha))
       setTocado(false)
       dialog.showModal()
+      // La cruz va primero en el DOM: sin esto robaría el foco inicial.
+      dialog.querySelector<HTMLElement>('input, select, textarea, button:not([aria-label="Cerrar"])')?.focus()
     }
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, interaccion, categoriaOriginal])
@@ -155,7 +158,8 @@ export function ModalEditarInteraccion({
         noValidate
         className="box-border max-h-[85vh] overflow-y-auto p-[30px] text-left"
       >
-        <h3 className="mb-5 text-center text-lg font-bold text-ink">
+        <BotonCerrarModal onCerrar={onCerrar} />
+        <h3 className="mb-5 px-8 text-center text-lg font-bold text-ink">
           Editar interacción
         </h3>
 

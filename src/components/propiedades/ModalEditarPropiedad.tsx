@@ -1,3 +1,4 @@
+import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ComboboxLead } from '../comunes/ComboboxLead'
 import {
@@ -95,6 +96,8 @@ export function ModalEditarPropiedad({
       setPropietarioId(propiedad.lead_propietario_id)
       setErrorLocal(null)
       dialog.showModal()
+      // La cruz va primero en el DOM: sin esto robaría el foco inicial.
+      dialog.querySelector<HTMLElement>('input, select, textarea, button:not([aria-label="Cerrar"])')?.focus()
     }
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, propiedad])
@@ -198,7 +201,8 @@ export function ModalEditarPropiedad({
         noValidate
         className="box-border max-h-[85vh] overflow-y-auto p-[30px] text-left"
       >
-        <h3 className="mb-5 text-center text-lg font-bold text-ink">Editar propiedad</h3>
+        <BotonCerrarModal onCerrar={onCerrar} />
+        <h3 className="mb-5 px-8 text-center text-lg font-bold text-ink">Editar propiedad</h3>
 
         <Campo label="Propietario">
           <ComboboxLead value={propietarioId} onChange={setPropietarioId} />

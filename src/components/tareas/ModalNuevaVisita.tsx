@@ -1,3 +1,4 @@
+import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { useEffect, useState } from 'react'
 import { ComboboxLead } from '../comunes/ComboboxLead'
 import { ComboboxPropiedad } from '../comunes/ComboboxPropiedad'
@@ -166,7 +167,8 @@ export function ModalNuevaVisita({
         aria-labelledby="titulo-nueva-visita"
         className="my-auto w-full max-w-[460px] rounded-2xl bg-surface p-6 shadow-modal"
       >
-        <h2 id="titulo-nueva-visita" className="m-0 text-[1.05rem] font-bold text-ink">
+        <BotonCerrarModal onCerrar={onCerrar} />
+        <h2 id="titulo-nueva-visita" className="m-0 pr-8 text-[1.05rem] font-bold text-ink">
           Agendar visita
         </h2>
         <p className="mt-1 text-[0.85rem] text-ink-3">

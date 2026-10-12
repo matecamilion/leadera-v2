@@ -14,6 +14,8 @@ interface SeccionCardProps {
   badge?: string
   /** El "Ver todas". Se omite cuando no hay más de lo que ya se muestra. */
   verTodos?: { ruta: string; texto: string }
+  /** Ayuda junto al título (`AyudaSeccion`). */
+  ayuda?: ReactNode
   /** Utilidades del contenedor, para el `lg:col-span-2` de la grilla. */
   className?: string
   children: ReactNode
@@ -45,6 +47,7 @@ export function SeccionCard({
   subtitulo,
   badge,
   verTodos,
+  ayuda,
   className = '',
   children,
 }: SeccionCardProps) {
@@ -57,7 +60,7 @@ export function SeccionCard({
       // vuelve a tener contra qué recortar.
       className={`mb-4 min-w-0 rounded-2xl border border-border bg-surface p-3.5 shadow-sm [&>ul>li]:px-0 [&>ul>li>a]:px-0 [&>ul>li>div]:px-0 ${className}`.trim()}
     >
-      <header className="mb-1.5">
+      <header className="relative mb-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <span
             aria-hidden
@@ -67,6 +70,8 @@ export function SeccionCard({
           </span>
 
           <h2 className="m-0 text-[0.95rem] font-bold text-ink">{titulo}</h2>
+
+          {ayuda}
 
           {badge && (
             <span

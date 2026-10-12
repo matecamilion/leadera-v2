@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom'
 import {
   etiquetaEstadoOperacion,
   type EstadoOperacion,
+  type LadoTablero,
   type OperacionKanban,
+  type TipoOperacion,
   type TotalPorMoneda,
 } from '../../lib/api/operaciones'
 import { formatearTotal } from '../../lib/kanbanUtils'
@@ -23,31 +25,47 @@ const FRANJA: Record<string, string> = {
   CANCELADA: 'border-t-caliente',
 }
 
+/**
+ * Totales de la columna por moneda, sumados sobre las cards que se pasan.
+ *
+ * Del lado de ofertas sólo se suma si todas son del mismo tipo: una venta y un
+ * alquiler mensual no se suman. Devuelve null cuando no hay total que mostrar.
+ */
+function totalesPorMoneda(
+  operaciones: OperacionKanban[],
+  lado: LadoTablero,
+): TotalPorMoneda[] | null {
+  if (lado === 'ofertas' && new Set(operaciones.map((o) => o.tipo)).size > 1) return null
+
+  const porMoneda = new Map<string, number>()
+  for (const o of operaciones) {
+    if (o.monto != null) porMoneda.set(o.moneda, (porMoneda.get(o.moneda) ?? 0) + o.monto)
+  }
+  return [...porMoneda]
+    .map(([moneda, total]) => ({ moneda, total }))
+    .sort((a, b) => b.total - a.total)
+}
+
 interface ColumnaKanbanProps {
   estado: EstadoOperacion
+  lado: LadoTablero
+  /** Tipo con el que se rotula el título de la columna. */
+  tipoRepresentativo: TipoOperacion
   /**
-   * Las filas que hay para mostrar. En las columnas cerradas vienen recortadas
-   * por `listarOperacionesKanban`, así que pueden ser menos que `total`.
+   * Las cards del lado activo. En las columnas cerradas vienen recortadas por
+   * `listarOperacionesKanban`, así que el contador de esas puede quedar corto.
    */
   operaciones: OperacionKanban[]
-  /** Total real de la columna, del RPC de conteo. Es el número del header. */
-  total: number
-  /**
-   * Monto real de la columna por moneda, del RPC de sumas.
-   *
-   * Viene calculado sobre todas las operaciones del estado y no sobre
-   * `operaciones`, que en las columnas cerradas está recortado: sumar acá daría
-   * el monto de las 30 más recientes al lado de un contador que dice el total.
-   */
-  montos: TotalPorMoneda[]
 }
 
 export function ColumnaKanban({
   estado,
+  lado,
+  tipoRepresentativo,
   operaciones,
-  total,
-  montos,
 }: ColumnaKanbanProps) {
+  const total = operaciones.length
+  const montos = totalesPorMoneda(operaciones, lado)
   const { setNodeRef, isOver } = useDroppable({ id: estado })
   const visibles = operaciones.slice(0, VISIBLES)
 
@@ -60,25 +78,30 @@ export function ColumnaKanban({
       <header className="border-b border-border px-1 pb-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="m-0 text-[0.9rem] font-bold tracking-[0.04em] text-ink-2 uppercase">
-            {/* La columna mezcla tipos: lleva la etiqueta neutra (la del lado
-                que ofrece), no la de un tipo en particular. */}
-            {etiquetaEstadoOperacion('VENTA', estado)}
+            {etiquetaEstadoOperacion(tipoRepresentativo, estado)}
           </h2>
-          {/* El total real, del RPC: en las columnas cerradas es mayor que la
-              cantidad de filas que se trajeron. */}
           <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink-2">
             {total}
           </span>
         </div>
 
         {/* Un total por moneda: sumar USD con ARS daría un número sin sentido. */}
-        <div className="mt-1 flex flex-wrap gap-x-3 text-[0.78rem] font-bold text-ink tabular-nums">
-          {montos.length > 0 ? (
-            montos.map((t) => <span key={t.moneda}>{formatearTotal(t)}</span>)
-          ) : (
-            <span className="font-normal text-ink-4">Sin montos</span>
-          )}
-        </div>
+        {montos && (
+          <div className="mt-1 flex flex-wrap gap-x-3 text-[0.78rem] font-bold text-ink tabular-nums">
+            {montos.length > 0 ? (
+              <>
+                {lado === 'compradores' && (
+                  <span className="font-normal text-ink-3">Presupuesto</span>
+                )}
+                {montos.map((t) => (
+                  <span key={t.moneda}>{formatearTotal(t)}</span>
+                ))}
+              </>
+            ) : (
+              <span className="font-normal text-ink-4">Sin montos</span>
+            )}
+          </div>
+        )}
       </header>
 
       <div
@@ -104,10 +127,7 @@ export function ColumnaKanban({
           </div>
         )}
 
-        {/* Un solo link para los dos recortes —el de las 5 visibles y el de
-            las filas que ni se trajeron— porque para el usuario son lo mismo:
-            "hay más, llevame al listado completo". Con el total del RPC el
-            número es exacto en ambos casos. */}
+        {/* "Hay más, llevame al listado completo". */}
         {total > VISIBLES && (
           <Link
             to={`/operaciones?estado=${estado}`}

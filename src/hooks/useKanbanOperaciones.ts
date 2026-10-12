@@ -4,48 +4,9 @@ import {
   listarOperacionesKanban,
   type EstadoOperacion,
   type TableroKanban,
-  type TotalPorMoneda,
 } from '../lib/api/operaciones'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
-
-/** La moneda más grande primero, igual que como los arma el RPC. */
-function ordenados(totales: TotalPorMoneda[]): TotalPorMoneda[] {
-  return totales.sort((a, b) => b.total - a.total)
-}
-
-/** Suma a la columna el monto de la card que entró. */
-function conMontoSumado(
-  totales: TotalPorMoneda[] | undefined,
-  moneda: string,
-  monto: number,
-): TotalPorMoneda[] {
-  const copia = (totales ?? []).map((t) => ({ ...t }))
-  const existente = copia.find((t) => t.moneda === moneda)
-  if (existente) existente.total += monto
-  else copia.push({ moneda, total: monto })
-  return ordenados(copia)
-}
-
-/**
- * Resta de la columna el monto de la card que salió.
- *
- * La moneda que queda en cero se saca en vez de quedar como "USD 0": si era la
- * única operación con monto de esa columna, el RPC tampoco la va a devolver en
- * el próximo refetch, así que sacarla apunta al mismo lado. Se lleva puesta una
- * columna cuyo monto real fuera 0 —posible, el monto admite 0—, pero eso dura
- * hasta que responde `onSettled`.
- */
-function conMontoRestado(
-  totales: TotalPorMoneda[] | undefined,
-  moneda: string,
-  monto: number,
-): TotalPorMoneda[] {
-  const restados = (totales ?? []).map((t) =>
-    t.moneda === moneda ? { ...t, total: t.total - monto } : { ...t },
-  )
-  return ordenados(restados.filter((t) => t.total > 0))
-}
 
 export function useKanbanOperaciones() {
   const uid = useUid()
@@ -74,25 +35,8 @@ function conOperacionMovida(
   const anterior = movida?.estado
   if (!movida || !anterior || anterior === estado) return actual
 
-  // Los contadores y los montos del header salen de los RPC y no de las filas,
-  // así que hay que moverlos a mano: si no, la card cambia de columna pero los
-  // números quedan viejos hasta que responda el refetch, que es justo el
-  // parpadeo que el update optimista evita.
-  const totales = { ...actual.totales }
-  totales[anterior] = Math.max(0, (totales[anterior] ?? 0) - 1)
-  totales[estado] = (totales[estado] ?? 0) + 1
-
-  const montos = { ...actual.montos }
-  // Sin monto cargado la card no mueve ninguna moneda.
-  if (movida.monto != null) {
-    montos[anterior] = conMontoRestado(montos[anterior], movida.moneda, movida.monto)
-    montos[estado] = conMontoSumado(montos[estado], movida.moneda, movida.monto)
-  }
-
   return {
     operaciones: actual.operaciones.map((op) => (op.id === id ? { ...op, estado } : op)),
-    totales,
-    montos,
   }
 }
 

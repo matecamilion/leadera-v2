@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { Link } from 'react-router-dom'
-import { AlternadorVista } from '../components/operaciones/AlternadorVista'
+import { AlternadorVista, SelectorLadoTablero } from '../components/operaciones/AlternadorVista'
 import { ColumnaKanban } from '../components/operaciones/ColumnaKanban'
 import {
   useKanbanOperaciones,
@@ -21,8 +21,10 @@ import { ModalConfirmarCierre } from '../components/operaciones/ModalConfirmarCi
 import {
   esBloqueada,
   ESTADOS_OPERACION,
+  LADOS_TABLERO,
   type EstadoOperacion,
   type EstadoTerminal,
+  type LadoTablero,
   type TableroKanban,
 } from '../lib/api/operaciones'
 
@@ -67,9 +69,16 @@ export default function KanbanOperaciones() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
-  const operaciones = useMemo(() => data?.operaciones ?? [], [data])
-  const totales = data?.totales
-  const montos = data?.montos
+  const [lado, setLado] = useState<LadoTablero>('ofertas')
+
+  // Las del otro lado quedan fuera: `alSoltar` busca sólo entre las visibles.
+  const operaciones = useMemo(
+    () =>
+      (data?.operaciones ?? []).filter((o) =>
+        (LADOS_TABLERO[lado].tipos as readonly string[]).includes(o.tipo),
+      ),
+    [data, lado],
+  )
 
   const porColumna = useMemo(() => {
     const mapa = new Map<EstadoOperacion, typeof operaciones>()
@@ -141,7 +150,8 @@ export default function KanbanOperaciones() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectorLadoTablero actual={lado} onCambiar={setLado} />
           <AlternadorVista actual="tablero" />
           <Link
             to="/operaciones/nueva"
@@ -183,9 +193,9 @@ export default function KanbanOperaciones() {
               <ColumnaKanban
                 key={estado}
                 estado={estado}
+                lado={lado}
+                tipoRepresentativo={LADOS_TABLERO[lado].representativo}
                 operaciones={porColumna.get(estado) ?? []}
-                total={totales?.[estado] ?? 0}
-                montos={montos?.[estado] ?? []}
               />
             ))}
           </div>

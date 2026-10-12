@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LADOS_TABLERO, type LadoTablero } from '../../lib/api/operaciones'
 
 const BASE =
   'px-3 py-2 text-[0.85rem] font-semibold transition-colors motion-reduce:transition-none'
@@ -29,6 +30,31 @@ export function AlternadorVista({ actual }: { actual: 'lista' | 'tablero' }) {
       >
         Tablero
       </Link>
+    </div>
+  )
+}
+
+/** Toggle Ofertas / Compradores del tablero: no se mezclan en las mismas columnas. */
+export function SelectorLadoTablero({
+  actual,
+  onCambiar,
+}: {
+  actual: LadoTablero
+  onCambiar: (lado: LadoTablero) => void
+}) {
+  return (
+    <div role="group" aria-label="Lado del tablero" className="inline-flex overflow-hidden rounded-lg border border-border">
+      {(Object.keys(LADOS_TABLERO) as LadoTablero[]).map((lado, i) => (
+        <button
+          key={lado}
+          type="button"
+          aria-pressed={actual === lado}
+          onClick={() => onCambiar(lado)}
+          className={`${BASE} ${i > 0 ? 'border-l border-border' : ''} ${actual === lado ? ACTIVO : INACTIVO}`}
+        >
+          {LADOS_TABLERO[lado].label}
+        </button>
+      ))}
     </div>
   )
 }

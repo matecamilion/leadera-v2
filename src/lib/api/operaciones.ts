@@ -30,6 +30,25 @@ export const TIPOS_OPERACION: { valor: TipoOperacion; label: string }[] = [
   { valor: 'BUSQUEDA_ALQUILER', label: 'Búsqueda de alquiler' },
 ]
 
+/**
+ * Los dos lados del tablero: quien ofrece y quien busca.
+ *
+ * `representativo` es el tipo con el que se rotulan las columnas de ese lado.
+ */
+export const LADOS_TABLERO = {
+  ofertas: { label: 'Ofertas', tipos: ['VENTA', 'ALQUILER'], representativo: 'VENTA' },
+  compradores: {
+    label: 'Compradores',
+    tipos: ['COMPRA', 'BUSQUEDA_ALQUILER'],
+    representativo: 'COMPRA',
+  },
+} as const satisfies Record<
+  string,
+  { label: string; tipos: readonly TipoOperacion[]; representativo: TipoOperacion }
+>
+
+export type LadoTablero = keyof typeof LADOS_TABLERO
+
 /** Estados que siguen abiertos. El resto va al final del listado. */
 export const ESTADOS_ABIERTOS: EstadoOperacion[] = [
   'PUBLICADA',
@@ -651,23 +670,6 @@ export interface TotalPorMoneda {
 export interface TableroKanban {
   /** Las filas a mostrar. Las de las columnas cerradas vienen recortadas. */
   operaciones: OperacionKanban[]
-  /**
-   * Total real por estado, del RPC.
-   *
-   * En las columnas cerradas puede ser mayor que la cantidad de filas de
-   * `operaciones`: ese es todo el punto de separarlo. Un estado sin
-   * operaciones puede faltar; se lee con `?? 0`.
-   */
-  totales: Partial<Record<EstadoOperacion, number>>
-  /**
-   * Monto real por estado y moneda, del RPC.
-   *
-   * Va aparte de las filas por el mismo motivo que el conteo: sumar lo que
-   * está cargado daría un número parcial en las columnas recortadas. Una
-   * combinación estado/moneda sin operaciones con monto no aparece; se lee
-   * con `?? []`.
-   */
-  montos: Partial<Record<EstadoOperacion, TotalPorMoneda[]>>
 }
 
 /** Las 30 más recientes de una columna cerrada. */
@@ -685,23 +687,20 @@ function filasCerradas(estado: EstadoOperacion) {
 }
 
 /**
- * Las operaciones del tablero, más el total real de cada columna.
+ * Las operaciones del tablero.
  *
- * Antes esto traía TODAS las operaciones de la inmobiliaria sin límite, sólo
- * para que el contador de cada columna fuera exacto. Con el historial migrado
- * de v1 eso significa bajar años de CERRADA_GANADA y CANCELADA en cada visita
- * al tablero, que es lo contrario de para lo que sirve: el Kanban es para
- * mover el pipeline activo, no para revisar lo que ya terminó.
+ * Antes esto traía TODAS las operaciones de la inmobiliaria sin límite. Ahora
+ * las columnas activas vienen completas y las cerradas recortadas a las
+ * `CERRADAS_EN_TABLERO` más recientes, porque el Kanban es para mover el
+ * pipeline activo, no para revisar lo que ya terminó. Quien quiera el historial
+ * entero lo tiene en el listado, que pagina y filtra de verdad.
  *
- * Ahora los contadores salen de un RPC agregado y las filas se traen aparte:
- * completas para las columnas activas, recortadas a las
- * `CERRADAS_EN_TABLERO` más recientes para las cerradas. Quien quiera el
- * historial entero lo tiene en el listado, que pagina y filtra de verdad.
+ * Conteos y totales de cada columna los calcula el cliente sobre estas filas:
+ * los RPC agregados no filtran por tipo y el tablero separa ofertas de
+ * compradores.
  */
 export async function listarOperacionesKanban(): Promise<TableroKanban> {
-  const [conteo, sumas, activas, ganadas, canceladas] = await Promise.all([
-    supabase.rpc('conteo_operaciones_por_estado'),
-    supabase.rpc('suma_montos_por_estado'),
+  const [activas, ganadas, canceladas] = await Promise.all([
     supabase
       .from('operaciones')
       .select(COLUMNAS_KANBAN)
@@ -711,28 +710,9 @@ export async function listarOperacionesKanban(): Promise<TableroKanban> {
     filasCerradas('CANCELADA'),
   ])
 
-  const fallo =
-    conteo.error ?? sumas.error ?? activas.error ?? ganadas.error ?? canceladas.error
+  const fallo = activas.error ?? ganadas.error ?? canceladas.error
   if (fallo) {
     throw new Error(interpretarErrorSupabase(fallo, 'No se pudo cargar el tablero.'))
-  }
-
-  const totales: Partial<Record<EstadoOperacion, number>> = {}
-  for (const fila of conteo.data ?? []) {
-    // `count(*)` es bigint: llega como number en estos volúmenes, pero se
-    // fuerza igual, mismo criterio que el resto de los RPC de conteo.
-    totales[fila.estado] = Number(fila.total) || 0
-  }
-
-  const montos: Partial<Record<EstadoOperacion, TotalPorMoneda[]>> = {}
-  for (const fila of sumas.data ?? []) {
-    const columna = (montos[fila.estado] ??= [])
-    columna.push({ moneda: fila.moneda, total: Number(fila.total_monto) || 0 })
-  }
-  // La moneda más grande primero, que es el orden que ya mostraba el tablero
-  // cuando la suma se hacía en JS.
-  for (const columna of Object.values(montos)) {
-    columna?.sort((a, b) => b.total - a.total)
   }
 
   const operaciones = [
@@ -741,7 +721,7 @@ export async function listarOperacionesKanban(): Promise<TableroKanban> {
     ...(canceladas.data ?? []),
   ] as unknown as OperacionKanban[]
 
-  return { operaciones, totales, montos }
+  return { operaciones }
 }
 
 /**

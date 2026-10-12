@@ -21,6 +21,7 @@ import {
   type CriteriosBusqueda,
 } from '../../lib/api/busquedas'
 import {
+  esAbierta,
   etiquetaLeadDeOperacion,
   llevaCriteriosDeBusqueda,
   TIPOS_OPERACION,
@@ -163,8 +164,14 @@ export function ModalEditarOperacion({
   }, [abierto, operacion])
 
   const errorTitulo = tocado && !titulo.trim() ? 'El título es obligatorio' : null
-  const montoInvalido = cantidadInvalida(monto)
-  const montoAlto = excedeTope(monto, TOPE_PRECIO)
+  // Como en el alta: el presupuesto sale del precio máximo de los criterios.
+  // Las operaciones cerradas o canceladas conservan su monto.
+  const presupuesto =
+    llevaCriterios && esAbierta(operacion.estado) && criterios.precio_max != null && criterios.precio_max > 0
+      ? criterios.precio_max
+      : null
+  const montoInvalido = presupuesto == null && cantidadInvalida(monto)
+  const montoAlto = presupuesto == null && excedeTope(monto, TOPE_PRECIO)
   const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
 
   function cambiarTipo(nuevo: TipoOperacion) {
@@ -187,7 +194,7 @@ export function ModalEditarOperacion({
         lead_id: leadId,
         propiedad_id: vinculaBusqueda ? null : propiedadId,
         busqueda_id: vinculaBusqueda ? busquedaId : null,
-        monto: aNumero(monto),
+        monto: presupuesto ?? aNumero(monto),
         moneda,
         notas: notas.trim() || null,
       },
@@ -291,6 +298,13 @@ export function ModalEditarOperacion({
             </Campo>
           )}
 
+          {presupuesto != null ? (
+            <Campo label="Presupuesto">
+              <p className="m-0 text-[0.9rem] text-ink-2">
+                Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
+              </p>
+            </Campo>
+          ) : (
           <Campo label="Monto">
             <div className="flex gap-2">
               <select
@@ -317,6 +331,7 @@ export function ModalEditarOperacion({
             {montoInvalido && <ErrorCampo>El monto tiene que ser 1 o más.</ErrorCampo>}
             {montoAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
           </Campo>
+          )}
 
           <Campo label="Notas" full>
             <textarea

@@ -104,9 +104,15 @@ export default function NuevaOperacion() {
 
   const errorTitulo = tocado && !titulo.trim() ? 'El título es obligatorio' : null
   // Piso 1: un monto en 0 resta credibilidad a la métrica de cerrado del mes.
-  const montoInvalido = cantidadInvalida(monto)
+  // En las operaciones que buscan, el presupuesto es el precio máximo de los
+  // criterios: una sola fuente, el monto se deriva de ahí al guardar.
+  const presupuesto =
+    llevaCriterios && criterios.precio_max != null && criterios.precio_max > 0
+      ? criterios.precio_max
+      : null
+  const montoInvalido = presupuesto == null && cantidadInvalida(monto)
   // Mismo techo que el precio de una propiedad: es la misma plata.
-  const montoAlto = excedeTope(monto, TOPE_PRECIO)
+  const montoAlto = presupuesto == null && excedeTope(monto, TOPE_PRECIO)
   const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
 
   function cambiarTipo(nuevo: TipoOperacion) {
@@ -134,7 +140,7 @@ export default function NuevaOperacion() {
           lead_id: leadId,
           propiedad_id: vinculaBusqueda ? null : propiedadId,
           busqueda_id: vinculaBusqueda ? busquedaId : null,
-          monto: aNumero(monto),
+          monto: presupuesto ?? aNumero(monto),
           moneda,
           notas,
         })
@@ -286,6 +292,13 @@ export default function NuevaOperacion() {
             </Campo>
           )}
 
+          {presupuesto != null ? (
+            <Campo label="Presupuesto">
+              <p className="m-0 text-[0.9rem] text-ink-2">
+                Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
+              </p>
+            </Campo>
+          ) : (
           <Campo label="Monto">
             <div className="flex gap-2">
               <select
@@ -312,6 +325,7 @@ export default function NuevaOperacion() {
             {montoInvalido && <ErrorCampo>El monto tiene que ser 1 o más.</ErrorCampo>}
             {montoAlto && <ErrorCampo>{MENSAJE_VALOR_ALTO}</ErrorCampo>}
           </Campo>
+          )}
 
           <Campo label="Notas" full>
             <textarea

@@ -60,7 +60,9 @@ export function ColumnaKanban({
       <header className="border-b border-border px-1 pb-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="m-0 text-[0.9rem] font-bold tracking-[0.04em] text-ink-2 uppercase">
-            {etiquetaEstadoOperacion(estado)}
+            {/* La columna mezcla tipos: lleva la etiqueta neutra (la del lado
+                que ofrece), no la de un tipo en particular. */}
+            {etiquetaEstadoOperacion('VENTA', estado)}
           </h2>
           {/* El total real, del RPC: en las columnas cerradas es mayor que la
               cantidad de filas que se trajeron. */}

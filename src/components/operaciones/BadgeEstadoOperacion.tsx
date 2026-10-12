@@ -1,4 +1,8 @@
-import { etiquetaEstadoOperacion, type EstadoOperacion } from '../../lib/api/operaciones'
+import {
+  etiquetaEstadoOperacion,
+  type EstadoOperacion,
+  type TipoOperacion,
+} from '../../lib/api/operaciones'
 
 /**
  * Colores de `.badge-estado-operacion` del Angular.
@@ -18,12 +22,18 @@ const ESTILOS: Record<EstadoOperacion, string> = {
   CANCELADA: 'bg-badge-caliente-bg text-caliente',
 }
 
-export function BadgeEstadoOperacion({ estado }: { estado: EstadoOperacion }) {
+export function BadgeEstadoOperacion({
+  tipo,
+  estado,
+}: {
+  tipo: TipoOperacion
+  estado: EstadoOperacion
+}) {
   return (
     <span
       className={`inline-block rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold tracking-[0.03em] uppercase ${ESTILOS[estado]}`}
     >
-      {etiquetaEstadoOperacion(estado)}
+      {etiquetaEstadoOperacion(tipo, estado)}
     </span>
   )
 }

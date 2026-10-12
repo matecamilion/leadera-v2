@@ -1,5 +1,10 @@
 import { Fragment } from 'react'
-import type { EstadoOperacion } from '../../lib/api/operaciones'
+import {
+  etiquetaEstadoOperacion,
+  seVinculaConBusqueda,
+  type EstadoOperacion,
+  type TipoOperacion,
+} from '../../lib/api/operaciones'
 import { IconoAlerta, IconoCheck } from '../leads/Iconos'
 import { TooltipAyuda } from '../comunes/TooltipAyuda'
 
@@ -37,7 +42,13 @@ const ETIQUETA: Record<EstadoPaso, string> = {
   pendiente: 'text-ink-4',
 }
 
-export function StepperOperacion({ estado }: { estado: EstadoOperacion }) {
+export function StepperOperacion({
+  tipo,
+  estado,
+}: {
+  tipo: TipoOperacion
+  estado: EstadoOperacion
+}) {
   // Una operación cancelada no tiene progreso que mostrar: el stepper daría
   // a entender que sigue viva en algún punto del pipeline.
   if (estado === 'CANCELADA') {
@@ -88,7 +99,9 @@ export function StepperOperacion({ estado }: { estado: EstadoOperacion }) {
                 <span
                   className={`text-center text-[0.65rem] leading-tight font-semibold ${ETIQUETA[situacion]}`}
                 >
-                  {paso.label}
+                  {seVinculaConBusqueda(tipo)
+                    ? etiquetaEstadoOperacion(tipo, paso.estado)
+                    : paso.label}
                   {situacion === 'activo' && <span className="sr-only"> (actual)</span>}
                 </span>
               </li>

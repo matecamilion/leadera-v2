@@ -2,8 +2,10 @@ import { useState } from 'react'
 import {
   esBloqueada,
   ESTADOS_OPERACION,
+  etiquetaEstadoOperacion,
   type EstadoOperacion,
   type EstadoTerminal,
+  type TipoOperacion,
 } from '../../lib/api/operaciones'
 import { ModalConfirmarCierre } from './ModalConfirmarCierre'
 
@@ -17,6 +19,7 @@ const ESTILOS: Record<string, string> = {
 }
 
 interface GrupoEstadoOperacionProps {
+  tipo: TipoOperacion
   actual: EstadoOperacion
   guardando: boolean
   error?: string | null
@@ -34,6 +37,7 @@ interface GrupoEstadoOperacionProps {
  * atrás cuesta reabrirla. Entre estados abiertos se sigue cambiando de un click.
  */
 export function GrupoEstadoOperacion({
+  tipo,
   actual,
   guardando,
   error,
@@ -91,7 +95,7 @@ export function GrupoEstadoOperacion({
                   : 'opacity-55 hover:opacity-100 disabled:opacity-40',
               ].join(' ')}
             >
-              {estado.label}
+              {etiquetaEstadoOperacion(tipo, estado.valor)}
             </button>
           )
         })}

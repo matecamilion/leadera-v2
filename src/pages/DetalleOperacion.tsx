@@ -99,7 +99,7 @@ export default function DetalleOperacion() {
   // `operaciones_proteger_cerrada` + policy `operaciones_delete`). Acá apagamos
   // la UI para no ofrecer algo que va a rebotar; el control real es el de allá.
   const bloqueada = esBloqueada(operacion.estado)
-  const etiquetaDelEstado = etiquetaEstadoOperacion(operacion.estado)
+  const etiquetaDelEstado = etiquetaEstadoOperacion(operacion.tipo, operacion.estado)
 
   return (
     <div className="mx-auto box-border max-w-[900px]">
@@ -133,7 +133,7 @@ export default function DetalleOperacion() {
 
           <div className="mt-2 mb-2 flex flex-wrap gap-1.5">
             <BadgeTipoOperacion tipo={operacion.tipo} />
-            <BadgeEstadoOperacion estado={operacion.estado} />
+            <BadgeEstadoOperacion tipo={operacion.tipo} estado={operacion.estado} />
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-[0.82rem] text-ink-3">
@@ -167,6 +167,7 @@ export default function DetalleOperacion() {
 
         <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
           <GrupoEstadoOperacion
+            tipo={operacion.tipo}
             actual={operacion.estado}
             guardando={cambioEstado.isPending}
             error={
@@ -215,7 +216,7 @@ export default function DetalleOperacion() {
         </div>
       </div>
 
-      <StepperOperacion estado={operacion.estado} />
+      <StepperOperacion tipo={operacion.tipo} estado={operacion.estado} />
 
       {/* ------------------------------ FICHA ------------------------------ */}
       <div className="mb-4 rounded-[14px] border border-border bg-surface px-6 py-5">
@@ -225,7 +226,7 @@ export default function DetalleOperacion() {
           </Dato>
           <Dato label="Tipo">{etiquetaTipoOperacion(operacion.tipo)}</Dato>
           <Dato label="Estado">
-            <BadgeEstadoOperacion estado={operacion.estado} />
+            <BadgeEstadoOperacion tipo={operacion.tipo} estado={operacion.estado} />
           </Dato>
           <Dato label="Fecha creación">{formatearFecha(operacion.created_at)}</Dato>
           <SeguimientoEditable

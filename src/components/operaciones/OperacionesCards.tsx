@@ -21,7 +21,7 @@ export function OperacionesCards({
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5">
               <BadgeTipoOperacion tipo={op.tipo} />
-              <BadgeEstadoOperacion estado={op.estado} />
+              <BadgeEstadoOperacion tipo={op.tipo} estado={op.estado} />
             </div>
             <span className="text-[0.8rem] text-ink-3">
               {formatearFecha(op.created_at)}

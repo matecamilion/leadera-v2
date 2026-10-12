@@ -205,7 +205,7 @@ export function ModalNuevaVisita({
               Se vinculará a la operación{' '}
               <b className="font-semibold text-ink-2">{operacionElegida.titulo}</b> (
               {etiquetaTipoOperacion(operacionElegida.tipo)} ·{' '}
-              {etiquetaEstadoOperacion(operacionElegida.estado)}
+              {etiquetaEstadoOperacion(operacionElegida.tipo, operacionElegida.estado)}
               {nombreDeLead(operacionElegida)}).{' '}
               {leadId
                 ? 'Al marcarla como realizada, la interacción va a aparecer en su timeline.'
@@ -231,7 +231,7 @@ export function ModalNuevaVisita({
                 {candidatas.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.titulo} · {etiquetaTipoOperacion(o.tipo)} ·{' '}
-                    {etiquetaEstadoOperacion(o.estado)}
+                    {etiquetaEstadoOperacion(o.tipo, o.estado)}
                     {nombreDeLead(o)}
                   </option>
                 ))}

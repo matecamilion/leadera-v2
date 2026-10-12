@@ -45,7 +45,7 @@ export function OperacionesTabla({
                 <BadgeTipoOperacion tipo={op.tipo} />
               </td>
               <td className="px-4 py-3.5 align-middle">
-                <BadgeEstadoOperacion estado={op.estado} />
+                <BadgeEstadoOperacion tipo={op.tipo} estado={op.estado} />
               </td>
               <td className="px-4 py-3.5 align-middle">
                 {op.lead ? (

@@ -68,7 +68,21 @@ export function esBloqueada(estado: EstadoOperacion): estado is EstadoTerminal {
   return ESTADOS_BLOQUEADOS.includes(estado)
 }
 
-export function etiquetaEstadoOperacion(estado: EstadoOperacion): string {
+/**
+ * Etiqueta de un estado según el tipo de la operación.
+ *
+ * Los valores del enum son los mismos para los cuatro tipos; lo que cambia es
+ * cómo se llaman. Del lado que busca (COMPRA, BUSQUEDA_ALQUILER) no hay nada que
+ * "publicar": la operación nace en búsqueda y se cierra cuando se concreta.
+ */
+export function etiquetaEstadoOperacion(
+  tipo: TipoOperacion,
+  estado: EstadoOperacion,
+): string {
+  if (seVinculaConBusqueda(tipo)) {
+    if (estado === 'PUBLICADA') return 'En búsqueda'
+    if (estado === 'CERRADA_GANADA') return 'Concretada'
+  }
   return (
     ESTADOS_OPERACION.find((e) => e.valor === estado)?.label ??
     estado.replace(/_/g, ' ')

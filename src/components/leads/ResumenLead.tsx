@@ -627,7 +627,7 @@ function FilaOperacion({ operacion }: { operacion: OperacionConVinculos }) {
             {formatearMonto(operacion.monto, operacion.moneda)}
           </span>
           <span className="mt-1 block">
-            <BadgeEstadoOperacion estado={operacion.estado} />
+            <BadgeEstadoOperacion tipo={operacion.tipo} estado={operacion.estado} />
           </span>
         </span>
       </Link>

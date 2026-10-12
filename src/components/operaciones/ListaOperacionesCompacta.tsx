@@ -61,7 +61,7 @@ export function ListaOperacionesCompacta({
           key={op.id}
           to={`/operaciones/${op.id}`}
           titulo={op.titulo || 'Sin título'}
-          subtitulo={`${etiquetaTipoOperacion(op.tipo)} · ${etiquetaEstadoOperacion(op.estado)}`}
+          subtitulo={`${etiquetaTipoOperacion(op.tipo)} · ${etiquetaEstadoOperacion(op.tipo, op.estado)}`}
           datos={[
             op.monto != null ? (
               <span className="font-semibold text-ink">{formatearMonto(op.monto, op.moneda)}</span>

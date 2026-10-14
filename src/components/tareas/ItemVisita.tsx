@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { IconoCasa, IconoCheck, IconoCerrar, IconoTacho } from '../leads/Iconos'
+import { IconoCasa, IconoCheck, IconoCerrar, IconoLink, IconoTacho } from '../leads/Iconos'
 import type { EstadoVisita } from '../../types/database'
 import type { VisitaConContexto } from '../../lib/api/visitas'
+import { urlInvalida } from '../../lib/validaciones'
 
 const ETIQUETA_ESTADO: Record<EstadoVisita, string> = {
   AGENDADA: 'Agendada',
@@ -46,7 +47,19 @@ export function ItemVisita({
   const abierta = visita.estado === 'AGENDADA'
   const puedeGestionar = visita.creado_por === miId || visita.asignado_a === miId
   const puedeEliminar = visita.creado_por === miId
-  const direccion = visita.propiedad?.direccion ?? 'Propiedad sin dirección'
+  // Externa = a una propiedad que no está cargada. No hay ficha a la que
+  // linkear: el título es texto y, si hay, se ofrece el link que se cargó.
+  const externa = !visita.propiedad_id
+  const direccion = externa
+    ? (visita.titulo_externo ?? 'Visita externa')
+    : (visita.propiedad?.direccion ?? 'Propiedad sin dirección')
+  // Se valida también al mostrar y no sólo al cargar: un `javascript:` en un
+  // href se ejecuta con un click, y la fila puede venir de otro lado que el
+  // formulario.
+  const linkExterno =
+    externa && visita.link_externo && !urlInvalida(visita.link_externo)
+      ? visita.link_externo
+      : null
 
   return (
     <li className="rounded-xl border border-border bg-surface p-3">
@@ -59,12 +72,28 @@ export function ItemVisita({
         </span>
 
         <div className="min-w-0 flex-1">
-          <Link
-            to={`/propiedades/${visita.propiedad_id}`}
-            className="block truncate text-[0.88rem] font-semibold text-ink hover:text-primary hover:underline"
-          >
-            {direccion}
-          </Link>
+          {externa ? (
+            <p className="m-0 truncate text-[0.88rem] font-semibold text-ink">{direccion}</p>
+          ) : (
+            <Link
+              to={`/propiedades/${visita.propiedad_id}`}
+              className="block truncate text-[0.88rem] font-semibold text-ink hover:text-primary hover:underline"
+            >
+              {direccion}
+            </Link>
+          )}
+
+          {linkExterno && (
+            <a
+              href={linkExterno}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-0.5 inline-flex items-center gap-1 text-[0.8rem] font-semibold text-primary hover:underline"
+            >
+              <IconoLink className="size-3.5" />
+              Ver publicación ↗
+            </a>
+          )}
 
           <p className="mt-0.5 truncate text-[0.8rem] text-ink-3">
             {visita.lead ? (
@@ -95,6 +124,9 @@ export function ItemVisita({
             >
               {ETIQUETA_ESTADO[visita.estado]}
             </span>
+            {externa && (
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 font-semibold">Externa</span>
+            )}
             {!puedeGestionar && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5">De otro agente</span>
             )}

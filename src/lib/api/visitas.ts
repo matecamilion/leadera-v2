@@ -41,12 +41,17 @@ function verificarAfectadas<T>(filas: T[] | null, mensaje: string): T[] {
 /**
  * Visita con lo mínimo de la propiedad y el lead para pintar el panel del día
  * sin una consulta por fila.
+ *
+ * `propiedad` es null en dos casos: la visita es externa —una propiedad que no
+ * está cargada, con `titulo_externo` y quizás `link_externo`— o la RLS no deja
+ * leer la propiedad.
  */
 export interface VisitaConContexto extends Visita {
   propiedad: { id: string; direccion: string; zona: string | null } | null
   lead: { id: string; nombre: string; apellido: string | null } | null
 }
 
+// `titulo_externo` y `link_externo` ya vienen en el `*`.
 const SELECT_CON_CONTEXTO =
   '*, propiedad:propiedades(id, direccion, zona), lead:leads(id, nombre, apellido)'
 
@@ -173,7 +178,10 @@ export async function marcarRealizada(id: string): Promise<Visita> {
       lead_id: visita.lead_id,
       operacion_id: visita.operacion_id,
       tipo: 'VISITA',
-      detalle: 'Visita a la propiedad realizada',
+      // La base garantiza que una visita sin propiedad trae `titulo_externo`.
+      detalle: visita.propiedad_id
+        ? 'Visita a la propiedad realizada'
+        : `Visita a ${visita.titulo_externo} realizada`,
       fecha: momentoDeLaInteraccion(visita.fecha, visita.hora),
     })
   } catch {

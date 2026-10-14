@@ -71,7 +71,9 @@ function seguimientoAEvento(s: SeguimientoLead): EventoCalendario {
 }
 
 function visitaAEvento(v: VisitaConContexto): EventoCalendario {
-  const direccion = v.propiedad?.direccion ?? 'Propiedad'
+  // Una visita externa no tiene propiedad: su título es el texto libre que se
+  // cargó al agendarla.
+  const direccion = v.propiedad?.direccion ?? v.titulo_externo ?? 'Propiedad'
   return {
     id: `visita-${v.id}`,
     fecha: v.fecha,

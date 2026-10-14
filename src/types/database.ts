@@ -1358,10 +1358,12 @@ export type Database = {
           id: string
           inmobiliaria_id: string
           lead_id: string | null
+          link_externo: string | null
           notas: string | null
           operacion_id: string | null
           origen_importacion: string | null
-          propiedad_id: string
+          propiedad_id: string | null
+          titulo_externo: string | null
         }
         Insert: {
           asignado_a: string
@@ -1374,10 +1376,12 @@ export type Database = {
           id?: string
           inmobiliaria_id: string
           lead_id?: string | null
+          link_externo?: string | null
           notas?: string | null
           operacion_id?: string | null
           origen_importacion?: string | null
-          propiedad_id: string
+          propiedad_id?: string | null
+          titulo_externo?: string | null
         }
         Update: {
           asignado_a?: string
@@ -1390,10 +1394,12 @@ export type Database = {
           id?: string
           inmobiliaria_id?: string
           lead_id?: string | null
+          link_externo?: string | null
           notas?: string | null
           operacion_id?: string | null
           origen_importacion?: string | null
-          propiedad_id?: string
+          propiedad_id?: string | null
+          titulo_externo?: string | null
         }
         Relationships: [
           {

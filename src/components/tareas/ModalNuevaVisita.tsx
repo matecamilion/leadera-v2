@@ -12,6 +12,27 @@ import {
   etiquetaEstadoOperacion,
   etiquetaTipoOperacion,
 } from '../../lib/api/operaciones'
+import { MAX_LINK_EXTERNO, MAX_TITULO_EXTERNO } from '../../lib/api/visitas'
+import { MENSAJE_URL_INVALIDA, urlInvalida } from '../../lib/validaciones'
+
+/**
+ * Propia = a una propiedad cargada en LeadEra. Externa = a una que no está
+ * cargada (de otra inmobiliaria, de un portal), identificada con texto libre.
+ */
+type Modo = 'propia' | 'externa'
+
+const MODOS: { valor: Modo; label: string }[] = [
+  { valor: 'propia', label: 'Propia' },
+  { valor: 'externa', label: 'Externa' },
+]
+
+/** Qué está mal en el link, o null si está vacío o bien. */
+function errorDeLink(link: string): string | null {
+  if (link.trim().length > MAX_LINK_EXTERNO) {
+    return `El link es demasiado largo: puede tener hasta ${MAX_LINK_EXTERNO} caracteres.`
+  }
+  return urlInvalida(link) ? MENSAJE_URL_INVALIDA : null
+}
 
 const etiquetaCampo = 'mb-1.5 block text-xs font-semibold text-ink-3 uppercase'
 const campo =
@@ -35,6 +56,13 @@ interface ModalNuevaVisitaProps {
    * viene, el selector no se muestra: ahí no hay nada que elegir.
    */
   propiedadFija?: { id: string; direccion: string }
+  /**
+   * Lead ya elegido, cuando el alta sale de su ficha. Mismo reparto que
+   * `leadFijo` en `ModalNuevaTarea`: el combobox se reemplaza por el nombre
+   * como texto fijo, porque desde la ficha de un lead cambiarlo sería una
+   * trampa.
+   */
+  leadFijo?: { id: string; nombre: string; apellido: string | null }
   /** Día preseleccionado. */
   fechaInicial: string
   onCerrar: () => void
@@ -43,6 +71,7 @@ interface ModalNuevaVisitaProps {
 
 export function ModalNuevaVisita({
   propiedadFija,
+  leadFijo,
   fechaInicial,
   onCerrar,
   onCreada,
@@ -51,10 +80,18 @@ export function ModalNuevaVisita({
   const miId = profile?.id ?? ''
   const rol = profile?.rol
 
+  // Con `propiedadFija` el selector no se muestra y el modo nunca sale de
+  // Propia: desde la ficha de una propiedad no hay nada externo que cargar.
+  const [modo, setModo] = useState<Modo>('propia')
   const [propiedadId, setPropiedadId] = useState<string | null>(
     propiedadFija?.id ?? null,
   )
-  const [leadId, setLeadId] = useState<string | null>(null)
+  const [tituloExterno, setTituloExterno] = useState('')
+  const [linkExterno, setLinkExterno] = useState('')
+  // El error del link se muestra recién al salir del campo: mientras se
+  // escribe "htt…" todavía no es un link, y avisarlo en cada tecla es ruido.
+  const [linkTocado, setLinkTocado] = useState(false)
+  const [leadId, setLeadId] = useState<string | null>(leadFijo?.id ?? null)
   /**
    * Elección manual de operación, atada a la propiedad con la que se hizo.
    * Cambiar de propiedad la invalida y vuelve a mandar la inferencia, sin
@@ -125,25 +162,50 @@ export function ModalNuevaVisita({
   const hoy = hoyComoClave()
   const fechaPasada = !!fecha && esDiaPasado(fecha)
 
-  const faltaAlgo = !propiedadId || !fecha || !asignadoA || fechaPasada
+  const errorLink = modo === 'externa' ? errorDeLink(linkExterno) : null
+  const faltaDestino =
+    modo === 'propia' ? !propiedadId : !tituloExterno.trim() || errorLink !== null
+  const faltaAlgo = faltaDestino || !fecha || !asignadoA || fechaPasada
+
+  /**
+   * Cambiar de modo descarta lo cargado en el otro —la propiedad elegida, o el
+   * título y el link— para que no viaje nada que no se ve. Lead, fecha, hora,
+   * responsable y notas sirven para los dos y se quedan.
+   */
+  function cambiarModo(nuevo: Modo) {
+    if (nuevo === modo) return
+    setModo(nuevo)
+    setPropiedadId(null)
+    setEleccion(null)
+    setTituloExterno('')
+    setLinkExterno('')
+    setLinkTocado(false)
+  }
 
   function enviar(evento: React.FormEvent) {
     evento.preventDefault()
-    if (faltaAlgo) return
+    if (faltaAlgo) {
+      // Un Enter desde el campo del link llega acá sin pasar por el blur: sin
+      // esto el submit no haría nada y no diría por qué.
+      setLinkTocado(true)
+      return
+    }
     // El botón ya se deshabilita mientras guarda, pero un Enter repetido llega
     // por el submit del form sin pasar por él y crearía la visita dos veces.
     if (crear.isPending) return
 
+    const comun = {
+      lead_id: leadId,
+      fecha,
+      hora: hora || null,
+      notas: notas || null,
+      asignado_a: asignadoA,
+    }
+
     crear.mutate(
-      {
-        propiedad_id: propiedadId,
-        lead_id: leadId,
-        operacion_id: operacionElegida?.id ?? null,
-        fecha,
-        hora: hora || null,
-        notas: notas || null,
-        asignado_a: asignadoA,
-      },
+      modo === 'propia' && propiedadId
+        ? { ...comun, propiedad_id: propiedadId, operacion_id: operacionElegida?.id ?? null }
+        : { ...comun, titulo_externo: tituloExterno, link_externo: linkExterno || null },
       {
         onSuccess: () => {
           onCreada?.()
@@ -174,30 +236,111 @@ export function ModalNuevaVisita({
         <p className="mt-1 text-[0.85rem] text-ink-3">
           {propiedadFija
             ? 'Queda agendada para esta propiedad.'
-            : 'Elegí la propiedad y, si ya sabés quién va, el lead.'}
+            : modo === 'propia'
+              ? 'Elegí la propiedad y, si ya sabés quién va, el lead.'
+              : 'Cargá la dirección o el título y, si ya sabés quién va, el lead.'}
         </p>
 
-        <div className="mt-5 flex flex-col gap-4">
-          <div>
-            <span className={etiquetaCampo}>Propiedad</span>
-            {propiedadFija ? (
-              <p className="m-0 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[0.9rem] font-medium text-ink">
-                {propiedadFija.direccion}
-              </p>
-            ) : (
-              <ComboboxPropiedad value={propiedadId} onChange={setPropiedadId} />
-            )}
+        {/* Mismo control segmentado que el filtro de rol del listado. */}
+        {!propiedadFija && (
+          <div
+            role="group"
+            aria-label="Tipo de propiedad a visitar"
+            className="mt-4 inline-flex rounded-full border border-border bg-surface p-0.5"
+          >
+            {MODOS.map((m) => {
+              const activo = m.valor === modo
+              return (
+                <button
+                  key={m.valor}
+                  type="button"
+                  aria-pressed={activo}
+                  onClick={() => cambiarModo(m.valor)}
+                  className={[
+                    'rounded-full px-3.5 py-[5px] text-[0.82rem] font-semibold whitespace-nowrap',
+                    'transition-colors motion-reduce:transition-none',
+                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+                    activo ? 'bg-ink text-surface' : 'text-ink-3 hover:bg-background hover:text-ink',
+                  ].join(' ')}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
           </div>
+        )}
+
+        <div className="mt-5 flex flex-col gap-4">
+          {modo === 'propia' ? (
+            <div>
+              <span className={etiquetaCampo}>Propiedad</span>
+              {propiedadFija ? (
+                <p className="m-0 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[0.9rem] font-medium text-ink">
+                  {propiedadFija.direccion}
+                </p>
+              ) : (
+                <ComboboxPropiedad value={propiedadId} onChange={setPropiedadId} />
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label htmlFor="visita-titulo-externo" className={etiquetaCampo}>
+                  Título o dirección
+                </label>
+                <input
+                  id="visita-titulo-externo"
+                  type="text"
+                  value={tituloExterno}
+                  onChange={(e) => setTituloExterno(e.target.value)}
+                  maxLength={MAX_TITULO_EXTERNO}
+                  placeholder="Ej.: Güemes 2450, depto 3B"
+                  className={campo}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="visita-link-externo" className={etiquetaCampo}>
+                  Link de la publicación <span className="normal-case">(opcional)</span>
+                </label>
+                <input
+                  id="visita-link-externo"
+                  type="url"
+                  inputMode="url"
+                  value={linkExterno}
+                  onChange={(e) => setLinkExterno(e.target.value)}
+                  onBlur={() => setLinkTocado(true)}
+                  placeholder="https://..."
+                  aria-invalid={(linkTocado && errorLink !== null) || undefined}
+                  aria-describedby={linkTocado && errorLink ? 'visita-link-error' : undefined}
+                  className={campo}
+                />
+                {linkTocado && errorLink && (
+                  <p id="visita-link-error" className="mt-1 text-[0.78rem] text-peligro-ink">
+                    {errorLink}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
 
           <div>
             <span className={etiquetaCampo}>
-              Lead <span className="normal-case">(opcional)</span>
+              Lead{!leadFijo && <span className="normal-case"> (opcional)</span>}
             </span>
-            <ComboboxLead value={leadId} onChange={setLeadId} />
-            <p className="mt-1.5 text-[0.75rem] text-ink-4">
-              Si la dejás sin lead, al marcarla como realizada no se registra
-              ninguna interacción.
-            </p>
+            {leadFijo ? (
+              <p className="m-0 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[0.9rem] font-medium text-ink">
+                {`${leadFijo.nombre} ${leadFijo.apellido ?? ''}`.trim()}
+              </p>
+            ) : (
+              <>
+                <ComboboxLead value={leadId} onChange={setLeadId} />
+                <p className="mt-1.5 text-[0.75rem] text-ink-4">
+                  Si la dejás sin lead, al marcarla como realizada no se registra
+                  ninguna interacción.
+                </p>
+              </>
+            )}
           </div>
 
           {/* Una sola candidata: se vincula sola. Se avisa igual, para que no

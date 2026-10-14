@@ -10,6 +10,7 @@ import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
+import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
 import { TooltipAyuda } from '../components/comunes/TooltipAyuda'
 import { useRolesPorLead } from '../hooks/useOperacionesPorLead'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
@@ -22,7 +23,14 @@ import {
 import { hoyComoClave } from '../lib/calendario'
 import { useUiStore } from '../stores/ui'
 
-type ModalAbierto = 'estado' | 'contacto' | 'interaccion' | 'tarea' | 'eliminar' | null
+type ModalAbierto =
+  | 'estado'
+  | 'contacto'
+  | 'interaccion'
+  | 'tarea'
+  | 'visita'
+  | 'eliminar'
+  | null
 
 export default function DetalleLead() {
   const { id = '' } = useParams()
@@ -164,6 +172,15 @@ export default function DetalleLead() {
           >
             + Tarea
           </button>
+          {/* Igual que Tarea: modal con el lead ya fijo. La visita puede ser a
+              una propiedad cargada o a una externa. */}
+          <button
+            type="button"
+            onClick={() => setModal('visita')}
+            className={CLASES_ACCION}
+          >
+            Coordinar visita
+          </button>
         </div>
       </div>
 
@@ -246,6 +263,16 @@ export default function DetalleLead() {
           fechaInicial={hoyComoClave()}
           leadFijo={{ id: lead.id, nombre: lead.nombre, apellido: lead.apellido }}
           onCerrar={() => setModal(null)}
+        />
+      )}
+
+      {/* Mismo criterio que la tarea: montado sólo al abrirse. */}
+      {modal === 'visita' && (
+        <ModalNuevaVisita
+          fechaInicial={hoyComoClave()}
+          leadFijo={{ id: lead.id, nombre: lead.nombre, apellido: lead.apellido }}
+          onCerrar={() => setModal(null)}
+          onCreada={() => mostrarAviso('Visita agendada.')}
         />
       )}
 

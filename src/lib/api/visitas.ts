@@ -83,16 +83,9 @@ export async function listarVisitas(
 // Alta
 // ---------------------------------------------------------------------------
 
-export interface CrearVisitaInput {
-  propiedad_id: string
+/** Lo que comparten la visita propia y la externa. */
+interface CrearVisitaComun {
   lead_id?: string | null
-  /**
-   * Operación a la que pertenece la visita, si se eligió una.
-   *
-   * Un trigger de la base rechaza vincularla a una operación de otra propiedad
-   * o de otro lead.
-   */
-  operacion_id?: string | null
   /** `YYYY-MM-DD`. */
   fecha: string
   /** `HH:MM`, o null si no hay hora pactada. */
@@ -102,16 +95,56 @@ export interface CrearVisitaInput {
   asignado_a?: string | null
 }
 
+/** A una propiedad cargada en LeadEra. */
+export interface CrearVisitaPropia extends CrearVisitaComun {
+  propiedad_id: string
+  /**
+   * Operación a la que pertenece la visita, si se eligió una.
+   *
+   * Un trigger de la base rechaza vincularla a una operación de otra propiedad
+   * o de otro lead.
+   */
+  operacion_id?: string | null
+}
+
+/**
+ * A una propiedad que no está cargada: se identifica con texto libre y,
+ * opcionalmente, el link de la publicación. No lleva operación: la base
+ * rechaza una externa con `operacion_id`.
+ */
+export interface CrearVisitaExterna extends CrearVisitaComun {
+  titulo_externo: string
+  link_externo?: string | null
+}
+
+export type CrearVisitaInput = CrearVisitaPropia | CrearVisitaExterna
+
+/** Topes de la base (`visitas_propia_o_externa`, `visitas_link_externo_valido`). */
+export const MAX_TITULO_EXTERNO = 200
+export const MAX_LINK_EXTERNO = 2000
+
 export async function crearVisita(input: CrearVisitaInput): Promise<Visita> {
   const perfil = await miPerfil()
+
+  const destino =
+    'propiedad_id' in input
+      ? {
+          propiedad_id: input.propiedad_id,
+          operacion_id: input.operacion_id || null,
+        }
+      : {
+          propiedad_id: null,
+          operacion_id: null,
+          titulo_externo: input.titulo_externo.trim(),
+          link_externo: input.link_externo?.trim() || null,
+        }
 
   const fila: VisitaInsert = {
     inmobiliaria_id: perfil.inmobiliaria_id,
     creado_por: perfil.id,
     asignado_a: input.asignado_a || perfil.id,
-    propiedad_id: input.propiedad_id,
+    ...destino,
     lead_id: input.lead_id || null,
-    operacion_id: input.operacion_id || null,
     fecha: input.fecha,
     hora: input.hora || null,
     estado: 'AGENDADA',

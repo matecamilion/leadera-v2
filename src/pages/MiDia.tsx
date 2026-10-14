@@ -6,7 +6,10 @@ import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
-import { ResumenTareasHoy } from '../components/dashboard/ResumenTareasHoy'
+import {
+  ResumenTareasHoy,
+  type LeadARegistrar,
+} from '../components/dashboard/ResumenTareasHoy'
 import { SeccionConsultas } from '../components/dashboard/SeccionConsultas'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
 import { TarjetaSemanaGestion } from '../components/dashboard/TarjetaSemanaGestion'
@@ -26,7 +29,6 @@ import { hoyComoClave } from '../lib/calendario'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
-import type { Lead } from '../lib/api/leads'
 
 /**
  * A dónde lleva cada categoría del día: la stat card de arriba y el "Ver todos
@@ -63,7 +65,7 @@ export default function MiDia() {
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   // Sobre qué lead se está registrando. Va antes de los returns tempranos de
   // acá abajo: los hooks no pueden quedar detrás de un `if`.
-  const [leadARegistrar, setLeadARegistrar] = useState<Lead | null>(null)
+  const [leadARegistrar, setLeadARegistrar] = useState<LeadARegistrar | null>(null)
 
   // El error va antes que el skeleton: con la query fallada `data` queda
   // undefined, y si el `!data` de abajo se evaluara primero el error no se
@@ -225,26 +227,11 @@ export default function MiDia() {
         </div>
       )}
 
-      {/* Par 2: lo que queda por hacer hoy, de los dos lados —los leads a los
-          que hay que volver y la agenda del día—. Cuando no hay seguimientos
-          la agenda se queda sola en la columna izquierda: es preferible a
-          moverla de par según el estado de los leads. */}
+      {/* Par 2: la agenda del día a ancho completo. Ahí van también los
+          seguimientos de leads, con sus acciones de contacto: antes tenían
+          su propia sección al lado y el mismo lead aparecía dos veces. */}
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
-        {!alDia && (
-          <ListaLeads
-            titulo="Seguimientos"
-            subtitulo="Contactos que necesitan un recordatorio hoy"
-            textoBadge={seguimientos.leads.length === 1 ? 'pendiente' : 'pendientes'}
-            variante="seguimientos"
-            leads={seguimientos.leads}
-            total={seguimientos.total}
-            verTodosRuta={RUTA_LISTA.seguimientos}
-            onRegistrar={setLeadARegistrar}
-          />
-        )}
-        {/* Sin seguimientos no hay con quién compartir la fila: la agenda toma
-            el par entero en vez de dejar media columna vacía al lado. */}
-        <ResumenTareasHoy className={alDia ? 'lg:col-span-2' : ''} />
+        <ResumenTareasHoy className="lg:col-span-2" onRegistrar={setLeadARegistrar} />
       </div>
 
       {/* Las coincidencias van después de lo que hay que hacer hoy: son
@@ -267,7 +254,7 @@ export default function MiDia() {
           hasta la de al lado con un hueco blanco abajo.
 
           En mobile, con una sola columna, el orden de lectura sigue el del
-          markup: prioritarios → nuevos → seguimientos → agenda → coincidencias
+          markup: prioritarios → nuevos → agenda → coincidencias
           → propiedades → actividad → operaciones. */}
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <ListaPropiedadesRecientes />
@@ -277,7 +264,7 @@ export default function MiDia() {
       {/* Par 4: las operaciones cierran la pantalla a ancho completo. Quedaron
           sin compañera al entrar Actividad reciente, y estirarlas es preferible
           a dejar media fila vacía al lado —mismo criterio que la agenda del Par
-          2 cuando no hay seguimientos—. Van últimas y no antes de la actividad
+          2—. Van últimas y no antes de la actividad
           porque son el estado de la cartera, el horizonte más largo de la
           pantalla: se lee después de lo que pasó hoy. */}
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
@@ -326,8 +313,7 @@ function Skeleton() {
         <BloqueSeccion alto="h-[258px]" />
       </div>
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
-        <BloqueSeccion alto="h-[258px]" />
-        <BloqueSeccion alto="h-[219px]" />
+        <BloqueSeccion alto="h-[309px]" className="lg:col-span-2" />
       </div>
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
         <BloqueSeccion alto="h-[193px]" />

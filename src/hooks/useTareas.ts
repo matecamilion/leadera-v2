@@ -16,6 +16,7 @@ import { listarVisitas, type VisitaConContexto } from '../lib/api/visitas'
 import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import { claveDia } from '../lib/calendario'
 import type { EstadoTarea, EstadoVisita, Recurrencia, Tarea } from '../types/database'
+import type { EstadoLead } from '../lib/api/leads'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
 
@@ -31,6 +32,10 @@ export interface EventoCalendario {
   hora?: string | null
   /** Para SEGUIMIENTO, y para VISITA cuando tiene lead: a dónde linkea. */
   leadId?: string
+  /** Sólo para SEGUIMIENTO: con qué se contacta al lead desde la agenda. */
+  telefono?: string | null
+  /** Sólo para SEGUIMIENTO. */
+  estadoLead?: EstadoLead | null
   /** Sólo para VISITA. */
   estadoVisita?: EstadoVisita
   raw: Tarea | SeguimientoLead | VisitaConContexto
@@ -59,6 +64,8 @@ function seguimientoAEvento(s: SeguimientoLead): EventoCalendario {
     titulo: `Seguimiento: ${s.nombre} ${s.apellido ?? ''}`.trim(),
     hora: `${String(cuando.getHours()).padStart(2, '0')}:${String(cuando.getMinutes()).padStart(2, '0')}`,
     leadId: s.id,
+    telefono: s.telefono,
+    estadoLead: s.estado,
     raw: s,
   }
 }

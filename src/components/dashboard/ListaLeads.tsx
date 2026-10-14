@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import { SeccionCard } from './SeccionCard'
 import { AvatarLead } from '../leads/AvatarLead'
 import { BadgeEstado } from '../leads/BadgeEstado'
-import { IconoAlerta, IconoPersonaMas, IconoReloj } from '../leads/Iconos'
+import { IconoAlerta, IconoPersonaMas } from '../leads/Iconos'
 import { AyudaSeccion } from '../comunes/AyudaSeccion'
 import { AccionesContacto } from '../comunes/AccionesContacto'
 import { tiempoTranscurrido } from '../../lib/formatoFecha'
 import type { TonoKpi } from '../comunes/tonos'
 import type { Lead } from '../../lib/api/leads'
 
-export type VarianteLista = 'prioritarios' | 'nuevos' | 'seguimientos'
+export type VarianteLista = 'prioritarios' | 'nuevos'
 
 /**
  * Tono de la sección, en el vocabulario de `CardKpi`.
@@ -21,13 +21,11 @@ export type VarianteLista = 'prioritarios' | 'nuevos' | 'seguimientos'
 const TONO: Record<VarianteLista, TonoKpi> = {
   prioritarios: 'caliente',
   nuevos: 'brand',
-  seguimientos: 'tibio',
 }
 
 const ICONO: Record<VarianteLista, typeof IconoAlerta> = {
   prioritarios: IconoAlerta,
   nuevos: IconoPersonaMas,
-  seguimientos: IconoReloj,
 }
 
 const AYUDA: Record<VarianteLista, string> = {
@@ -35,8 +33,6 @@ const AYUDA: Record<VarianteLista, string> = {
     'Leads calientes y leads con seguimiento vencido (de días anteriores). Si ya registraste una interacción hoy, salen de la lista. No incluye leads ganados.',
   nuevos:
     'Leads que todavía no tuvieron un primer contacto registrado. Al registrar la primera interacción, dejan de ser nuevos. No incluye leads ganados.',
-  seguimientos:
-    'Leads con próximo contacto agendado para hoy. Los vencidos aparecen en Prioritarios y los futuros, el día que corresponda. Si ya registraste una interacción hoy, salen de la lista.',
 }
 
 interface ListaLeadsProps {

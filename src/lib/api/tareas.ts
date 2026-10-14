@@ -8,6 +8,7 @@ import type {
   TareaInsert,
 } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import type { EstadoLead } from './leads'
 
 /**
  * Tope de ocurrencias por serie.
@@ -65,6 +66,8 @@ export interface SeguimientoLead {
   id: string
   nombre: string
   apellido: string | null
+  telefono: string | null
+  estado: EstadoLead | null
   fecha_proximo_seguimiento: string
 }
 
@@ -96,7 +99,7 @@ export async function listarSeguimientosComoEventos(
 
   const { data, error } = await supabase
     .from('leads')
-    .select('id, nombre, apellido, fecha_proximo_seguimiento')
+    .select('id, nombre, apellido, telefono, estado, fecha_proximo_seguimiento')
     .eq('agente_id', userData.user.id)
     .not('fecha_proximo_seguimiento', 'is', null)
     .gte('fecha_proximo_seguimiento', inicio.toISOString())

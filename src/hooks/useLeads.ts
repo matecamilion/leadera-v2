@@ -6,6 +6,7 @@ import {
   type FiltroDelDia,
   type FiltroEstado,
   type ListarLeadsResult,
+  type OrdenLeads,
 } from '../lib/api/leads'
 import type { FiltroRol } from '../lib/api/rolLead'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
@@ -20,6 +21,7 @@ export function useLeads(
   page: number,
   delDia?: FiltroDelDia,
   rol?: FiltroRol,
+  orden: OrdenLeads = 'prioridad',
 ) {
   const uid = useUid()
   return useQuery<ListarLeadsResult>({
@@ -28,9 +30,18 @@ export function useLeads(
     // interacción invalida esto y el lead sale del corte, igual que en Mi día.
     //
     // El rol no pisa a nadie: se combina con todo lo demás, así que va aparte.
-    queryKey: claves.leads.listado(uid, delDia ?? estado ?? 'todos', rol ?? 'todos', busqueda, page),
+    // El orden también: sin él en la clave, cambiarlo mostraría la página
+    // cacheada con el orden anterior.
+    queryKey: claves.leads.listado(
+      uid,
+      delDia ?? estado ?? 'todos',
+      rol ?? 'todos',
+      busqueda,
+      orden,
+      page,
+    ),
     queryFn: () =>
-      listarLeads({ estado, delDia, rol, busqueda, page, pageSize: LEADS_POR_PAGINA }),
+      listarLeads({ estado, delDia, rol, busqueda, orden, page, pageSize: LEADS_POR_PAGINA }),
     enabled: !!uid,
     // Al paginar o tipear mantenemos la tabla anterior visible en vez de volver
     // al skeleton: evita que la lista parpadee en cada tecla.

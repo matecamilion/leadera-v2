@@ -10,6 +10,7 @@ import { LeadsTabla } from '../components/leads/LeadsTabla'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { Paginacion } from '../components/leads/Paginacion'
+import { OPCIONES_ORDEN, SelectorOrdenLeads } from '../components/leads/SelectorOrdenLeads'
 import { LEADS_POR_PAGINA, useLeads, useTotalLeads } from '../hooks/useLeads'
 import {
   useInteraccionesPorLead,
@@ -22,6 +23,7 @@ import {
   type FiltroDelDia,
   type FiltroEstado,
   type Lead,
+  type OrdenLeads,
 } from '../lib/api/leads'
 import { FILTROS_ROL, etiquetaFiltroRol, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
@@ -49,6 +51,33 @@ const ETIQUETA_DEL_DIA: Record<FiltroDelDia, string> = {
   seguimientos: 'con seguimiento para hoy',
 }
 
+/** Los valores de `?orden=`. `prioridad` es el default y no se escribe. */
+const ORDENES_VALIDOS: OrdenLeads[] = OPCIONES_ORDEN.map((o) => o.valor)
+
+const CLAVE_ORDEN = 'leadera.leads.orden'
+
+/**
+ * El último orden elegido, para cuando la URL no trae uno. En try/catch por lo
+ * mismo que `TarjetaSemanaGestion`: en incógnito o con el sitio bloqueado
+ * `localStorage` tira, y eso no puede romper el listado.
+ */
+function leerOrdenGuardado(): OrdenLeads | undefined {
+  try {
+    const valor = localStorage.getItem(CLAVE_ORDEN)
+    return ORDENES_VALIDOS.find((o) => o === valor)
+  } catch {
+    return undefined
+  }
+}
+
+function guardarOrden(orden: OrdenLeads): void {
+  try {
+    localStorage.setItem(CLAVE_ORDEN, orden)
+  } catch {
+    // La próxima vez arranca en prioridad. Es molesto, no roto.
+  }
+}
+
 export default function Leads() {
   // Filtro, búsqueda y página viven en la URL, no en estado local: así
   // sobreviven a entrar a una ficha y volver con el botón atrás, aguantan un
@@ -63,6 +92,13 @@ export default function Leads() {
   const filtroRol = FILTROS_ROL.find((f) => f === searchParams.get('rol'))
   const busqueda = searchParams.get('q') ?? ''
   const page = leerPagina(searchParams.get('page'))
+
+  // La URL manda; si no trae orden, el último elegido; si tampoco, prioridad.
+  // El guardado va en estado para que elegir "Prioridad" —que no se escribe en
+  // la URL— se vea al instante y no recién al recargar.
+  const [ordenGuardado, setOrdenGuardado] = useState(leerOrdenGuardado)
+  const orden =
+    ORDENES_VALIDOS.find((o) => o === searchParams.get('orden')) ?? ordenGuardado ?? 'prioridad'
 
   const [leadAEliminar, setLeadAEliminar] = useState<Lead | null>(null)
   // Sobre qué lead se está registrando una interacción. El lead entero y no el
@@ -79,6 +115,7 @@ export default function Leads() {
     page,
     filtroDelDia,
     filtroRol,
+    orden,
   )
   const { data: total } = useTotalLeads(busqueda, filtroRol)
 
@@ -121,6 +158,7 @@ export default function Leads() {
         delDia: filtroDelDia,
         rol: filtroRol,
         busqueda,
+        orden,
       })
 
       if (paraExportar.length === 0) {
@@ -215,6 +253,26 @@ export default function Leads() {
     )
   }
 
+  /**
+   * Mismo trato que el rol: va a la URL con `replace`, `prioridad` no se
+   * escribe y se vuelve a la página 1 —la página 3 de otro orden es otra gente—.
+   * Además queda guardado como el orden de la próxima visita.
+   */
+  function cambiarOrden(valor: OrdenLeads) {
+    guardarOrden(valor)
+    setOrdenGuardado(valor)
+    setSearchParams(
+      (previos) => {
+        const proximos = new URLSearchParams(previos)
+        if (valor === 'prioridad') proximos.delete('orden')
+        else proximos.set('orden', valor)
+        proximos.delete('page')
+        return proximos
+      },
+      { replace: true },
+    )
+  }
+
   function cambiarBusqueda(valor: string) {
     escribirFiltros(filtroEstado, valor, 1)
   }
@@ -281,7 +339,12 @@ export default function Leads() {
             total={total}
           />
         </div>
-        <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
+        <div className="flex flex-wrap items-center gap-3">
+          {/* En un corte de Mi día el orden es el de la sección y no se elige
+              (ver `aplicarOrden`): un selector que no hace nada confunde. */}
+          {!filtroDelDia && <SelectorOrdenLeads valor={orden} onCambiar={cambiarOrden} />}
+          <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
+        </div>
       </div>
 
       {filtroRol === 'compradores' && (

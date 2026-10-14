@@ -73,9 +73,15 @@ export function LeadsCards({
               {ops.compra > 0 && <ChipOperaciones cantidad={ops.compra} singular="compra" plural="compras" />}
             </div>
 
-            {/* Fila 3: origen y último contacto; el seguimiento, sólo si hay. */}
+            {/* Fila 3: origen, ingreso y último contacto; el seguimiento,
+                sólo si hay. El ingreso está para que el orden por fecha se
+                vea. */}
             <p className="m-0 text-[0.8rem] text-ink-3">
               {etiquetaOrigen(lead.origen)} ·{' '}
+              <span className="whitespace-nowrap">
+                Ingresó {formatearFecha(lead.fecha_ingreso)}
+              </span>
+              {' · '}
               {lead.fecha_ultimo_contacto_real ? `Contacto: ${contacto}` : contacto}
               {lead.fecha_proximo_seguimiento && (
                 <>

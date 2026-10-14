@@ -106,8 +106,20 @@ export function LeadsTabla({
                   <BadgeEstado estado={lead.estado} />
                 </td>
 
+                {/* La fecha de ingreso va debajo del origen —de dónde vino y
+                    cuándo— para que el orden por fecha se vea sin sumar una
+                    columna. No entra "Ingresó" delante sin ensanchar la
+                    columna, así que el rótulo queda para lectores y tooltip;
+                    la Lead ya tiene dos renglones, así que la fila no crece. */}
                 <td className="px-3.5 py-4 align-middle text-ink">
                   {etiquetaOrigen(lead.origen)}
+                  <span
+                    title="Fecha de ingreso"
+                    className="mt-0.5 block truncate text-[0.78rem] text-ink-3 tabular-nums"
+                  >
+                    <span className="sr-only">Ingresó el </span>
+                    {formatearFecha(lead.fecha_ingreso)}
+                  </span>
                 </td>
 
                 <td className="px-3.5 py-4 align-middle text-ink">

@@ -168,8 +168,14 @@ export const claves = {
    */
   leads: {
     raiz: ['leads'] as const,
-    listado: (uid: Uid, filtro: string, rol: string, busqueda: string, page: number) =>
-      ['leads', uid, filtro, rol, busqueda, page] as const,
+    listado: (
+      uid: Uid,
+      filtro: string,
+      rol: string,
+      busqueda: string,
+      orden: string,
+      page: number,
+    ) => ['leads', uid, filtro, rol, busqueda, orden, page] as const,
     total: (uid: Uid, rol: string, busqueda: string) =>
       ['leads', 'total', uid, rol, busqueda] as const,
     delDia: (uid: Uid) => ['leads', 'del-dia', uid] as const,

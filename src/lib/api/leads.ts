@@ -41,12 +41,20 @@ export type FiltroEstado = EstadoLead | 'nuevos'
  */
 export type FiltroDelDia = 'prioritarios' | 'seguimientos'
 
+/**
+ * Cómo se ordena el listado. `prioridad` es el orden de trabajo —a quién
+ * llamar primero— y el default; los otros dos son por fecha de ingreso.
+ */
+export type OrdenLeads = 'prioridad' | 'ingreso_desc' | 'ingreso_asc'
+
 export interface ListarLeadsParams {
   estado?: FiltroEstado
   delDia?: FiltroDelDia
   /** Comprador / vendedor. Se combina con el resto (AND), no los pisa. */
   rol?: FiltroRol
   busqueda?: string
+  /** `undefined` = `prioridad`. Con `delDia` se ignora (ver `aplicarOrden`). */
+  orden?: OrdenLeads
   /** 1-indexado. */
   page: number
   pageSize: number
@@ -145,6 +153,57 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
   return q
 }
 
+/** Las columnas por las que ordena `aplicarOrden`. */
+type ColumnaDeOrden =
+  | 'fecha_proximo_seguimiento'
+  | 'fecha_primer_contacto_real'
+  | 'estado'
+  | 'fecha_ultimo_contacto_real'
+  | 'fecha_ingreso'
+  | 'id'
+
+interface QueryOrdenable<Self> {
+  order(columna: ColumnaDeOrden, opciones: { ascending: boolean; nullsFirst?: boolean }): Self
+}
+
+/**
+ * El orden del listado y del export, en un solo lugar: si fueran dos copias,
+ * el Excel podría dejar de salir en el orden que se ve en pantalla.
+ *
+ * Con un corte de Mi día se fuerza `prioridad` sea cual sea el pedido: el
+ * "Ver todos (N)" tiene que mostrar a los N en el mismo orden que la sección
+ * de la que vino, y en seguimientos ese orden es la hora del seguimiento.
+ *
+ * Todos los órdenes terminan en `id`. Sin un desempate único, las filas que
+ * empatan en todas las claves pueden volver en otro orden en cada query, y
+ * con paginación del server eso es un lead repetido en dos páginas y otro
+ * que no aparece en ninguna.
+ */
+function aplicarOrden<Q extends QueryOrdenable<Q>>(
+  query: Q,
+  orden: OrdenLeads | undefined,
+  delDia: FiltroDelDia | undefined,
+): Q {
+  const efectivo = delDia ? 'prioridad' : (orden ?? 'prioridad')
+
+  const q =
+    efectivo === 'prioridad'
+      ? query
+          // 1. Los que tienen seguimiento agendado, del más atrasado al más lejano.
+          .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
+          // 2. Entre los que no tienen seguimiento, primero los nunca contactados.
+          .order('fecha_primer_contacto_real', { ascending: true, nullsFirst: true })
+          // 3. Después por temperatura. El enum estado_lead está declarado
+          //    CALIENTE, TIBIO, FRIO, GANADO, INACTIVO y Postgres ordena los enums
+          //    por orden de declaración, así que esto ya da la prioridad pedida.
+          .order('estado', { ascending: true, nullsFirst: true })
+          .order('fecha_ultimo_contacto_real', { ascending: true, nullsFirst: true })
+          .order('fecha_ingreso', { ascending: true })
+      : query.order('fecha_ingreso', { ascending: efectivo === 'ingreso_asc' })
+
+  return q.order('id', { ascending: true })
+}
+
 /**
  * El `select` de leads con las relaciones que pida el filtro de rol.
  *
@@ -168,6 +227,7 @@ export async function listarLeads({
   delDia,
   rol,
   busqueda,
+  orden,
   page,
   pageSize,
 }: ListarLeadsParams): Promise<ListarLeadsResult> {
@@ -179,26 +239,17 @@ export async function listarLeads({
     resolverCorteDeRol(rol),
   ])
 
-  let query = aplicarFiltros(
-    supabase.from('leads').select(columnasConRol('*', corteDeRol), { count: 'exact' }),
-    estado,
-    busqueda,
-    corteDelDia,
-    corteDeRol,
-  )
-
-  query = query
-    // 1. Los que tienen seguimiento agendado, del más atrasado al más lejano.
-    .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
-    // 2. Entre los que no tienen seguimiento, primero los nunca contactados.
-    .order('fecha_primer_contacto_real', { ascending: true, nullsFirst: true })
-    // 3. Después por temperatura. El enum estado_lead está declarado
-    //    CALIENTE, TIBIO, FRIO, GANADO, INACTIVO y Postgres ordena los enums
-    //    por orden de declaración, así que esto ya da la prioridad pedida.
-    .order('estado', { ascending: true, nullsFirst: true })
-    .order('fecha_ultimo_contacto_real', { ascending: true, nullsFirst: true })
-    .order('fecha_ingreso', { ascending: true })
-    .range(desde, hasta)
+  const query = aplicarOrden(
+    aplicarFiltros(
+      supabase.from('leads').select(columnasConRol('*', corteDeRol), { count: 'exact' }),
+      estado,
+      busqueda,
+      corteDelDia,
+      corteDeRol,
+    ),
+    orden,
+    delDia,
+  ).range(desde, hasta)
 
   const { data, error, count } = await query
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads.'))
@@ -603,13 +654,14 @@ export interface ExportarLeadsParams {
   delDia?: FiltroDelDia
   rol?: FiltroRol
   busqueda?: string
+  orden?: OrdenLeads
 }
 
 /**
  * Todos los leads que matchean el filtro, sin paginar.
  *
- * Mismos filtros y mismo orden que `listarLeads`, así el Excel sale en el
- * orden que el usuario ve en pantalla; lo único que cambia es que no se
+ * Mismos filtros y mismo `aplicarOrden` que `listarLeads`, así el Excel sale
+ * en el orden que el usuario ve en pantalla; lo único que cambia es que no se
  * recorta a una página.
  *
  * Se pide de a lotes en vez de un solo query sin `.range()`: PostgREST aplica
@@ -622,6 +674,7 @@ export async function listarLeadsParaExportar({
   delDia,
   rol,
   busqueda,
+  orden,
 }: ExportarLeadsParams): Promise<LeadExportable[]> {
   const todos: LeadExportable[] = []
   // Una vez y no por lote: todos los lotes tienen que excluir a los mismos.
@@ -631,19 +684,17 @@ export async function listarLeadsParaExportar({
   ])
 
   for (let desde = 0; ; desde += TAMANO_LOTE) {
-    const query = aplicarFiltros(
-      supabase.from('leads').select(columnasConRol(COLUMNAS_EXPORT, corteDeRol)),
-      estado,
-      busqueda,
-      corte,
-      corteDeRol,
-    )
-      .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
-      .order('fecha_primer_contacto_real', { ascending: true, nullsFirst: true })
-      .order('estado', { ascending: true, nullsFirst: true })
-      .order('fecha_ultimo_contacto_real', { ascending: true, nullsFirst: true })
-      .order('fecha_ingreso', { ascending: true })
-      .range(desde, desde + TAMANO_LOTE - 1)
+    const query = aplicarOrden(
+      aplicarFiltros(
+        supabase.from('leads').select(columnasConRol(COLUMNAS_EXPORT, corteDeRol)),
+        estado,
+        busqueda,
+        corte,
+        corteDeRol,
+      ),
+      orden,
+      delDia,
+    ).range(desde, desde + TAMANO_LOTE - 1)
 
     const { data, error } = await query
     if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron exportar los leads.'))

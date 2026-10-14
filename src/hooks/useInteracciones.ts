@@ -39,6 +39,9 @@ export function useCrearInteraccion() {
       queryClient.invalidateQueries({ queryKey: claves.interaccionesPorLead.raiz })
       // Una VISITA o REUNION suma a las actividades verdes del día y la semana.
       queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })
+      // El próximo seguimiento que se agendó acá se pinta en el calendario y en
+      // el bloque agenda de Mi día, que cuelgan de la raíz de tareas.
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
     },
   })
 }

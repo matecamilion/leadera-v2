@@ -51,6 +51,8 @@ export function useCrearLead() {
       invalidar(lead.id)
       // Un lead REFERIDO o MANUAL suma a los nuevos contactos del día y la semana.
       queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })
+      // Si el lead nació con fecha de próximo seguimiento, la agenda la muestra.
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
     },
   })
 }

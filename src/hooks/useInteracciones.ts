@@ -87,10 +87,18 @@ export function useActualizarInteraccion(leadId: string) {
 }
 
 export function useEliminarInteraccion(leadId: string) {
+  const queryClient = useQueryClient()
   const invalidar = useInvalidarInteracciones(leadId)
 
   return useMutation({
     mutationFn: (id: string) => eliminarInteraccion(id),
-    onSuccess: invalidar,
+    onSuccess: () => {
+      invalidar()
+      // Si la interacción había cumplido un seguimiento, un trigger se lo
+      // devuelve al lead: vuelve a pintarse en el calendario y en la agenda de
+      // Mi día, que cuelgan de la raíz de tareas. Editar no lo dispara, por eso
+      // va acá y no en la invalidación compartida.
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+    },
   })
 }

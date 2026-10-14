@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -560,6 +560,7 @@ export type Database = {
           id: string
           lead_id: string
           operacion_id: string | null
+          seguimiento_cumplido_fecha: string | null
           tipo: Database["public"]["Enums"]["tipo_interaccion"]
         }
         Insert: {
@@ -571,6 +572,7 @@ export type Database = {
           id?: string
           lead_id: string
           operacion_id?: string | null
+          seguimiento_cumplido_fecha?: string | null
           tipo: Database["public"]["Enums"]["tipo_interaccion"]
         }
         Update: {
@@ -582,6 +584,7 @@ export type Database = {
           id?: string
           lead_id?: string
           operacion_id?: string | null
+          seguimiento_cumplido_fecha?: string | null
           tipo?: Database["public"]["Enums"]["tipo_interaccion"]
         }
         Relationships: [
@@ -1746,6 +1749,10 @@ export type Database = {
           total_filas: number
         }[]
       }
+      es_contacto_real: {
+        Args: { p_tipo: Database["public"]["Enums"]["tipo_interaccion"] }
+        Returns: boolean
+      }
       estadisticas_visitas_propiedad: {
         Args: { p_propiedad_id: string }
         Returns: {
@@ -1847,6 +1854,35 @@ export type Database = {
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
       procesar_transiciones_suscripcion: { Args: never; Returns: undefined }
+      registrar_interaccion: {
+        Args: {
+          p_categoria?: string
+          p_detalle: string
+          p_fecha?: string
+          p_lead_id: string
+          p_operacion_id?: string
+          p_proximo_seguimiento?: string
+          p_tipo: Database["public"]["Enums"]["tipo_interaccion"]
+        }
+        Returns: {
+          agente_id: string
+          categoria: string | null
+          created_at: string
+          detalle: string | null
+          fecha: string
+          id: string
+          lead_id: string
+          operacion_id: string | null
+          seguimiento_cumplido_fecha: string | null
+          tipo: Database["public"]["Enums"]["tipo_interaccion"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "interacciones"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resumen_gestion: {
         Args: { p_periodo?: string; p_referencia?: string }
         Returns: {

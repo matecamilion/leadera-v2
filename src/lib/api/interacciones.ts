@@ -120,56 +120,39 @@ export interface CrearInteraccionInput {
 }
 
 /**
- * Registra una interacción.
+ * Registra una interacción y, si viene, agenda el próximo seguimiento.
  *
- * Las fechas de contacto del lead (`fecha_primer_contacto_real` y
- * `fecha_ultimo_contacto_real`) las escribe un trigger de la base al insertar:
- * no las tocamos desde acá. Lo único que queda del lado del frontend es
- * `fecha_proximo_seguimiento`, que el trigger no maneja.
+ * Va por la RPC `registrar_interaccion`, que hace las dos cosas en una sola
+ * transacción: o queda todo o no queda nada, así que no hay un "se guardó a
+ * medias" que avisar. El `agente_id` lo pone la base con `auth.uid()`.
+ *
+ * El resto lo resuelven triggers de la base al insertar: las fechas de contacto
+ * del lead y, si es un contacto real que cumple el seguimiento pendiente,
+ * `seguimiento_cumplido_fecha` y el vaciado de `fecha_proximo_seguimiento`.
+ * Desde acá no se toca nada de eso.
+ *
+ * Los opcionales van `undefined` y no `null`: así viajan omitidos y la RPC
+ * toma su default (null, y `now()` para la fecha).
  */
 export async function crearInteraccion(
   input: CrearInteraccionInput,
 ): Promise<Interaccion> {
-  const { data: userData, error: errorUser } = await supabase.auth.getUser()
-  if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
+  const { data, error } = await supabase.rpc('registrar_interaccion', {
+    p_lead_id: input.lead_id,
+    p_tipo: input.tipo,
+    p_detalle: input.detalle.trim(),
+    p_operacion_id: input.operacion_id ?? undefined,
+    // Un CHECK de la base rechaza categoría en lo que no sea REUNION.
+    p_categoria: input.tipo === 'REUNION' ? (input.categoria ?? undefined) : undefined,
+    p_fecha: input.fecha || undefined,
+    p_proximo_seguimiento: aIso(input.fecha_proximo_contacto) ?? undefined,
+  })
 
-  const { data: interaccion, error } = await supabase
-    .from('interacciones')
-    .insert({
-      lead_id: input.lead_id,
-      agente_id: userData.user.id,
-      tipo: input.tipo,
-      detalle: input.detalle.trim(),
-      operacion_id: input.operacion_id ?? null,
-      // Un CHECK de la base rechaza categoría en lo que no sea REUNION.
-      categoria: input.tipo === 'REUNION' ? (input.categoria ?? null) : null,
-      // Si no viene, la base pone now() por default.
-      ...(input.fecha ? { fecha: input.fecha } : {}),
-    })
-    .select('*')
-    .single()
-
-  if (error) {
+  if (error || !data) {
     throw new Error(interpretarErrorSupabase(error, 'No se pudo registrar la interacción.'))
   }
 
-  const proximo = aIso(input.fecha_proximo_contacto)
-  if (proximo) {
-    const { error: errorLead } = await supabase
-      .from('leads')
-      .update({ fecha_proximo_seguimiento: proximo })
-      .eq('id', input.lead_id)
-
-    if (errorLead) {
-      // La interacción ya quedó guardada: hay que decirlo, o el usuario
-      // reintenta y la duplica.
-      throw new Error(
-        'La interacción se guardó, pero no se pudo agendar el próximo seguimiento.',
-      )
-    }
-  }
-
-  return interaccion
+  return data
 }
 
 /** El input datetime-local viene sin zona; Date lo interpreta como hora local. */

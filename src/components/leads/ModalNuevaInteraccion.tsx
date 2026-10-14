@@ -33,13 +33,7 @@ const ATAJOS = [
   { dias: 7, label: '1 semana' },
 ]
 
-/**
- * Formato que espera <input type="datetime-local">: YYYY-MM-DDTHH:mm local.
- *
- * Copia de la de `pages/NuevaInteraccion`, que sigue viva. Se duplica a
- * propósito en vez de mudarla a `lib/calendario`: la página queda sin uso con
- * este cambio y cuando se borre, la copia se va con ella.
- */
+/** Formato que espera <input type="datetime-local">: YYYY-MM-DDTHH:mm local. */
 function enDias(dias: number): string {
   const f = new Date()
   f.setDate(f.getDate() + dias)
@@ -66,11 +60,11 @@ interface ModalNuevaInteraccionProps {
 /**
  * Alta de una interacción sin salir de donde estás.
  *
- * Es el formulario de `pages/NuevaInteraccion` metido en el shell de
- * `ModalEditarInteraccion` —<dialog> nativo, controles de `CampoFormulario` /
- * `estilosFormulario`, `onCancel` interceptado—. Mismos campos y mismas
- * validaciones que la página: tipo, detalle con mínimo de caracteres y el
- * próximo contacto con sus tres atajos.
+ * Es el único formulario de alta de interacciones —la vieja página
+ * `NuevaInteraccion` ya no existe—, montado en el shell de
+ * `ModalEditarInteraccion`: <dialog> nativo, controles de `CampoFormulario` /
+ * `estilosFormulario`, `onCancel` interceptado. Pide tipo, detalle con mínimo
+ * de caracteres y el próximo contacto con sus tres atajos.
  *
  * El punto de que sea modal es no navegar: desde el listado, el agente pierde
  * el filtro y la página apenas se va de `/leads`, porque ese estado vive en
@@ -81,9 +75,9 @@ interface ModalNuevaInteraccionProps {
  * `ModalEditarInteraccion`) porque lo montan dos pantallas: así el wiring de
  * invalidación no se escribe dos veces.
  *
- * La fecha de la interacción no se pide, igual que en la página: la pone la
- * base con `now()`. Si hace falta cargar una charla de ayer, se corrige después
- * desde el timeline, que para eso tiene la edición.
+ * La fecha de la interacción no se pide: la pone la base con `now()`. Si hace
+ * falta cargar una charla de ayer, se corrige después desde el timeline, que
+ * para eso tiene la edición.
  */
 export function ModalNuevaInteraccion({
   abierto,
@@ -288,6 +282,9 @@ export function ModalNuevaInteraccion({
           {proximoPasado && (
             <ErrorCampo>El próximo contacto no puede ser una fecha pasada.</ErrorCampo>
           )}
+          <p className="mt-2 text-xs text-ink-3">
+            Si no programás un próximo contacto, el seguimiento pendiente se da por cumplido.
+          </p>
         </fieldset>
 
         {crear.isError && (

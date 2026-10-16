@@ -237,8 +237,8 @@ export function ModalNuevaVisita({
           {propiedadFija
             ? 'Queda agendada para esta propiedad.'
             : modo === 'propia'
-              ? 'Elegí la propiedad y, si ya sabés quién va, el lead.'
-              : 'Cargá la dirección o el título y, si ya sabés quién va, el lead.'}
+              ? 'Elegí la propiedad y, si el comprador es tu lead, seleccionalo.'
+              : 'Cargá la dirección o el título y, si el comprador es tu lead, seleccionalo.'}
         </p>
 
         {/* Mismo control segmentado que el filtro de rol del listado. */}
@@ -326,7 +326,7 @@ export function ModalNuevaVisita({
 
           <div>
             <span className={etiquetaCampo}>
-              Lead{!leadFijo && <span className="normal-case"> (opcional)</span>}
+              Lead comprador{!leadFijo &&<span className="normal-case"> (opcional)</span>}
             </span>
             {leadFijo ? (
               <p className="m-0 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[0.9rem] font-medium text-ink">
@@ -336,8 +336,9 @@ export function ModalNuevaVisita({
               <>
                 <ComboboxLead value={leadId} onChange={setLeadId} />
                 <p className="mt-1.5 text-[0.75rem] text-ink-4">
-                  Si la dejás sin lead, al marcarla como realizada no se registra
-                  ninguna interacción.
+                  {modo === 'propia'
+                    ? 'Cargalo solo si el comprador es tu lead. Si lo trae otra inmobiliaria, dejalo vacío: la visita se agenda igual, pero al marcarla como realizada no se registra ninguna interacción.'
+                    : 'Seleccioná al comprador que va a la visita (tu lead). Si lo dejás vacío, al marcarla como realizada no se registra ninguna interacción.'}
                 </p>
               </>
             )}

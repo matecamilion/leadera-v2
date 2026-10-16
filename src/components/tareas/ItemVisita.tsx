@@ -107,7 +107,7 @@ export function ItemVisita({
                 </Link>
               </>
             ) : (
-              'Sin lead asignado'
+              'Sin lead asociado'
             )}
           </p>
 

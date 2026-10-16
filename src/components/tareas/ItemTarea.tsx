@@ -56,7 +56,7 @@ export function ItemTarea({
         </p>
 
         {tarea.descripcion && (
-          <p className="mt-0.5 text-[0.8rem] leading-relaxed text-ink-3">
+          <p className="mt-0.5 text-[0.8rem] leading-relaxed whitespace-pre-line text-ink-3 [overflow-wrap:anywhere]">
             {tarea.descripcion}
           </p>
         )}

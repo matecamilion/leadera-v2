@@ -112,7 +112,9 @@ export function ItemVisita({
           </p>
 
           {visita.notas && (
-            <p className="mt-0.5 text-[0.8rem] leading-relaxed text-ink-3">{visita.notas}</p>
+            <p className="mt-0.5 text-[0.8rem] leading-relaxed whitespace-pre-line text-ink-3 [overflow-wrap:anywhere]">
+              {visita.notas}
+            </p>
           )}
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[0.72rem] text-ink-3">

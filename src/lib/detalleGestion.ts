@@ -131,20 +131,20 @@ function ddmm(fecha: Date): string {
   return `${dd}/${mm}`
 }
 
-/** `YYYY-MM-DD` → "mié 24/09". Parseo local: con `new Date(clave)` sería UTC y
+/** `YYYY-MM-DD` → "lun 28/09". Parseo local: con `new Date(clave)` sería UTC y
  *  en Argentina caería en el día anterior. */
 export function etiquetaDia(clave: string): string {
   const fecha = desdeClaveDia(clave)
   return `${DIAS_CORTOS[fecha.getDay()]} ${ddmm(fecha)}`
 }
 
-/** `YYYY-MM-DD` → "Miércoles 24/09", para los encabezados de la lista. */
+/** `YYYY-MM-DD` → "Lunes 28/09", para los encabezados de la lista. */
 export function etiquetaDiaLarga(clave: string): string {
   const fecha = desdeClaveDia(clave)
   return `${DIAS_LARGOS[fecha.getDay()]} ${ddmm(fecha)}`
 }
 
-/** "hoy mié 30/09", "mar 29/09" o "mié 24/09 → mar 30/09". */
+/** "hoy lun 28/09", "dom 27/09" o "lun 28/09 → dom 04/10". */
 export function etiquetaPeriodo(
   periodo: PeriodoGestion,
   inicio: string,

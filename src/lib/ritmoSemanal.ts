@@ -1,6 +1,6 @@
 /**
  * El ritmo de una meta del modelo de gestión: cuánto debería llevar el agente a
- * esta altura del período (hoy, la semana de miércoles a martes).
+ * esta altura del período (hoy, la semana de lunes a domingo).
  *
  * Funciones puras, sin React ni Supabase.
  */
@@ -30,7 +30,7 @@ export function hoyEnArgentina(ahora: Date = new Date()): string {
 }
 
 export interface Ritmo {
-  /** Día del período: en la semana de gestión, miércoles = 1 y martes = 7. */
+  /** Día del período: en la semana de gestión, lunes = 1 y domingo = 7. */
   dia: number
   /** Cuánto debería llevar al empezar hoy para llegar a la meta a ritmo parejo. */
   esperado: number
@@ -53,7 +53,7 @@ export function calcularRitmo(
   const total = Math.max(diasTotales, 1)
   const dia = Math.min(Math.max(diaActual, 1), total)
   // Con el día anterior: lo esperado es lo que ya debería estar hecho al
-  // arrancar hoy. Con `dia` el miércoles a la mañana ya pedía actividades.
+  // arrancar hoy. Con `dia` el lunes a la mañana ya pedía actividades.
   const esperado = Math.round((meta * (dia - 1)) / total)
   return {
     dia,

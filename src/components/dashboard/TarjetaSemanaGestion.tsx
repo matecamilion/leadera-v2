@@ -311,8 +311,8 @@ function Marco({
             </TooltipAyuda>
           ) : (
             <TooltipAyuda etiqueta="tu semana">
-              Mínimos semanales para sostener el negocio. La semana va de miércoles a
-              martes. La marca en cada anillo indica cuánto deberías llevar a hoy.
+              Mínimos semanales para sostener el negocio. La semana va de lunes a
+              domingo. La marca en cada anillo indica cuánto deberías llevar a hoy.
             </TooltipAyuda>
           )}
         </div>

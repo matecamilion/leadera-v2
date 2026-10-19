@@ -45,7 +45,7 @@ export async function obtenerModeloGestionActivo(inmobiliariaId: string): Promis
 }
 
 /**
- * Las métricas del agente logueado en el día o la semana (miércoles a martes)
+ * Las métricas del agente logueado en el día o la semana (lunes a domingo)
  * que contiene `referencia`, hora argentina. La ventana, `dia_actual` y los
  * conteos los arma la base; ver `20260930160000_detalle_gestion`.
  *

@@ -378,7 +378,7 @@ export function estaBloqueada(estado: EstadoDeMiSuscripcion | null | undefined):
 }
 
 /** Umbral a partir del cual se avisa que el trial se termina. */
-const DIAS_DE_AVISO_TRIAL = 3
+const DIAS_DE_AVISO_TRIAL = 7
 
 const UN_DIA_EN_MS = 24 * 60 * 60 * 1000
 

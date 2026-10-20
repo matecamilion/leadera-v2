@@ -2,7 +2,7 @@
  * Playfair Display (variable) para el título de la imagen para publicar.
  *
  * Va aparte de `styles/fonts.css` y se importa desde el panel, que es lazy: la
- * serif sólo se baja cuando alguien abre "Crear imagen". Mismos dos subsets
+ * serif sólo se baja cuando alguien abre "Crear flyer". Mismos dos subsets
  * que Figtree, por lo mismo.
  */
 

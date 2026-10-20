@@ -189,7 +189,7 @@ export default function PanelCrearImagen({
       setAviso(
         e instanceof ErrorFotos
           ? 'No se pudo cargar alguna de las fotos. Probá de nuevo o elegí otras.'
-          : 'No se pudo generar la imagen. Probá de nuevo.',
+          : 'No se pudo generar el flyer. Probá de nuevo.',
       )
     } finally {
       setGenerando(false)
@@ -200,20 +200,20 @@ export default function PanelCrearImagen({
 
   return (
     <section
-      aria-label="Crear imagen para publicar"
+      aria-label="Crear flyer para publicar"
       className="mb-6 rounded-2xl bg-brand-softer px-4 py-4 sm:px-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="m-0 text-[0.95rem] font-bold text-ink">Crear imagen</h2>
+          <h2 className="m-0 text-[0.95rem] font-bold text-ink">Crear flyer</h2>
           <p className="m-0 mt-0.5 text-[0.8rem] text-ink-3">
-            Una pieza lista para Instagram (1080×1350). No se guarda: la descargás y listo.
+            Un flyer listo para Instagram (1080×1350). No se guarda: lo descargás y listo.
           </p>
         </div>
         <button
           type="button"
           onClick={onCerrar}
-          aria-label="Cerrar el panel de la imagen"
+          aria-label="Cerrar el panel del flyer"
           className="-mt-1 -mr-1 inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink-3 hover:bg-surface hover:text-ink"
         >
           <IconoCerrar className="size-4" />
@@ -465,7 +465,7 @@ export default function PanelCrearImagen({
             disabled={!listo || generando}
             className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-[0.88rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
-            {generando ? 'Generando…' : 'Descargar imagen'}
+            {generando ? 'Generando…' : 'Descargar flyer'}
           </button>
         </div>
       </div>

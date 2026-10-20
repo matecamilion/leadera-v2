@@ -21,41 +21,6 @@ interface Propiedad {
   estado: EstadoPropiedad
 }
 
-/**
- * El botón de la fila de acciones. El link se crea recién la primera vez que
- * se abre el panel; mientras tanto el botón muestra que está trabajando.
- */
-export function BotonLinkConsultas({
-  propiedadId,
-  abierto,
-  onAlternar,
-}: {
-  propiedadId: string
-  abierto: boolean
-  onAlternar: () => void
-}) {
-  const link = useMiLink(propiedadId, abierto)
-  const cargando = abierto && link.isPending
-  return (
-    <button
-      type="button"
-      onClick={onAlternar}
-      aria-expanded={abierto}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-[0.82rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
-    >
-      {cargando ? (
-        <span className="size-4 animate-spin rounded-full border-2 border-border border-t-primary motion-reduce:animate-none" />
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z" />
-          <path d="M8.5 10.5h7M8.5 13.5h4.5" />
-        </svg>
-      )}
-      Link de consultas
-    </button>
-  )
-}
-
 /** El texto del posteo: tipo, zona y precio; nunca la dirección (igual que la página pública). */
 function textoSugerido(p: Propiedad, url: string): string {
   const enZona = p.zona ? ` en ${p.zona}` : ''

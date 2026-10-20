@@ -14,6 +14,8 @@ export interface ItemMenu {
   /** Con `to` el ítem es un link; sin él, un botón que corre `onSelect`. */
   to?: string
   onSelect?: () => void
+  /** Texto en rojo, para acciones que borran. */
+  peligro?: boolean
 }
 
 interface MenuDesplegableProps {
@@ -32,6 +34,9 @@ interface MenuDesplegableProps {
 
 const CLASE_ITEM =
   'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[0.88rem] font-medium text-ink-2 transition-colors hover:bg-surface-muted hover:text-ink focus-visible:bg-surface-muted focus-visible:text-ink focus-visible:outline-none motion-reduce:transition-none'
+
+const CLASE_ITEM_PELIGRO =
+  'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-[0.88rem] font-medium text-peligro-ink transition-colors hover:bg-peligro-soft focus-visible:bg-peligro-soft focus-visible:outline-none motion-reduce:transition-none'
 
 /**
  * Menú desplegable accesible (patrón "menu button" de WAI-ARIA).
@@ -161,7 +166,7 @@ export function MenuDesplegable({
                   item.onSelect?.()
                   cerrar(false)
                 }}
-                className={CLASE_ITEM}
+                className={item.peligro ? CLASE_ITEM_PELIGRO : CLASE_ITEM}
               >
                 {item.icono}
                 {item.label}
@@ -179,7 +184,7 @@ export function MenuDesplegable({
                   cerrar(false)
                   item.onSelect?.()
                 }}
-                className={CLASE_ITEM}
+                className={item.peligro ? CLASE_ITEM_PELIGRO : CLASE_ITEM}
               >
                 {item.icono}
                 {item.label}

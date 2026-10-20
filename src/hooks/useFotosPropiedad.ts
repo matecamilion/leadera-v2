@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { eliminarFotoPropiedad, subirFotoPropiedad, validarArchivo } from '../lib/api/storage'
+import {
+  eliminarFotoPropiedad,
+  moverFotoAlInicio,
+  subirFotoPropiedad,
+  validarArchivo,
+} from '../lib/api/storage'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
 
@@ -51,5 +56,10 @@ export function useFotosPropiedad(propiedadId: string) {
     onSuccess: refrescar,
   })
 
-  return { subir, eliminar, progreso }
+  const portada = useMutation({
+    mutationFn: (url: string) => moverFotoAlInicio(propiedadId, url),
+    onSuccess: refrescar,
+  })
+
+  return { subir, eliminar, portada, progreso }
 }

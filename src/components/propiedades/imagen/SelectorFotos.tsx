@@ -11,7 +11,7 @@ export function SelectorFotos({ fotos, elegidas, cantidad, onAlternar }: Props) 
   if (fotos.length < cantidad) {
     return (
       <p className="m-0 rounded-lg bg-surface px-3 py-2.5 text-[0.84rem] text-ink-2">
-        Necesitás al menos {cantidad} fotos para crear la imagen
+        Necesitás al menos {cantidad} fotos para crear el flyer
       </p>
     )
   }

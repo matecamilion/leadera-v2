@@ -129,3 +129,20 @@ export async function eliminarFotoPropiedad(
     actuales.filter((u) => u !== url),
   )
 }
+
+/**
+ * Pone la foto primera: la portada es la primera del array.
+ *
+ * Lee el array de la base y no del cache, así no pisa una subida o un borrado
+ * que todavía no llegó a la pantalla.
+ */
+export async function moverFotoAlInicio(
+  propiedadId: string,
+  url: string,
+): Promise<void> {
+  const actuales = await leerFotos(propiedadId)
+  if (!actuales.includes(url)) {
+    throw new ErrorStorage('Esa foto ya no está en la propiedad.')
+  }
+  await escribirFotos(propiedadId, [url, ...actuales.filter((u) => u !== url)])
+}

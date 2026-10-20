@@ -43,7 +43,8 @@ export default defineConfig({
         // se lo bajen en la primera visita, que es justo lo que el React.lazy
         // trataba de evitar. Queda fuera del precache y se baja recién cuando
         // alguien abre el detalle de una propiedad.
-        globIgnores: ['**/BotonExportarFicha-*.js', '**/exceljs*.js'],
+        // La serif de "Crear imagen" tampoco: sólo la usa ese panel.
+        globIgnores: ['**/BotonExportarFicha-*.js', '**/exceljs*.js', '**/playfair-display-*.woff2'],
         navigateFallback: '/index.html',
         // Nunca devolver el shell cacheado para llamadas a la API.
         navigateFallbackDenylist: [/^\/api\//, /\/auth\//],

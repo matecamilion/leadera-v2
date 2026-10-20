@@ -42,7 +42,10 @@ const BotonExportarFicha = lazy(() =>
   })),
 )
 
-type ModalAbierto = 'editar' | 'eliminar' | 'visita' | null
+/** Con sus fuentes y html-to-image: se baja recién cuando se abre "Crear imagen". */
+const PanelCrearImagen = lazy(() => import('../components/propiedades/PanelCrearImagen'))
+
+type ModalAbierto ='editar' | 'eliminar' | 'visita' | null
 
 /** Días desde el alta, para el "N días en mercado" del original. */
 function diasEnMercado(iso: string): number {
@@ -61,6 +64,7 @@ export default function DetallePropiedad() {
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
   // El link de consultas se crea recién la primera vez que se abre el panel.
   const [linkAbierto, setLinkAbierto] = useState(false)
+  const [imagenAbierta, setImagenAbierta] = useState(false)
 
   const cambioEstado = useActualizarEstadoPropiedad(id)
   const edicion = useActualizarPropiedad(id)
@@ -166,6 +170,20 @@ export default function DetallePropiedad() {
                 onAlternar={() => setLinkAbierto((a) => !a)}
               />
 
+              <button
+                type="button"
+                onClick={() => setImagenAbierta((a) => !a)}
+                aria-expanded={imagenAbierta}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-[0.82rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <circle cx="9" cy="10" r="1.8" />
+                  <path d="m21 16-5-5-9 9" />
+                </svg>
+                Crear imagen
+              </button>
+
               <Suspense fallback={<EsperandoFicha />}>
                 {/* Se pasan sólo los campos de la propiedad: el tipo DatosFicha
                     no acepta lead_propietario ni agente_id, así que la ficha no
@@ -201,6 +219,20 @@ export default function DetallePropiedad() {
 
         {linkAbierto && (
           <PanelLinkPropiedad propiedad={propiedad} onCerrar={() => setLinkAbierto(false)} />
+        )}
+
+        {imagenAbierta && (
+          <Suspense
+            fallback={
+              <div
+                aria-busy="true"
+                aria-label="Cargando el panel de la imagen"
+                className="mb-6 h-48 animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
+              />
+            }
+          >
+            <PanelCrearImagen propiedad={propiedad} onCerrar={() => setImagenAbierta(false)} />
+          </Suspense>
         )}
 
         <div className="mb-6">

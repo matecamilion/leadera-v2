@@ -94,7 +94,9 @@ export default function PanelCrearImagen({
   const [titulo, setTitulo] = useState('')
   const [datos, setDatos] = useState(() => datosIniciales(propiedad))
   const [nota, setNota] = useState('')
-  const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>('dorado')
+  const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>(plantilla.paletaInicial)
+  // Una paleta elegida a mano se mantiene al cambiar de plantilla.
+  const [paletaManual, setPaletaManual] = useState(false)
   const [conDireccion, setConDireccion] = useState(false)
   // Hasta que se edita, el encabezado es el nombre de la inmobiliaria, que puede
   // llegar después de abrir el panel.
@@ -137,6 +139,7 @@ export default function PanelCrearImagen({
     const nueva = PLANTILLAS.find((p) => p.id === nuevaId)
     if (!nueva) return
     setPlantillaId(nuevaId)
+    if (!paletaManual) setClaveDePaleta(nueva.paletaInicial)
     // Se conservan las ya elegidas y se completa con las primeras que falten.
     setElegidas((actuales) => {
       const conservadas = actuales.slice(0, nueva.fotos)
@@ -304,7 +307,10 @@ export default function PanelCrearImagen({
                 <button
                   key={p.clave}
                   type="button"
-                  onClick={() => setClaveDePaleta(p.clave)}
+                  onClick={() => {
+                    setClaveDePaleta(p.clave)
+                    setPaletaManual(true)
+                  }}
                   aria-pressed={claveDePaleta === p.clave}
                   className={`inline-flex items-center gap-2 rounded-lg border bg-surface px-3 py-1.5 text-[0.82rem] font-semibold text-ink ${
                     claveDePaleta === p.clave ? 'border-primary ring-1 ring-primary' : 'border-border'

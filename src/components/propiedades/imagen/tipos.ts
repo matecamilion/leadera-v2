@@ -40,5 +40,7 @@ export interface PlantillaImagen {
   nombre: string
   /** Cuántas fotos necesita. */
   fotos: number
+  /** Con qué paleta arranca, mientras el agente no haya elegido una a mano. */
+  paletaInicial: ClavePaleta
   Componente: ComponentType<{ d: DatosImagen }>
 }

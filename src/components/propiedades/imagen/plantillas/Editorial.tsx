@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { ALTO, ANCHO, FAMILIA_SANS, FAMILIA_SERIF } from '../constantes'
 import { Foto } from '../Foto'
+import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
 import type { DatosImagen } from '../tipos'
 
@@ -107,15 +108,13 @@ export function Editorial({ d }: { d: DatosImagen }) {
           </div>
         )}
 
-        {d.titulo && (
-          <TextoAjustado
-            texto={d.titulo}
-            tamanoMax={100}
-            tamanoMin={36}
-            altoMax={110}
-            style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700 }}
-          />
-        )}
+        <TextoAjustado
+          texto={d.titulo}
+          tamanoMax={100}
+          tamanoMin={36}
+          altoMax={110}
+          style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700 }}
+        />
 
         {d.direccion && (
           <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 28 }}>
@@ -159,25 +158,41 @@ export function Editorial({ d }: { d: DatosImagen }) {
       >
         {d.datos.map((dato, i) => (
           <div
-            key={`${i}-${dato}`}
+            key={`${i}-${dato.texto}`}
             style={{
               flex: '1 1 0',
               minWidth: 0,
+              height: 88,
               boxSizing: 'border-box',
               padding: '0 16px',
               borderLeft: i > 0 ? `2px solid ${acento}` : undefined,
-              textAlign: 'center',
-              fontSize: 27,
-              fontWeight: 600,
-              lineHeight: 1.25,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              overflowWrap: 'anywhere',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
             }}
           >
-            {dato}
+            {dato.icono !== 'ninguno' && (
+              <div style={{ color: acento }}>
+                <IconoDato clave={dato.icono} tamano={28} />
+              </div>
+            )}
+            <div
+              style={{
+                textAlign: 'center',
+                fontSize: 24,
+                fontWeight: 600,
+                lineHeight: 1.15,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {dato.texto}
+            </div>
           </div>
         ))}
       </div>

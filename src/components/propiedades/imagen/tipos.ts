@@ -1,5 +1,22 @@
 import type { ComponentType } from 'react'
 
+export type ClaveIcono =
+  | 'ambientes'
+  | 'dormitorios'
+  | 'banos'
+  | 'm2_cubiertos'
+  | 'm2_terreno'
+  | 'cocheras'
+  | 'parque'
+  | 'pileta'
+  | 'parrilla'
+  | 'ninguno'
+
+export interface DatoImagen {
+  icono: ClaveIcono
+  texto: string
+}
+
 export type ClavePaleta = 'dorado' | 'terracota' | 'negro' | 'verde'
 
 export interface PaletaImagen {
@@ -21,8 +38,8 @@ export interface DatosImagen {
   /** Las fotos elegidas, en orden: la 1 es la principal. */
   fotos: string[]
   titulo: string
-  /** Hasta 4 datos cortos, ya sin los vacíos. */
-  datos: string[]
+  /** Hasta 4 datos cortos con su ícono, ya sin los de texto vacío. */
+  datos: DatoImagen[]
   nota: string
   encabezado: string
   etiqueta: string

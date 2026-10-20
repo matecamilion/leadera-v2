@@ -10,12 +10,13 @@ import {
   guardar,
   leerGuardado,
 } from './imagen/almacenamiento'
-import { ALTO, ANCHO } from './imagen/constantes'
+import { ALTO, ANCHO, OPCIONES_ICONO } from './imagen/constantes'
 import { descargarPng, ErrorFotos } from './imagen/exportar'
+import { IconoDato } from './imagen/iconos'
 import { PALETAS } from './imagen/paletas'
 import { PLANTILLAS } from './imagen/registro'
 import { SelectorFotos } from './imagen/SelectorFotos'
-import type { ClavePaleta } from './imagen/tipos'
+import type { ClaveIcono, ClavePaleta, DatoImagen } from './imagen/tipos'
 import './imagen/fonts-imagen.css'
 
 type DatosPropiedad = Pick<
@@ -33,7 +34,7 @@ type DatosPropiedad = Pick<
 >
 
 const MAX_TITULO = 24
-const MAX_DATO = 28
+const MAX_DATO = 24
 const MAX_NOTA = 40
 const CANTIDAD_DATOS = 4
 
@@ -50,18 +51,31 @@ function plural(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`
 }
 
+/** `Departamento en Palermo`, sólo si entra en el máximo: si no, que lo escriba el agente. */
+function tituloInicial(p: DatosPropiedad): string {
+  const zona = p.zona?.trim()
+  if (!zona) return ''
+  const titulo = `${etiquetaTipo(p.tipo)} en ${zona}`
+  return titulo.length <= MAX_TITULO ? titulo : ''
+}
+
 /** Ambientes, baños y m² cubiertos cuando existen; el resto de los lugares, vacíos. */
-function datosIniciales(p: DatosPropiedad): string[] {
-  const lista: string[] = []
-  if (p.ambientes != null) lista.push(plural(p.ambientes, 'ambiente', 'ambientes'))
-  if (p.banos != null) lista.push(plural(p.banos, 'baño', 'baños'))
-  if (p.metros_cubiertos != null) lista.push(`${p.metros_cubiertos} m² cubiertos`)
-  while (lista.length < CANTIDAD_DATOS) lista.push('')
+function datosIniciales(p: DatosPropiedad): DatoImagen[] {
+  const lista: DatoImagen[] = []
+  if (p.ambientes != null) {
+    lista.push({ icono: 'ambientes', texto: plural(p.ambientes, 'ambiente', 'ambientes') })
+  }
+  if (p.banos != null) lista.push({ icono: 'banos', texto: plural(p.banos, 'baño', 'baños') })
+  if (p.metros_cubiertos != null) {
+    lista.push({ icono: 'm2_cubiertos', texto: `${p.metros_cubiertos} m² cubiertos` })
+  }
+  while (lista.length < CANTIDAD_DATOS) lista.push({ icono: 'ninguno', texto: '' })
   return lista
 }
 
-const CLASES_INPUT =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-[0.9rem] text-ink placeholder:text-ink-3 focus:border-primary focus:outline-none'
+const CLASES_CONTROL =
+  'rounded-lg border border-border bg-surface px-3 py-2 text-[0.9rem] text-ink placeholder:text-ink-3 focus:border-primary focus:outline-none'
+const CLASES_INPUT = `w-full ${CLASES_CONTROL}`
 
 /**
  * Arma una pieza de 1080×1350 para Instagram a partir de la propiedad y la
@@ -91,7 +105,7 @@ export default function PanelCrearImagen({
   const [etiqueta, setEtiqueta] = useState(
     propiedad.finalidad === 'ALQUILER' ? 'EN ALQUILER' : 'EN VENTA',
   )
-  const [titulo, setTitulo] = useState('')
+  const [titulo, setTitulo] = useState(() => tituloInicial(propiedad))
   const [datos, setDatos] = useState(() => datosIniciales(propiedad))
   const [nota, setNota] = useState('')
   const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>(plantilla.paletaInicial)
@@ -115,7 +129,8 @@ export default function PanelCrearImagen({
 
   const paleta = PALETAS.find((p) => p.clave === claveDePaleta) ?? PALETAS[0]
   const encabezado = encabezadoEditado ?? inmobiliaria ?? ''
-  const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos
+  const sinTitulo = titulo.trim() === ''
+  const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos && !sinTitulo
 
   const precio =
     propiedad.precio == null ? 'Consultar' : formatearPrecio(propiedad.precio, propiedad.moneda)
@@ -146,6 +161,10 @@ export default function PanelCrearImagen({
       const faltan = propiedad.fotos_urls.filter((u) => !conservadas.includes(u))
       return [...conservadas, ...faltan].slice(0, nueva.fotos)
     })
+  }
+
+  function cambiarDato(i: number, cambios: Partial<DatoImagen>) {
+    setDatos((actuales) => actuales.map((d, j) => (j === i ? { ...d, ...cambios } : d)))
   }
 
   function alternarFoto(url: string) {
@@ -237,28 +256,44 @@ export default function PanelCrearImagen({
               value={titulo}
               maxLength={MAX_TITULO}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Opcional"
               className={CLASES_INPUT}
             />
+            {sinTitulo && <p className="m-0 text-xs text-peligro-ink">Escribí un título</p>}
           </Campo>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
             <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">
               Datos (hasta {CANTIDAD_DATOS})
             </legend>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               {datos.map((dato, i) => (
-                <input
-                  key={i}
-                  value={dato}
-                  maxLength={MAX_DATO}
-                  onChange={(e) =>
-                    setDatos((actuales) => actuales.map((d, j) => (j === i ? e.target.value : d)))
-                  }
-                  aria-label={`Dato ${i + 1}`}
-                  placeholder={`Dato ${i + 1}`}
-                  className={CLASES_INPUT}
-                />
+                <div key={i} className="flex items-center gap-2">
+                  <div className="relative shrink-0">
+                    <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-primary">
+                      <IconoDato clave={dato.icono} tamano={18} />
+                    </span>
+                    <select
+                      value={dato.icono}
+                      onChange={(e) => cambiarDato(i, { icono: e.target.value as ClaveIcono })}
+                      aria-label={`Ícono del dato ${i + 1}`}
+                      className={`w-40 pl-9 ${CLASES_CONTROL}`}
+                    >
+                      {OPCIONES_ICONO.map((o) => (
+                        <option key={o.clave} value={o.clave}>
+                          {o.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <input
+                    value={dato.texto}
+                    maxLength={MAX_DATO}
+                    onChange={(e) => cambiarDato(i, { texto: e.target.value })}
+                    aria-label={`Dato ${i + 1}`}
+                    placeholder={`Dato ${i + 1}`}
+                    className={`min-w-0 flex-1 ${CLASES_CONTROL}`}
+                  />
+                </div>
               ))}
             </div>
           </fieldset>
@@ -388,7 +423,9 @@ export default function PanelCrearImagen({
                 d={{
                   fotos: elegidas,
                   titulo: titulo.trim(),
-                  datos: datos.map((d) => d.trim()).filter(Boolean),
+                  datos: datos
+                    .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
+                    .filter((d) => d.texto),
                   nota: nota.trim(),
                   encabezado: encabezado.trim(),
                   etiqueta,

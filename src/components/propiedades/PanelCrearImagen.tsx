@@ -1,11 +1,22 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../../hooks/useSuscripcion'
 import { etiquetaTipo, formatearPrecio, type PropiedadDetalle } from '../../lib/api/propiedades'
 import { IconoCerrar } from '../leads/Iconos'
-import { ALTO, ANCHO, FAMILIA_TITULO, PALETAS, type ClavePaleta } from './constantesImagen'
-import { PlantillaImagen } from './PlantillaImagen'
-import './fonts-imagen.css'
+import {
+  CLAVE_AGENTE,
+  CLAVE_ENCABEZADO,
+  CLAVE_FIRMA,
+  guardar,
+  leerGuardado,
+} from './imagen/almacenamiento'
+import { ALTO, ANCHO } from './imagen/constantes'
+import { descargarPng, ErrorFotos } from './imagen/exportar'
+import { PALETAS } from './imagen/paletas'
+import { PLANTILLAS } from './imagen/registro'
+import { SelectorFotos } from './imagen/SelectorFotos'
+import type { ClavePaleta } from './imagen/tipos'
+import './imagen/fonts-imagen.css'
 
 type DatosPropiedad = Pick<
   PropiedadDetalle,
@@ -17,34 +28,14 @@ type DatosPropiedad = Pick<
   | 'ambientes'
   | 'banos'
   | 'metros_cubiertos'
-  | 'cocheras'
   | 'finalidad'
   | 'fotos_urls'
 >
 
-const MAX_TITULO = 28
-const MAX_EXTRA = 40
-const FOTOS_NECESARIAS = 3
-
-const CLAVE_AGENTE = 'leadera-imagen-agente'
-const CLAVE_FIRMA = 'leadera-imagen-firma'
-
-/** En try/catch por lo mismo que el resto de la app: sin storage, el campo anda igual. */
-function leerGuardado(clave: string): string | null {
-  try {
-    return localStorage.getItem(clave)
-  } catch {
-    return null
-  }
-}
-
-function guardar(clave: string, valor: string): void {
-  try {
-    localStorage.setItem(clave, valor)
-  } catch {
-    // No se recuerda para la próxima. Es molesto, no roto.
-  }
-}
+const MAX_TITULO = 24
+const MAX_DATO = 28
+const MAX_NOTA = 40
+const CANTIDAD_DATOS = 4
 
 function sanear(texto: string): string {
   return texto
@@ -59,22 +50,14 @@ function plural(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`
 }
 
-/** Resuelve cuando la imagen ya cargó; rechaza si falló o tarda de más. */
-function imagenCargada(img: HTMLImageElement): Promise<void> {
-  if (img.complete) {
-    return img.naturalWidth > 0 ? Promise.resolve() : Promise.reject(new Error('foto'))
-  }
-  return new Promise((resolver, rechazar) => {
-    const limite = window.setTimeout(() => rechazar(new Error('foto')), 15_000)
-    img.addEventListener('load', () => {
-      window.clearTimeout(limite)
-      resolver()
-    })
-    img.addEventListener('error', () => {
-      window.clearTimeout(limite)
-      rechazar(new Error('foto'))
-    })
-  })
+/** Ambientes, baños y m² cubiertos cuando existen; el resto de los lugares, vacíos. */
+function datosIniciales(p: DatosPropiedad): string[] {
+  const lista: string[] = []
+  if (p.ambientes != null) lista.push(plural(p.ambientes, 'ambiente', 'ambientes'))
+  if (p.banos != null) lista.push(plural(p.banos, 'baño', 'baños'))
+  if (p.metros_cubiertos != null) lista.push(`${p.metros_cubiertos} m² cubiertos`)
+  while (lista.length < CANTIDAD_DATOS) lista.push('')
+  return lista
 }
 
 const CLASES_INPUT =
@@ -95,39 +78,45 @@ export default function PanelCrearImagen({
   const inmobiliaria = useEstadoSuscripcion().data?.nombre ?? null
   const id = useId()
 
+  const cantidadFotos = propiedad.fotos_urls.length
+  const alcanzan = (fotos: number) => cantidadFotos >= fotos
+
+  // La primera plantilla que alcanza con las fotos que hay; si ninguna, la primera.
+  const [plantillaId, setPlantillaId] = useState(
+    () => (PLANTILLAS.find((p) => alcanzan(p.fotos)) ?? PLANTILLAS[0]).id,
+  )
+  const plantilla = PLANTILLAS.find((p) => p.id === plantillaId) ?? PLANTILLAS[0]
+
   const sinFinalidad = propiedad.finalidad == null || propiedad.finalidad === 'AMBAS'
   const [etiqueta, setEtiqueta] = useState(
     propiedad.finalidad === 'ALQUILER' ? 'EN ALQUILER' : 'EN VENTA',
   )
   const [titulo, setTitulo] = useState('')
-  const [extra, setExtra] = useState('')
-  const [paleta, setPaleta] = useState<ClavePaleta>('verde')
+  const [datos, setDatos] = useState(() => datosIniciales(propiedad))
+  const [nota, setNota] = useState('')
+  const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>('dorado')
   const [conDireccion, setConDireccion] = useState(false)
+  // Hasta que se edita, el encabezado es el nombre de la inmobiliaria, que puede
+  // llegar después de abrir el panel.
+  const [encabezadoEditado, setEncabezadoEditado] = useState<string | null>(() =>
+    leerGuardado(CLAVE_ENCABEZADO),
+  )
   const [agente, setAgente] = useState(
     () => leerGuardado(CLAVE_AGENTE) ?? (profile ? `${profile.nombre} ${profile.apellido}` : ''),
   )
   const [firma, setFirma] = useState(() => leerGuardado(CLAVE_FIRMA) ?? '')
   const [elegidas, setElegidas] = useState<string[]>(() =>
-    propiedad.fotos_urls.slice(0, FOTOS_NECESARIAS),
+    propiedad.fotos_urls.slice(0, plantilla.fotos),
   )
   const [generando, setGenerando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
 
-  const faltanFotos = propiedad.fotos_urls.length < FOTOS_NECESARIAS
-  const listo = !faltanFotos && elegidas.length === FOTOS_NECESARIAS
+  const paleta = PALETAS.find((p) => p.clave === claveDePaleta) ?? PALETAS[0]
+  const encabezado = encabezadoEditado ?? inmobiliaria ?? ''
+  const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos
 
-  const datos = useMemo(() => {
-    const lista: string[] = []
-    if (propiedad.ambientes != null) lista.push(plural(propiedad.ambientes, 'ambiente', 'ambientes'))
-    if (propiedad.banos != null) lista.push(plural(propiedad.banos, 'baño', 'baños'))
-    if (propiedad.metros_cubiertos != null) lista.push(`${propiedad.metros_cubiertos} m² cubiertos`)
-    if (propiedad.cocheras != null) lista.push(plural(propiedad.cocheras, 'cochera', 'cocheras'))
-    return lista
-  }, [propiedad.ambientes, propiedad.banos, propiedad.metros_cubiertos, propiedad.cocheras])
-
-  const ubicacion = conDireccion
-    ? [propiedad.direccion, propiedad.zona].filter(Boolean).join(', ')
-    : (propiedad.zona ?? '')
+  const precio =
+    propiedad.precio == null ? 'Consultar' : formatearPrecio(propiedad.precio, propiedad.moneda)
 
   // --- Vista previa: el nodo mide 1080×1350 y se achica con transform --------
   const contenedor = useRef<HTMLDivElement>(null)
@@ -144,10 +133,22 @@ export default function PanelCrearImagen({
     return () => observador.disconnect()
   }, [])
 
+  function cambiarPlantilla(nuevaId: string) {
+    const nueva = PLANTILLAS.find((p) => p.id === nuevaId)
+    if (!nueva) return
+    setPlantillaId(nuevaId)
+    // Se conservan las ya elegidas y se completa con las primeras que falten.
+    setElegidas((actuales) => {
+      const conservadas = actuales.slice(0, nueva.fotos)
+      const faltan = propiedad.fotos_urls.filter((u) => !conservadas.includes(u))
+      return [...conservadas, ...faltan].slice(0, nueva.fotos)
+    })
+  }
+
   function alternarFoto(url: string) {
     setElegidas((actuales) => {
       if (actuales.includes(url)) return actuales.filter((u) => u !== url)
-      return actuales.length < FOTOS_NECESARIAS ? [...actuales, url] : actuales
+      return actuales.length < plantilla.fotos ? [...actuales, url] : actuales
     })
   }
 
@@ -157,47 +158,23 @@ export default function PanelCrearImagen({
     setAviso(null)
     setGenerando(true)
     try {
-      // Con la serif y la sans listas, y las fotos cargadas: si no, la imagen
-      // sale con la tipografía de reemplazo o con huecos.
-      await document.fonts.load(`700 50px ${FAMILIA_TITULO}`)
-      await document.fonts.ready
-      try {
-        await Promise.all(Array.from(raiz.querySelectorAll('img')).map(imagenCargada))
-      } catch {
-        setAviso('No se pudo cargar alguna de las fotos. Probá de nuevo o elegí otras.')
-        return
-      }
-
-      // Se carga el módulo recién ahora: html-to-image no viaja con el panel.
-      const { toPng } = await import('html-to-image')
-      const opciones = {
-        width: ANCHO,
-        height: ALTO,
-        pixelRatio: 1,
-        // Sin esto el navegador puede reusar la foto cacheada sin CORS de la
-        // galería, y el fetch de la exportación falla.
-        cacheBust: true,
-        style: { transform: 'none' },
-      }
-      // Safari/iOS dibuja vacías las imágenes en la primera pasada.
-      await toPng(raiz, opciones)
-      const png = await toPng(raiz, opciones)
-
-      const nombre = [sanear(propiedad.zona ?? ''), sanear(etiquetaTipo(propiedad.tipo))]
-        .filter(Boolean)
-        .join('-')
-      const ancla = document.createElement('a')
-      ancla.href = png
-      ancla.download = `${nombre || 'propiedad'}.png`
-      document.body.appendChild(ancla)
-      ancla.click()
-      ancla.remove()
-    } catch {
-      setAviso('No se pudo generar la imagen. Probá de nuevo.')
+      const nombre =
+        [sanear(propiedad.zona ?? ''), sanear(etiquetaTipo(propiedad.tipo))]
+          .filter(Boolean)
+          .join('-') || 'propiedad'
+      await descargarPng(raiz, nombre)
+    } catch (e) {
+      setAviso(
+        e instanceof ErrorFotos
+          ? 'No se pudo cargar alguna de las fotos. Probá de nuevo o elegí otras.'
+          : 'No se pudo generar la imagen. Probá de nuevo.',
+      )
     } finally {
       setGenerando(false)
     }
   }
+
+  const { Componente } = plantilla
 
   return (
     <section
@@ -221,6 +198,34 @@ export default function PanelCrearImagen({
         </button>
       </div>
 
+      <fieldset className="m-0 mt-4 min-w-0 border-0 p-0">
+        <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Plantilla</legend>
+        <div className="flex flex-wrap gap-2">
+          {PLANTILLAS.map((p) => {
+            const deshabilitada = !alcanzan(p.fotos)
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => cambiarPlantilla(p.id)}
+                disabled={deshabilitada}
+                aria-pressed={plantillaId === p.id}
+                className={`inline-flex flex-col items-start rounded-lg border bg-surface px-3 py-1.5 text-left text-[0.82rem] font-semibold text-ink disabled:opacity-60 ${
+                  plantillaId === p.id ? 'border-primary ring-1 ring-primary' : 'border-border'
+                }`}
+              >
+                {p.nombre}
+                {deshabilitada && (
+                  <span className="text-[0.72rem] font-normal text-ink-3">
+                    Necesita {p.fotos} fotos
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </fieldset>
+
       <div className="mt-4 grid gap-5 md:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-4">
           <Campo id={`${id}-titulo`} label="Título" contador={`${titulo.length}/${MAX_TITULO}`}>
@@ -234,13 +239,46 @@ export default function PanelCrearImagen({
             />
           </Campo>
 
-          <Campo id={`${id}-extra`} label="Texto extra" contador={`${extra.length}/${MAX_EXTRA}`}>
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">
+              Datos (hasta {CANTIDAD_DATOS})
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              {datos.map((dato, i) => (
+                <input
+                  key={i}
+                  value={dato}
+                  maxLength={MAX_DATO}
+                  onChange={(e) =>
+                    setDatos((actuales) => actuales.map((d, j) => (j === i ? e.target.value : d)))
+                  }
+                  aria-label={`Dato ${i + 1}`}
+                  placeholder={`Dato ${i + 1}`}
+                  className={CLASES_INPUT}
+                />
+              ))}
+            </div>
+          </fieldset>
+
+          <Campo id={`${id}-nota`} label="Nota" contador={`${nota.length}/${MAX_NOTA}`}>
             <input
-              id={`${id}-extra`}
-              value={extra}
-              maxLength={MAX_EXTRA}
-              onChange={(e) => setExtra(e.target.value)}
+              id={`${id}-nota`}
+              value={nota}
+              maxLength={MAX_NOTA}
+              onChange={(e) => setNota(e.target.value)}
               placeholder="Ej.: Permuta a evaluar"
+              className={CLASES_INPUT}
+            />
+          </Campo>
+
+          <Campo id={`${id}-encabezado`} label="Encabezado">
+            <input
+              id={`${id}-encabezado`}
+              value={encabezado}
+              onChange={(e) => {
+                setEncabezadoEditado(e.target.value)
+                guardar(CLAVE_ENCABEZADO, e.target.value)
+              }}
               className={CLASES_INPUT}
             />
           </Campo>
@@ -266,16 +304,16 @@ export default function PanelCrearImagen({
                 <button
                   key={p.clave}
                   type="button"
-                  onClick={() => setPaleta(p.clave)}
-                  aria-pressed={paleta === p.clave}
+                  onClick={() => setClaveDePaleta(p.clave)}
+                  aria-pressed={claveDePaleta === p.clave}
                   className={`inline-flex items-center gap-2 rounded-lg border bg-surface px-3 py-1.5 text-[0.82rem] font-semibold text-ink ${
-                    paleta === p.clave ? 'border-primary ring-1 ring-primary' : 'border-border'
+                    claveDePaleta === p.clave ? 'border-primary ring-1 ring-primary' : 'border-border'
                   }`}
                 >
                   <span
                     aria-hidden
                     className="size-4 rounded-full border border-border"
-                    style={{ background: p.fondo }}
+                    style={{ background: `linear-gradient(135deg, ${p.fondo} 50%, ${p.acento} 50%)` }}
                   />
                   {p.nombre}
                 </button>
@@ -321,45 +359,12 @@ export default function PanelCrearImagen({
 
           <div>
             <p className="m-0 mb-1.5 text-[0.8rem] font-semibold text-ink-2">Fotos</p>
-            {faltanFotos ? (
-              <p className="m-0 rounded-lg bg-surface px-3 py-2.5 text-[0.84rem] text-ink-2">
-                Necesitás al menos 3 fotos para crear la imagen
-              </p>
-            ) : (
-              <>
-                <p className="m-0 mb-2 text-[0.78rem] text-ink-3">
-                  Tocá hasta 3: la 1 es la grande de arriba, la 2 y la 3 van abajo.
-                </p>
-                <ul className="m-0 grid list-none grid-cols-4 gap-2 p-0 sm:grid-cols-5">
-                  {propiedad.fotos_urls.map((url, i) => {
-                    const posicion = elegidas.indexOf(url)
-                    return (
-                      <li key={url} className="relative">
-                        <button
-                          type="button"
-                          onClick={() => alternarFoto(url)}
-                          aria-pressed={posicion !== -1}
-                          aria-label={`Foto ${i + 1}${posicion !== -1 ? `, elegida en el lugar ${posicion + 1}` : ''}`}
-                          className={`block aspect-square w-full overflow-hidden rounded-lg border-2 p-0 ${
-                            posicion !== -1 ? 'border-primary' : 'border-transparent'
-                          }`}
-                        >
-                          <img src={url} alt="" loading="lazy" className="size-full object-cover" />
-                        </button>
-                        {posicion !== -1 && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute top-1 left-1 inline-flex size-5 items-center justify-center rounded-full bg-primary text-[0.7rem] font-bold text-primary-contrast"
-                          >
-                            {posicion + 1}
-                          </span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </>
-            )}
+            <SelectorFotos
+              fotos={propiedad.fotos_urls}
+              elegidas={elegidas}
+              cantidad={plantilla.fotos}
+              onAlternar={alternarFoto}
+            />
           </div>
         </div>
 
@@ -373,22 +378,20 @@ export default function PanelCrearImagen({
               ref={nodo}
               style={{ width: ANCHO, height: ALTO, transform: `scale(${escala})`, transformOrigin: 'top left' }}
             >
-              <PlantillaImagen
+              <Componente
                 d={{
                   fotos: elegidas,
                   titulo: titulo.trim(),
-                  extra: extra.trim(),
+                  datos: datos.map((d) => d.trim()).filter(Boolean),
+                  nota: nota.trim(),
+                  encabezado: encabezado.trim(),
                   etiqueta,
-                  paleta,
-                  ubicacion,
-                  datos,
-                  inmobiliaria,
-                  precio:
-                    propiedad.precio == null
-                      ? 'Consultar'
-                      : formatearPrecio(propiedad.precio, propiedad.moneda),
+                  zona: propiedad.zona?.trim() ?? '',
+                  direccion: conDireccion ? propiedad.direccion.trim() : '',
+                  precio,
                   agente: agente.trim(),
                   firma: firma.trim(),
+                  paleta,
                 }}
               />
             </div>

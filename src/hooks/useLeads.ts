@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   contarLeads,
   contarLeadsNuevos,
+  hayLeads,
   listarLeads,
   type FiltroDelDia,
   type FiltroEstado,
@@ -57,6 +58,24 @@ export function useTotalLeads(busqueda: string, rol?: FiltroRol) {
     queryFn: () => contarLeads(busqueda, rol),
     enabled: !!uid,
     placeholderData: anteriorDelMismoUsuario(uid),
+  })
+}
+
+/**
+ * ¿La cuenta tiene algún lead? Sólo se pregunta cuando el contador de la
+ * pantalla ya dio 0 (`habilitado`): las cuentas con trabajo no pagan la consulta.
+ *
+ * `staleTime: 0` a propósito: un lead puede llegar sin que el usuario lo cree
+ * (una consulta aceptada), así que cada vez que se monta se vuelve a preguntar.
+ * Crear o borrar uno la invalida por colgar de `claves.leads.raiz`.
+ */
+export function useHayLeads(habilitado: boolean) {
+  const uid = useUid()
+  return useQuery<boolean>({
+    queryKey: claves.leads.hay(uid),
+    queryFn: hayLeads,
+    enabled: !!uid && habilitado,
+    staleTime: 0,
   })
 }
 

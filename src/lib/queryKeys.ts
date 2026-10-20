@@ -182,6 +182,8 @@ export const claves = {
     contactadosHoy: (uid: Uid) => ['leads', 'contactados-hoy', uid] as const,
     /** Conteo para el badge del menú. Bajo `leads`: lo refresca cualquier invalidación de leads. */
     nuevos: (uid: Uid) => ['leads', 'nuevos', uid] as const,
+    /** ¿Hay algún lead, de cualquier estado? Bajo `leads`: crear o borrar uno la invalida. */
+    hay: (uid: Uid) => ['leads', 'hay', uid] as const,
   },
 
   leadsCombobox: {

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BuscadorLeads } from '../components/leads/BuscadorLeads'
 import { FiltrosChips, type ValorFiltro } from '../components/leads/FiltrosChips'
 import { FiltroRolChips } from '../components/leads/FiltroRolChips'
+import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
 import { IconoMas, IconoTabla } from '../components/leads/Iconos'
 import { LeadsCards } from '../components/leads/LeadsCards'
 import { LeadsTabla } from '../components/leads/LeadsTabla'
@@ -11,7 +12,7 @@ import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { Paginacion } from '../components/leads/Paginacion'
 import { OPCIONES_ORDEN, SelectorOrdenLeads } from '../components/leads/SelectorOrdenLeads'
-import { LEADS_POR_PAGINA, useLeads, useTotalLeads } from '../hooks/useLeads'
+import { LEADS_POR_PAGINA, useHayLeads, useLeads, useTotalLeads } from '../hooks/useLeads'
 import {
   useInteraccionesPorLead,
   useOperacionesPorLead,
@@ -109,7 +110,7 @@ export default function Leads() {
 
   const queryClient = useQueryClient()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
-  const { data, isPending, isError, error } = useLeads(
+  const { data, isPending, isError, error, isPlaceholderData } = useLeads(
     filtroEstado,
     busqueda,
     page,
@@ -138,6 +139,17 @@ export default function Leads() {
 
   const totalPaginas = Math.max(1, Math.ceil((data?.count ?? 0) / LEADS_POR_PAGINA))
   const cantidad = data?.count ?? 0
+
+  // "Sin leads" no es "sin resultados": el listado vacío sin ningún filtro puede
+  // ser una cuenta nueva o una con sólo leads ganados (el listado los esconde).
+  // Sólo en ese caso se pregunta; mientras se averigua no se muestra ninguno de
+  // los dos mensajes. `isPlaceholderData`: la tabla de recién, con otros filtros,
+  // no cuenta.
+  const sinFiltros = !filtroEstado && !filtroDelDia && !filtroRol && !busqueda
+  const vacioSinFiltros = sinFiltros && !isPending && !isError && !isPlaceholderData && cantidad === 0
+  const hayLeads = useHayLeads(vacioSinFiltros)
+  const sinLeads = vacioSinFiltros && hayLeads.data === false
+  const verificandoLeads = vacioSinFiltros && hayLeads.isPending
 
   /**
    * Exporta lo que el usuario está viendo, no la base entera: van el mismo
@@ -343,25 +355,28 @@ export default function Leads() {
         </p>
       )}
 
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        {/* En mobile los chips no entran en una fila: scrollean y el degradé avisa
-            que hay más. El padding derecho deja al último salir de debajo. */}
-        <div className="relative min-w-0 max-md:[&>nav]:pr-10">
-          <FiltrosChips
-            valor={filtroDelDia ?? filtroEstado}
-            onCambiar={cambiarFiltro}
-            total={total}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent md:hidden"
-          />
+      {/* Sin ningún lead no hay nada que filtrar ni ordenar. */}
+      {!sinLeads && (
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* En mobile los chips no entran en una fila: scrollean y el degradé avisa
+              que hay más. El padding derecho deja al último salir de debajo. */}
+          <div className="relative min-w-0 max-md:[&>nav]:pr-10">
+            <FiltrosChips
+              valor={filtroDelDia ?? filtroEstado}
+              onCambiar={cambiarFiltro}
+              total={total}
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent md:hidden"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {selectorOrden && <div className="hidden md:contents">{selectorOrden}</div>}
+            <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {selectorOrden && <div className="hidden md:contents">{selectorOrden}</div>}
-          <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
-        </div>
-      </div>
+      )}
 
       {filtroRol === 'compradores' && (
         <p className="-mt-2 mb-5 text-right text-[0.85rem]">
@@ -374,7 +389,7 @@ export default function Leads() {
         </p>
       )}
 
-      {isPending ? (
+      {isPending || verificandoLeads ? (
         <Skeleton />
       ) : isError ? (
         <EstadoError
@@ -392,6 +407,8 @@ export default function Leads() {
             ) : undefined
           }
         />
+      ) : sinLeads ? (
+        <EstadoSinLeads />
       ) : (
         <>
           {/* Desktop: la tabla va dentro de su card blanca */}

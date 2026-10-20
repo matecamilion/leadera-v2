@@ -730,6 +730,19 @@ export async function obtenerNombreAgente(agenteId: string): Promise<string | nu
 }
 
 /**
+ * Si hay algún lead, sea cual sea su estado.
+ *
+ * Distingue una cuenta vacía de una que sólo tiene leads ganados o sin nada
+ * pendiente, que los contadores de las pantallas no pueden (excluyen ganados).
+ * Pide una sola fila y no cuenta: es el chequeo más barato posible.
+ */
+export async function hayLeads(): Promise<boolean> {
+  const { data, error } = await supabase.from('leads').select('id').limit(1)
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo comprobar si hay leads.'))
+  return (data ?? []).length > 0
+}
+
+/**
  * Cuántos leads nuevos hay, para el badge de Leads en el menú.
  *
  * Misma definición que "Nuevos" en Mi día (`soloNuevos`): nunca contactados y

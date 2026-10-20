@@ -5,6 +5,7 @@ import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
+import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
 import {
   ResumenTareasHoy,
@@ -23,6 +24,7 @@ import {
 } from '../components/leads/Iconos'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { useCoincidenciasDelDia, useLeadsDelDia } from '../hooks/useDashboard'
+import { useHayLeads } from '../hooks/useLeads'
 import { useModeloGestionActivo } from '../hooks/useModeloGestion'
 import { useEventosCalendario } from '../hooks/useTareas'
 import { hoyComoClave } from '../lib/calendario'
@@ -67,6 +69,19 @@ export default function MiDia() {
   // acá abajo: los hooks no pueden quedar detrás de un `if`.
   const [leadARegistrar, setLeadARegistrar] = useState<LeadARegistrar | null>(null)
 
+  // Lo que se muestra en el hero es lo que hay para hacer hoy. Se suman los
+  // totales reales y no los recortes de cinco, si no el número mentiría en cuanto
+  // una categoría pasa el límite.
+  const totalPendientes = data
+    ? data.prioritarios.total + data.nuevos.total + data.seguimientos.total
+    : 0
+  const alDia = !!data && totalPendientes === 0
+  // Sin pendientes puede ser una cuenta al día o una cuenta vacía, y los totales
+  // de arriba no lo distinguen (excluyen ganados y contactados de hoy). Sólo
+  // entonces se pregunta.
+  const hayLeads = useHayLeads(alDia)
+  const sinLeads = alDia && hayLeads.data === false
+
   // El error va antes que el skeleton: con la query fallada `data` queda
   // undefined, y si el `!data` de abajo se evaluara primero el error no se
   // mostraría nunca.
@@ -84,15 +99,12 @@ export default function MiDia() {
 
   // `!data` además de `isPending`: el hook deriva de otra query y devuelve las
   // banderas sueltas, así que no es la unión discriminada de react-query.
-  if (isPending || !data) return <Skeleton />
+  //
+  // Mientras se averigua si la cuenta está vacía tampoco se dice "Estás al día"
+  // ni "Empecemos": cualquiera de los dos sería un parpadeo.
+  if (isPending || !data || (alDia && hayLeads.isPending)) return <Skeleton />
 
   const { prioritarios, nuevos, seguimientos } = data
-
-  // Lo que se muestra en el hero es lo que hay para hacer hoy. Se suman los
-  // totales reales y no los recortes de cinco, si no el número mentiría en cuanto
-  // una categoría pasa el límite.
-  const totalPendientes = prioritarios.total + nuevos.total + seguimientos.total
-  const alDia = totalPendientes === 0
 
   const listaCoincidencias = coincidencias.data ?? []
 
@@ -106,7 +118,9 @@ export default function MiDia() {
       <header className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-1">
         <div className="min-w-0">
           <h1 className="m-0 text-[1.4rem] leading-tight font-bold text-balance text-ink">
-            {alDia ? (
+            {sinLeads ? (
+              <>Empecemos{profile ? `, ${profile.nombre}` : ''}</>
+            ) : alDia ? (
               <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
             ) : (
               <>
@@ -116,23 +130,32 @@ export default function MiDia() {
             )}
           </h1>
           <p className="mt-0.5 text-[0.85rem] text-ink-3">
-            {alDia
-              ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
-              : 'Gestioná tus contactos y hacé crecer tu cartera'}
+            {sinLeads
+              ? 'Cargá tu primer lead y acá vas a ver tus seguimientos del día'
+              : alDia
+                ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
+                : 'Gestioná tus contactos y hacé crecer tu cartera'}
           </p>
         </div>
 
         {/* Link y no botón: los contactados de hoy son para mirar hacia atrás
             cuando hace falta, no la acción con la que se arranca la jornada.
             Compitiendo en peso con el título desviaría de lo que queda por
-            hacer, que es de lo que habla el resto de la pantalla. */}
-        <Link
-          to="/mi-dia/contactados"
-          className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline sm:ml-auto"
-        >
-          Ver contactados hoy →
-        </Link>
+            hacer, que es de lo que habla el resto de la pantalla. Sin leads no
+            hay a quién haber contactado. */}
+        {!sinLeads && (
+          <Link
+            to="/mi-dia/contactados"
+            className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline sm:ml-auto"
+          >
+            Ver contactados hoy →
+          </Link>
+        )}
       </header>
+
+      {/* Sin leads la invitación va pegada al título, a la vista sin scrollear:
+          es lo único que la cuenta tiene que hacer. */}
+      {sinLeads && <EstadoSinLeads />}
 
       {/* Arriba de las cards y no al pie: es una sugerencia que se lee una vez
           y se descarta, y abajo de todo no la vería nadie. Se esconde sola
@@ -142,51 +165,55 @@ export default function MiDia() {
       {/* Cuatro cards del mismo peso. El tono de cada una es el de la sección
           que le corresponde más abajo, así el número y su lista se reconocen
           como la misma cosa. Misma grilla que la fila de KPIs de Estadísticas. */}
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CardKpi
-          label="Prioritarios"
-          valor={String(prioritarios.total)}
-          tono="caliente"
-          icono={<IconoAlerta className="size-[18px]" />}
-          a={RUTA_LISTA.prioritarios}
-          acento
-          alerta={prioritarios.total > 0}
-        />
-        <CardKpi
-          label="Nuevos"
-          valor={String(nuevos.total)}
-          tono="brand"
-          icono={<IconoPersonaMas className="size-[18px]" />}
-          a={RUTA_LISTA.nuevos}
-          acento
-        />
-        <CardKpi
-          label="Seguimientos"
-          valor={String(seguimientos.total)}
-          tono="tibio"
-          icono={<IconoReloj className="size-[18px]" />}
-          a={RUTA_LISTA.seguimientos}
-          acento
-        />
-        <CardKpi
-          label="Visitas hoy"
-          valor={String(visitasHoy)}
-          tono="frio"
-          icono={<IconoCasa className="size-[18px]" />}
-          a="/tareas"
-          acento
-        />
-      </div>
+      {/* Sin leads son cuatro ceros: se esconden y queda la invitación de abajo. */}
+      {!sinLeads && (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <CardKpi
+            label="Prioritarios"
+            valor={String(prioritarios.total)}
+            tono="caliente"
+            icono={<IconoAlerta className="size-[18px]" />}
+            a={RUTA_LISTA.prioritarios}
+            acento
+            alerta={prioritarios.total > 0}
+          />
+          <CardKpi
+            label="Nuevos"
+            valor={String(nuevos.total)}
+            tono="brand"
+            icono={<IconoPersonaMas className="size-[18px]" />}
+            a={RUTA_LISTA.nuevos}
+            acento
+          />
+          <CardKpi
+            label="Seguimientos"
+            valor={String(seguimientos.total)}
+            tono="tibio"
+            icono={<IconoReloj className="size-[18px]" />}
+            a={RUTA_LISTA.seguimientos}
+            acento
+          />
+          <CardKpi
+            label="Visitas hoy"
+            valor={String(visitasHoy)}
+            tono="frio"
+            icono={<IconoCasa className="size-[18px]" />}
+            a="/tareas"
+            acento
+          />
+        </div>
+      )}
 
       {/* Leads que entran solos por el link de consultas: van antes que el
           resto porque son lo más nuevo. Se monta solo si hay algo para ver. */}
       <SeccionConsultas />
 
       {/* Modelo de gestión: a ancho completo, pegado a los números del día. */}
-      {modeloGestion.data === true && <TarjetaSemanaGestion />}
+      {modeloGestion.data === true && !sinLeads && <TarjetaSemanaGestion />}
 
-      {/* Par 1: los dos frentes de leads que se atienden primero. */}
-      {alDia ? (
+      {/* Par 1: los dos frentes de leads que se atienden primero. Sin leads no
+          hay par: la invitación ya está arriba. */}
+      {sinLeads ? null : alDia ? (
         <div className="mb-4 rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
           <span
             aria-hidden

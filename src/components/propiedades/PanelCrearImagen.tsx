@@ -338,24 +338,36 @@ export default function PanelCrearImagen({
           <fieldset className="m-0 min-w-0 border-0 p-0">
             <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Paleta</legend>
             <div className="grid w-fit grid-cols-4 gap-3">
-              {PALETAS.map((p) => (
-                <button
-                  key={p.clave}
-                  type="button"
-                  onClick={() => {
-                    setClaveDePaleta(p.clave)
-                    setPaletaManual(true)
-                  }}
-                  aria-pressed={claveDePaleta === p.clave}
-                  aria-label={p.nombre}
-                  className={`size-9 rounded-full border-4 ${
-                    claveDePaleta === p.clave
-                      ? 'ring-2 ring-primary ring-offset-2'
-                      : 'ring-1 ring-border'
-                  }`}
-                  style={{ background: p.acento, borderColor: p.fondo }}
-                />
-              ))}
+              {PALETAS.map((p) => {
+                const elegida = claveDePaleta === p.clave
+                return (
+                  <button
+                    key={p.clave}
+                    type="button"
+                    onClick={() => {
+                      setClaveDePaleta(p.clave)
+                      setPaletaManual(true)
+                    }}
+                    aria-pressed={elegida}
+                    aria-label={p.nombre}
+                    className={`relative size-9 rounded-full border border-ink-4 p-0 ${
+                      elegida ? 'ring-[3px] ring-primary ring-offset-2' : ''
+                    }`}
+                    style={{ background: `linear-gradient(135deg, ${p.fondo} 50%, ${p.acento} 50%)` }}
+                  >
+                    {elegida && (
+                      <span
+                        aria-hidden
+                        className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-primary-contrast"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m5 12.5 4.5 4.5L19 7.5" />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
             <p className="m-0 mt-2 text-[0.8rem] text-ink-3">{paleta.nombre}</p>
           </fieldset>

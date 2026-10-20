@@ -3,6 +3,7 @@ import { ALTO, ANCHO, FAMILIA_SANS, FAMILIA_SERIF } from '../constantes'
 import { Foto } from '../Foto'
 import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
+import { bordeDeFoto } from '../paletas'
 import type { DatosImagen } from '../tipos'
 
 const MARGEN_TEXTO = 56
@@ -41,14 +42,16 @@ const bloque: CSSProperties = {
 export function Editorial({ d }: { d: DatosImagen }) {
   const { fondo, tinta, acento, acentoTexto } = d.paleta
   const [principal, ...chicas] = d.fotos
+  const borde = bordeDeFoto(d.paleta)
 
-  const linea = <div style={{ flex: 1, height: 2, background: acento }} />
+  const linea = <div style={{ flex: 1, height: 4, background: acento }} />
 
   return (
     <div
       style={{
         width: ANCHO,
         height: ALTO,
+        position: 'relative',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -60,6 +63,9 @@ export function Editorial({ d }: { d: DatosImagen }) {
         overflow: 'hidden',
       }}
     >
+      {/* Va en los 30 px de aire que tiene el encabezado arriba. */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 10, background: acento }} />
+
       <div
         style={{
           ...bloque,
@@ -102,6 +108,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
               fontSize: 26,
               fontWeight: 500,
               letterSpacing: 9,
+              color: acentoTexto,
             }}
           >
             {d.zona}
@@ -144,7 +151,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
           overflow: 'hidden',
         }}
       >
-        <Foto src={principal} />
+        <Foto src={principal} borde={borde} />
       </div>
 
       <div
@@ -165,7 +172,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
               height: 88,
               boxSizing: 'border-box',
               padding: '0 16px',
-              borderLeft: i > 0 ? `2px solid ${acento}` : undefined,
+              borderLeft: i > 0 ? `3px solid ${acento}` : undefined,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -210,7 +217,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       >
         {[0, 1, 2, 3].map((i) => (
           <div key={i} style={{ overflow: 'hidden' }}>
-            <Foto src={chicas[i]} />
+            <Foto src={chicas[i]} borde={borde} />
           </div>
         ))}
       </div>
@@ -233,6 +240,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
             fontSize: 64,
             fontWeight: 700,
             whiteSpace: 'nowrap',
+            color: acentoTexto,
           }}
         >
           {d.precio}
@@ -249,7 +257,8 @@ export function Editorial({ d }: { d: DatosImagen }) {
                 boxSizing: 'border-box',
                 maxWidth: '100%',
                 padding: '8px 36px',
-                border: `2px solid ${acento}`,
+                border: `3px solid ${acento}`,
+                color: acentoTexto,
                 textTransform: 'uppercase',
                 fontSize: 24,
                 fontWeight: 600,

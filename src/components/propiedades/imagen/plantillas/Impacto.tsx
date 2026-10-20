@@ -3,6 +3,7 @@ import { ALTO, ANCHO, FAMILIA_SANS, FAMILIA_SERIF } from '../constantes'
 import { Foto } from '../Foto'
 import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
+import { bordeDeFoto } from '../paletas'
 import type { DatosImagen } from '../tipos'
 
 const MARGEN_TEXTO = 48
@@ -43,6 +44,7 @@ const bloque: CSSProperties = {
 export function Impacto({ d }: { d: DatosImagen }) {
   const { fondo, tinta, acento, acentoTexto, sobreAcento } = d.paleta
   const [principal, ...chicas] = d.fotos
+  const borde = bordeDeFoto(d.paleta)
 
   return (
     <div
@@ -152,7 +154,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
         }}
       >
         <div style={{ height: ALTO_FOTO_PRINCIPAL, overflow: 'hidden' }}>
-          <Foto src={principal} />
+          <Foto src={principal} borde={borde} />
         </div>
         <div
           style={{
@@ -164,7 +166,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
         >
           {[0, 1].map((i) => (
             <div key={i} style={{ overflow: 'hidden' }}>
-              <Foto src={chicas[i]} />
+              <Foto src={chicas[i]} borde={borde} />
             </div>
           ))}
         </div>
@@ -188,7 +190,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
               height: 80,
               boxSizing: 'border-box',
               padding: '0 16px',
-              borderLeft: i > 0 ? `2px solid ${acento}` : undefined,
+              borderLeft: i > 0 ? `3px solid ${acento}` : undefined,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -268,7 +270,8 @@ export function Impacto({ d }: { d: DatosImagen }) {
                 boxSizing: 'border-box',
                 height: 46,
                 padding: '0 20px',
-                lineHeight: '46px',
+                border: `2px solid ${tinta}`,
+                lineHeight: '42px',
                 textAlign: 'center',
                 background: fondo,
                 color: acentoTexto,

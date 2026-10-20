@@ -21,11 +21,11 @@ export type ClavePaleta =
   | 'dorado'
   | 'terracota'
   | 'negro'
-  | 'verde'
-  | 'marino'
-  | 'bordo'
   | 'salvia'
   | 'carbon'
+  | 'bosque'
+  | 'noche'
+  | 'bordo'
 
 export interface PaletaImagen {
   clave: ClavePaleta

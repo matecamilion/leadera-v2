@@ -3,6 +3,7 @@ import { ALTO, ANCHO, FAMILIA_SANS } from '../constantes'
 import { Foto } from '../Foto'
 import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
+import { bordeDeFoto } from '../paletas'
 import type { DatosImagen } from '../tipos'
 
 const MARGEN_TEXTO = 40
@@ -42,11 +43,12 @@ const bloque: CSSProperties = {
  * + margen 24 = 1322.
  */
 export function Moderno({ d }: { d: DatosImagen }) {
-  const { fondo, tinta, acento, acentoTexto } = d.paleta
+  const { fondo, tinta, acento, acentoTexto, sobreAcento } = d.paleta
   const [principal, ...chicas] = d.fotos
+  const borde = bordeDeFoto(d.paleta)
 
   const verticalFina = (
-    <div style={{ flexShrink: 0, width: 2, height: 110, background: acento }} />
+    <div style={{ flexShrink: 0, width: 4, height: 110, background: acento }} />
   )
 
   return (
@@ -78,16 +80,20 @@ export function Moderno({ d }: { d: DatosImagen }) {
         <div
           style={{
             flexShrink: 0,
+            padding: '0 20px',
+            height: 44,
+            lineHeight: '44px',
+            background: acento,
+            color: sobreAcento,
             fontSize: 28,
             fontWeight: 800,
             letterSpacing: 1,
             whiteSpace: 'nowrap',
-            color: acentoTexto,
           }}
         >
           {d.etiqueta}
         </div>
-        <div style={{ flex: 1, height: 2, background: acento }} />
+        <div style={{ flex: 1, height: 4, background: acento }} />
         {d.encabezado && (
           <div style={{ ...unaLinea, maxWidth: 480, fontSize: 28, fontWeight: 800 }}>
             {d.encabezado}
@@ -116,13 +122,14 @@ export function Moderno({ d }: { d: DatosImagen }) {
               fontWeight: 900,
               letterSpacing: '-0.02em',
               textAlign: 'left',
+              color: acentoTexto,
               // Los palos de letras como "p" o "y" sobresalen de la última línea.
               paddingBottom: 10,
             }}
           />
         </div>
 
-        <div style={{ flexShrink: 0, width: 2, height: 220, margin: '0 20px', background: acento }} />
+        <div style={{ flexShrink: 0, width: 4, height: 220, margin: '0 20px', background: acento }} />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           {d.zona && (
@@ -146,7 +153,7 @@ export function Moderno({ d }: { d: DatosImagen }) {
           )}
 
           {d.datos.length > 0 && (d.zona || d.direccion) && (
-            <div style={{ height: 2, margin: '10px 0', background: acento }} />
+            <div style={{ height: 4, margin: '9px 0', background: acento }} />
           )}
 
           {d.datos.map((dato, i) => (
@@ -155,8 +162,20 @@ export function Moderno({ d }: { d: DatosImagen }) {
               style={{ height: 42, display: 'flex', alignItems: 'center', gap: 12 }}
             >
               {dato.icono !== 'ninguno' && (
-                <div style={{ flexShrink: 0, color: acentoTexto }}>
-                  <IconoDato clave={dato.icono} tamano={26} />
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: acento,
+                    color: sobreAcento,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <IconoDato clave={dato.icono} tamano={22} />
                 </div>
               )}
               <div style={{ ...unaLinea, minWidth: 0, lineHeight: '42px', fontSize: 26, fontWeight: 500 }}>
@@ -177,7 +196,7 @@ export function Moderno({ d }: { d: DatosImagen }) {
         }}
       >
         <div style={{ height: ALTO_FOTO_PRINCIPAL, overflow: 'hidden' }}>
-          <Foto src={principal} />
+          <Foto src={principal} borde={borde} />
         </div>
         <div
           style={{
@@ -189,14 +208,14 @@ export function Moderno({ d }: { d: DatosImagen }) {
         >
           {[0, 1].map((i) => (
             <div key={i} style={{ overflow: 'hidden' }}>
-              <Foto src={chicas[i]} />
+              <Foto src={chicas[i]} borde={borde} />
             </div>
           ))}
         </div>
       </div>
 
       <div style={{ ...bloque, height: 28, margin: `0 ${MARGEN_FOTOS}px` }}>
-        <div style={{ height: 2, background: tinta }} />
+        <div style={{ height: 4, background: tinta }} />
       </div>
 
       <div
@@ -220,6 +239,7 @@ export function Moderno({ d }: { d: DatosImagen }) {
               letterSpacing: '-0.02em',
               textAlign: 'left',
               whiteSpace: 'nowrap',
+              color: acentoTexto,
             }}
           />
           {d.nota && (

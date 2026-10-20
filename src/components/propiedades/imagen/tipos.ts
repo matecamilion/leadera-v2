@@ -17,7 +17,15 @@ export interface DatoImagen {
   texto: string
 }
 
-export type ClavePaleta = 'dorado' | 'terracota' | 'negro' | 'verde'
+export type ClavePaleta =
+  | 'dorado'
+  | 'terracota'
+  | 'negro'
+  | 'verde'
+  | 'marino'
+  | 'bordo'
+  | 'salvia'
+  | 'carbon'
 
 export interface PaletaImagen {
   clave: ClavePaleta
@@ -25,6 +33,8 @@ export interface PaletaImagen {
   fondo: string
   tinta: string
   acento: string
+  /** El acento para texto e íconos sobre `fondo`: el mismo, salvo que no contraste. */
+  acentoTexto: string
   /** Color del texto cuando va sobre un bloque de `acento`. */
   sobreAcento: string
 }

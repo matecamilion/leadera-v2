@@ -41,7 +41,7 @@ const bloque: CSSProperties = {
  * miniaturas 250) + datos 84 + banda 150 + margen 24 = 1324.
  */
 export function Impacto({ d }: { d: DatosImagen }) {
-  const { fondo, tinta, acento, sobreAcento } = d.paleta
+  const { fondo, tinta, acento, acentoTexto, sobreAcento } = d.paleta
   const [principal, ...chicas] = d.fotos
 
   return (
@@ -77,7 +77,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
             minWidth: 0,
             fontSize: 30,
             fontWeight: 800,
-            color: acento,
+            color: acentoTexto,
           }}
         >
           {d.encabezado}
@@ -100,7 +100,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
         </div>
       </div>
 
-      <div style={{ ...bloque, height: 258, padding: `0 ${MARGEN_TEXTO}px`, color: acento }}>
+      <div style={{ ...bloque, height: 258, padding: `0 ${MARGEN_TEXTO}px`, color: acentoTexto }}>
         <TextoAjustado
           texto={d.titulo}
           tamanoMax={150}
@@ -197,7 +197,7 @@ export function Impacto({ d }: { d: DatosImagen }) {
             }}
           >
             {dato.icono !== 'ninguno' && (
-              <div style={{ color: acento }}>
+              <div style={{ color: acentoTexto }}>
                 <IconoDato clave={dato.icono} tamano={24} />
               </div>
             )}
@@ -270,8 +270,8 @@ export function Impacto({ d }: { d: DatosImagen }) {
                 padding: '0 20px',
                 lineHeight: '46px',
                 textAlign: 'center',
-                background: sobreAcento,
-                color: acento,
+                background: fondo,
+                color: acentoTexto,
                 fontSize: 22,
                 fontWeight: 700,
               }}

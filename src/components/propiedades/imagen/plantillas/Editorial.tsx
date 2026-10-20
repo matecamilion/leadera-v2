@@ -39,7 +39,7 @@ const bloque: CSSProperties = {
  * + bloque inferior 112 (nota 62, pie 50) + margen 24 = 1330.
  */
 export function Editorial({ d }: { d: DatosImagen }) {
-  const { fondo, tinta, acento } = d.paleta
+  const { fondo, tinta, acento, acentoTexto } = d.paleta
   const [principal, ...chicas] = d.fotos
 
   const linea = <div style={{ flex: 1, height: 2, background: acento }} />
@@ -83,7 +83,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
             fontSize: 34,
             fontWeight: 600,
             letterSpacing: 6,
-            color: acento,
+            color: acentoTexto,
           }}
         >
           {d.etiqueta}
@@ -174,7 +174,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
             }}
           >
             {dato.icono !== 'ninguno' && (
-              <div style={{ color: acento }}>
+              <div style={{ color: acentoTexto }}>
                 <IconoDato clave={dato.icono} tamano={28} />
               </div>
             )}

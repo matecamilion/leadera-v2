@@ -1,7 +1,7 @@
 import { etiquetaRol, type RolLead } from '../../lib/api/rolLead'
 
 /**
- * Comprador / vendedor: dato neutro, texto gris. El color queda reservado
+ * Comprador / inquilino / vendedor: dato neutro, texto gris. El color queda reservado
  * para la temperatura (`BadgeEstado`); el rol es otra dimensión y no compite.
  */
 interface BadgeRolProps {

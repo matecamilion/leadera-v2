@@ -47,7 +47,8 @@ export interface LeadsDelDia {
  * entre versiones. Pedimos estructuralmente sólo los métodos que usamos.
  */
 interface QueryConOr<Self> {
-  or(filtro: string): Self
+  // `opciones` lo usa el filtro de rol para filtrar una relación embebida.
+  or(filtro: string, opciones?: { referencedTable: 'busquedas' }): Self
 }
 
 export interface QueryDeLeads<Self> extends QueryConOr<Self> {

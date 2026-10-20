@@ -9,6 +9,7 @@ interface Opcion {
 const OPCIONES: Opcion[] = [
   { valor: undefined, label: 'Todos' },
   { valor: 'compradores', label: etiquetaFiltroRol('compradores') },
+  { valor: 'alquileres', label: etiquetaFiltroRol('alquileres') },
   { valor: 'vendedores', label: etiquetaFiltroRol('vendedores') },
 ]
 

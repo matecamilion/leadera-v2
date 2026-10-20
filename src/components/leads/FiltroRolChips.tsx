@@ -31,7 +31,7 @@ export function FiltroRolChips({ valor, onCambiar }: FiltroRolChipsProps) {
     <div
       role="group"
       aria-label="Filtrar leads por rol"
-      className="inline-flex shrink-0 rounded-full border border-border bg-surface p-0.5"
+      className="grid w-full shrink-0 grid-cols-4 rounded-full border border-border bg-surface p-0.5 md:inline-flex md:w-auto"
     >
       {OPCIONES.map((opcion) => {
         const activo = opcion.valor === valor
@@ -42,7 +42,7 @@ export function FiltroRolChips({ valor, onCambiar }: FiltroRolChipsProps) {
             aria-pressed={activo}
             onClick={() => onCambiar(opcion.valor)}
             className={[
-              'rounded-full px-3.5 py-[5px] text-[0.82rem] font-semibold whitespace-nowrap',
+              'rounded-full px-1 py-[5px] text-center text-[0.76rem] font-semibold whitespace-nowrap md:px-3.5 md:text-[0.82rem]',
               'transition-colors motion-reduce:transition-none',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
               activo ? 'bg-ink text-surface' : 'text-ink-3 hover:bg-background hover:text-ink',

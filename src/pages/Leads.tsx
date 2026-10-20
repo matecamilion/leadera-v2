@@ -281,9 +281,15 @@ export default function Leads() {
     escribirFiltros(filtroEstado, busqueda, valor)
   }
 
+  // En un corte de Mi día el orden es el de la sección y no se elige (ver
+  // `aplicarOrden`): un selector que no hace nada confunde.
+  const selectorOrden = !filtroDelDia && (
+    <SelectorOrdenLeads valor={orden} onCambiar={cambiarOrden} />
+  )
+
   return (
     <div className="mx-auto max-w-[1200px] text-ink">
-      <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <header className="mb-4 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
             Gestión de leads
@@ -291,22 +297,28 @@ export default function Leads() {
           <h1 className="m-0 text-[2rem] leading-tight font-bold text-ink">
             Todos los leads
           </h1>
-          <span className="text-ink">
-            {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
-            {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
-            {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
-          </span>
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-ink">
+              {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
+              {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
+              {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
+            </span>
+            {/* Mobile: Ordenar va junto al contador. Desktop: en la fila de filtros. */}
+            {selectorOrden && <div className="shrink-0 md:hidden">{selectorOrden}</div>}
+          </div>
         </div>
 
-        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center md:justify-end">
+        {/* En mobile buscador y "+" comparten fila y Exportar se oculta: el menú
+            Crear del header ya ofrece "Nuevo lead" y exportar es de escritorio. */}
+        <div className="flex w-full flex-row items-center gap-3 md:w-auto md:justify-end">
           <BuscadorLeads valor={busqueda} onCambiar={cambiarBusqueda} />
 
           <Link
             to="/leads/nuevo"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
+            className="inline-flex size-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary p-0 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark md:size-auto md:px-[18px] md:py-2.5 motion-reduce:transition-none"
           >
             <IconoMas className="size-5" />
-            Nuevo Lead
+            <span className="sr-only md:not-sr-only">Nuevo Lead</span>
           </Link>
 
           <button
@@ -314,7 +326,7 @@ export default function Leads() {
             onClick={exportar}
             disabled={exportando}
             title="Exporta los leads que coinciden con el filtro y la búsqueda actuales"
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
+            className="hidden items-center justify-center gap-2 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
           >
             <IconoTabla className="size-5 text-excel" />
             {exportando ? 'Exportando…' : 'Exportar Excel'}
@@ -332,17 +344,21 @@ export default function Leads() {
       )}
 
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
+        {/* En mobile los chips no entran en una fila: scrollean y el degradé avisa
+            que hay más. El padding derecho deja al último salir de debajo. */}
+        <div className="relative min-w-0 max-md:[&>nav]:pr-10">
           <FiltrosChips
             valor={filtroDelDia ?? filtroEstado}
             onCambiar={cambiarFiltro}
             total={total}
           />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent md:hidden"
+          />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* En un corte de Mi día el orden es el de la sección y no se elige
-              (ver `aplicarOrden`): un selector que no hace nada confunde. */}
-          {!filtroDelDia && <SelectorOrdenLeads valor={orden} onCambiar={cambiarOrden} />}
+          {selectorOrden && <div className="hidden md:contents">{selectorOrden}</div>}
           <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
         </div>
       </div>

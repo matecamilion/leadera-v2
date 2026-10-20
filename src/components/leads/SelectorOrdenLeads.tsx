@@ -20,7 +20,7 @@ interface SelectorOrdenLeadsProps {
 export function SelectorOrdenLeads({ valor, onCambiar }: SelectorOrdenLeadsProps) {
   return (
     <label className="inline-flex shrink-0 items-center gap-2 text-[0.82rem] text-ink-3">
-      Ordenar:
+      <span className="max-md:sr-only">Ordenar:</span>
       <select
         value={valor}
         onChange={(e) => onCambiar(e.target.value as OrdenLeads)}

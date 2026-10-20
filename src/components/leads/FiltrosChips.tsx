@@ -60,7 +60,7 @@ export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
   return (
     <nav
       aria-label="Filtrar leads por temperatura"
-      className="-mx-1 flex gap-2 overflow-x-auto px-1 py-0.5 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-1 flex snap-x snap-proximity scroll-px-1 gap-1.5 overflow-x-auto md:gap-2 px-1 py-0.5 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {OPCIONES.map((opcion) => {
         const activo = opcion.valor === valor
@@ -71,8 +71,8 @@ export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
             aria-pressed={activo}
             onClick={() => onCambiar(opcion.valor)}
             className={[
-              'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-[7px]',
-              'text-[0.85rem] font-semibold transition-colors motion-reduce:transition-none',
+              'inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[7px] md:px-4',
+              'text-[0.78rem] font-semibold transition-colors motion-reduce:transition-none md:text-[0.85rem]',
               'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
               activo
                 ? opcion.activo
@@ -80,10 +80,14 @@ export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
             ].join(' ')}
           >
             <span
-              className={`size-2 shrink-0 rounded-full ${activo ? 'bg-current/70' : opcion.dot}`}
+              className={`size-1.5 shrink-0 rounded-full md:size-2 ${activo ? 'bg-current/70' : opcion.dot}`}
             />
-            {opcion.label}
-            {opcion.valor === undefined && total !== undefined && ` (${total})`}
+            <span>
+              {opcion.label}
+              {opcion.valor === undefined && total !== undefined && (
+                <span className="max-md:hidden"> ({total})</span>
+              )}
+            </span>
           </button>
         )
       })}

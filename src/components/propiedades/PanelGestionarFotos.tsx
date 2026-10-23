@@ -161,7 +161,7 @@ export function PanelGestionarFotos({ propiedadId, fotos, onCerrar, onCrearFlyer
       </label>
 
       <p className="m-0 mt-1.5 text-xs text-ink-3">
-        Formato imagen, máximo 5 MB por archivo. Hasta {MAX_FOTOS} fotos.
+        Las fotos se reducen solas al subirlas (hasta 25 MB cada una). Hasta {MAX_FOTOS} fotos.
       </p>
 
       <ModalConfirmarEliminar

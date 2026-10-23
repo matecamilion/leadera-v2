@@ -1,9 +1,9 @@
 import { supabase } from '../supabase'
 import { interpretarErrorSupabase } from '../errores'
+import { MAX_BYTES_ENTRADA, prepararFoto } from '../prepararFoto'
 
 export const BUCKET_FOTOS = 'propiedades-fotos'
 export const MAX_FOTOS = 10
-export const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 
 /**
  * Error de configuración del bucket, separado de los errores de subida.
@@ -37,10 +37,15 @@ function traducirError(mensaje: string): ErrorStorage {
   return new ErrorStorage(`No se pudo subir la foto: ${mensaje}`)
 }
 
-/** Valida un archivo antes de tocar la red. Devuelve el motivo o null. */
+/**
+ * Valida un archivo antes de tocar la red. Devuelve el motivo o null.
+ *
+ * Sólo mira el original (tipo y 25 MB): el tope de 5 MB aplica al resultado
+ * ya reducido por `prepararFoto`.
+ */
 export function validarArchivo(file: File): string | null {
   if (!file.type.startsWith('image/')) return `El archivo "${file.name}" no es una imagen.`
-  if (file.size > MAX_BYTES) return `"${file.name}" supera el máximo de 5 MB.`
+  if (file.size > MAX_BYTES_ENTRADA) return `"${file.name}" supera el máximo de 25 MB.`
   return null
 }
 
@@ -91,16 +96,25 @@ export async function subirFotoPropiedad(
   const motivo = validarArchivo(file)
   if (motivo) throw new ErrorStorage(motivo)
 
+  // Se reduce acá, y no en cada pantalla, para que el alta y la gestión de
+  // fotos no puedan divergir.
+  let reducida: File
+  try {
+    reducida = await prepararFoto(file)
+  } catch (e) {
+    throw new ErrorStorage(e instanceof Error ? e.message : 'No pudimos procesar la foto.')
+  }
+
   const actuales = await leerFotos(propiedadId)
   if (actuales.length >= MAX_FOTOS) {
     throw new ErrorStorage(`Llegaste al máximo de ${MAX_FOTOS} fotos.`)
   }
 
-  const key = `${propiedadId}/${Date.now()}-${sanearNombre(file.name)}`
+  const key = `${propiedadId}/${Date.now()}-${sanearNombre(reducida.name)}`
 
   const { error: errorSubida } = await supabase.storage
     .from(BUCKET_FOTOS)
-    .upload(key, file, { cacheControl: '3600', upsert: false })
+    .upload(key, reducida, { cacheControl: '3600', upsert: false })
 
   if (errorSubida) throw traducirError(errorSubida.message)
 

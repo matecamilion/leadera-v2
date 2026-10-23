@@ -1,11 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { Campo, ErrorCampo, Input } from '../components/comunes/CampoFormulario'
 import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../components/comunes/estilosFormulario'
 import { ComboboxLead } from '../components/comunes/ComboboxLead'
 import { IconoCasa } from '../components/leads/Iconos'
+import { SeccionFotosAlta } from '../components/propiedades/SeccionFotosAlta'
 import { useCrearPropiedadConOperacion } from '../hooks/usePropiedades'
+import { useUid } from '../hooks/useUid'
 import type { TipoOperacion } from '../lib/api/operaciones'
 import {
   admiteDisposicion,
@@ -15,6 +18,8 @@ import {
   type Disposicion,
   type TipoPropiedad,
 } from '../lib/api/propiedades'
+import { subirFotoPropiedad } from '../lib/api/storage'
+import { claves } from '../lib/queryKeys'
 import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import {
   cantidadInvalida,
@@ -63,6 +68,8 @@ function aNumero(valor: string): number | null {
 export default function NuevaPropiedad() {
   const navigate = useNavigate()
   const crear = useCrearPropiedadConOperacion()
+  const queryClient = useQueryClient()
+  const uid = useUid()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
 
   // La ficha del lead linkea acá con ?propietario=<id>: lo tomamos como valor
@@ -88,7 +95,23 @@ export default function NuevaPropiedad() {
   const [linkPortal, setLinkPortal] = useState('')
   const [operacion, setOperacion] = useState<OperacionAcrear>('VENTA')
   const [tocado, setTocado] = useState(false)
+  const [fotos, setFotos] = useState<File[]>([])
+  const [progreso, setProgreso] = useState<{ actual: number; total: number } | null>(null)
 
+  // `enviando` cubre la creación y la subida de fotos. El ref es la guarda
+  // síncrona: `setEnviando` no alcanza para frenar un segundo toque que llega
+  // antes del siguiente render.
+  const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
+
+  // La propiedad ya existe mientras se suben las fotos: salir de la página
+  // cortaría la subida y dejaría la ficha sin ellas.
+  useEffect(() => {
+    if (!enviando) return
+    const avisar = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [enviando])
 
   const errorDireccion = tocado && !direccion.trim() ? 'La dirección es obligatoria' : null
 
@@ -103,7 +126,7 @@ export default function NuevaPropiedad() {
       ? 'Elegí el propietario —o crealo desde el mismo buscador— para poder crear la operación.'
       : null
 
-  const guardando = crear.isPending
+  const guardando = enviando
 
   // Piso 1: un 0 no es "sin dato" —para eso el campo va vacío— sino un error.
   const precioInvalido = cantidadInvalida(precio)
@@ -157,14 +180,17 @@ export default function NuevaPropiedad() {
   async function manejarSubmit(e: FormEvent) {
     e.preventDefault()
     setTocado(true)
-    if (!valido) return
+    if (!valido || enviandoRef.current) return
+
+    enviandoRef.current = true
+    setEnviando(true)
 
     try {
       // Una sola llamada: el RPC crea la propiedad y, si corresponde, su
       // operación dentro de la misma transacción. Si algo falla no queda nada
       // a medias, así que reintentar es volver a mandar el formulario entero y
       // no hace falta recordar qué parte ya se había guardado.
-      const { operacion_id } = await crear.mutateAsync({
+      const { propiedad_id, operacion_id } = await crear.mutateAsync({
         propiedad: {
           direccion,
           tipo,
@@ -191,6 +217,35 @@ export default function NuevaPropiedad() {
         tipoOperacion: creaOperacion ? (operacion as TipoOperacion) : null,
       })
 
+      // Con fotos, la propiedad ya existe: si alguna subida falla no se
+      // reintenta la creación, se sigue con las demás y se cuenta cuántas
+      // quedaron afuera.
+      if (fotos.length > 0) {
+        let fallidas = 0
+        for (let i = 0; i < fotos.length; i++) {
+          setProgreso({ actual: i, total: fotos.length })
+          try {
+            await subirFotoPropiedad(propiedad_id, fotos[i])
+          } catch {
+            fallidas++
+          }
+        }
+        setProgreso(null)
+        queryClient.invalidateQueries({ queryKey: claves.propiedad.detalle(uid, propiedad_id) })
+        queryClient.invalidateQueries({ queryKey: claves.propiedades.raiz })
+
+        if (fallidas > 0) {
+          mostrarAviso(
+            `La propiedad se creó, pero no ${fallidas === 1 ? 'se pudo subir 1 foto' : `se pudieron subir ${fallidas} fotos`}. Podés agregarlas desde Gestionar fotos`,
+            'error',
+          )
+        } else {
+          mostrarAviso('Propiedad creada.')
+        }
+        navigate(`/propiedades/${propiedad_id}`, { replace: true })
+        return
+      }
+
       // El aviso va antes de navegar y sale por el store: este formulario se
       // desmonta con la navegación y no podría mostrarlo él mismo. Es el caso
       // para el que se armó el store global.
@@ -210,6 +265,9 @@ export default function NuevaPropiedad() {
       )
     } catch {
       // El mensaje se muestra abajo con el error de la mutación que falló.
+      // Sólo puede fallar la creación: las subidas atrapan su propio error.
+      enviandoRef.current = false
+      setEnviando(false)
     }
   }
 
@@ -230,7 +288,10 @@ export default function NuevaPropiedad() {
       </header>
 
       <form onSubmit={manejarSubmit} noValidate>
-        <div className="grid grid-cols-1 gap-4 min-[651px]:grid-cols-2 min-[651px]:gap-5">
+        <fieldset
+          disabled={enviando}
+          className="m-0 grid min-w-0 grid-cols-1 gap-4 border-0 p-0 min-[651px]:grid-cols-2 min-[651px]:gap-5"
+        >
           <Campo
             label={creaOperacion ? 'Propietario *' : 'Propietario (opcional)'}
             full
@@ -457,7 +518,14 @@ export default function NuevaPropiedad() {
               className={`${CLASES_CONTROL} min-h-20 resize-y leading-normal`}
             />
           </Campo>
-        </div>
+        </fieldset>
+
+        <SeccionFotosAlta
+          archivos={fotos}
+          onChange={setFotos}
+          disabled={enviando}
+          progreso={progreso}
+        />
 
         {crear.isError && (
           <div role="alert" className="mt-4 text-[0.85rem] text-peligro-ink">
@@ -477,7 +545,8 @@ export default function NuevaPropiedad() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="rounded-md border border-border bg-surface px-6 py-3 font-semibold text-ink-3 transition-colors hover:bg-background motion-reduce:transition-none"
+            disabled={enviando}
+            className="rounded-md border border-border bg-surface px-6 py-3 font-semibold text-ink-3 transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
           >
             Cancelar
           </button>

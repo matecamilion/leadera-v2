@@ -5,26 +5,32 @@ import { interpretarErrorSupabase } from '../errores'
  * Qué hace un lead con la inmobiliaria: busca, ofrece o las dos cosas.
  *
  * No es un campo: se infiere de lo que ya está cargado, así que nadie tiene que
- * mantenerlo. Las reglas:
+ * mantenerlo. Son cuatro señales independientes, que pueden darse juntas:
  *
- *  - VENDEDOR: figura como `lead_propietario_id` de alguna propiedad, o es el
- *    lead de una operación de ALQUILER (el propietario que ofrece, ver
- *    `llevaCriteriosDeBusqueda` en operaciones.ts).
- *  - COMPRADOR: tiene una búsqueda de compra (o sin tipo).
- *  - INQUILINO: tiene una búsqueda de alquiler o una operación BUSQUEDA_ALQUILER.
- *  - VENTA no alcanza sola, porque durante un tiempo el formulario no decía de
- *    qué lado iba el lead. Se cruza contra el dueño de la propiedad; ver
- *    `rolEnVenta`.
+ *  - `vende`: figura como `lead_propietario_id` de alguna propiedad, o es el
+ *    dueño en una operación de VENTA. VENTA no alcanza sola, porque durante un
+ *    tiempo el formulario no decía de qué lado iba el lead; se cruza contra el
+ *    dueño de la propiedad (ver `rolEnVenta`).
+ *  - `compra`: tiene una búsqueda de compra (o sin tipo), o es quien compra en
+ *    una VENTA ajena.
+ *  - `inquilino`: tiene una búsqueda de alquiler o una operación
+ *    BUSQUEDA_ALQUILER.
+ *  - `duenoAlquila`: es el lead de una operación de ALQUILER (el propietario
+ *    que ofrece, ver `llevaCriteriosDeBusqueda` en operaciones.ts).
  *
- * Quien compra y alquila es COMPRADOR_INQUILINO. Quien vende y además compra es
- * AMBOS; un propietario que sólo busca alquilar sigue siendo VENDEDOR. Sin
- * ninguna señal no hay rol: `null`.
+ * Sin ninguna señal no hay rol: `null`.
  */
-export type RolLead = 'COMPRADOR' | 'INQUILINO' | 'COMPRADOR_INQUILINO' | 'VENDEDOR' | 'AMBOS'
+export interface RolLead {
+  compra: boolean
+  inquilino: boolean
+  vende: boolean
+  duenoAlquila: boolean
+}
 
 /**
  * Los valores de `?rol=` del listado. Un lead puede entrar en más de un corte
- * (AMBOS, o quien compra y además busca alquilar).
+ * (quien compra y además busca alquilar, o el dueño de un alquiler que también
+ * es propietario de una propiedad en venta).
  */
 export type FiltroRol = 'compradores' | 'alquileres' | 'vendedores'
 
@@ -41,19 +47,28 @@ export function etiquetaFiltroRol(filtro: FiltroRol): string {
   return ETIQUETA_FILTRO_ROL[filtro]
 }
 
+/**
+ * Cómo se nombra el rol en pantalla. Quien tiene más de una señal lleva más de
+ * una etiqueta, separadas por " · ".
+ *
+ * Los pares compra+venta y compra+alquiler tienen nombre propio. Un propietario
+ * que sólo busca alquilar sigue siendo "Vendedor", salvo que además sea dueño
+ * de un alquiler: ahí las dos etiquetas dicen de qué lado está cada cosa.
+ */
 export function etiquetaRol(rol: RolLead): string {
-  switch (rol) {
-    case 'COMPRADOR':
-      return 'Comprador'
-    case 'INQUILINO':
-      return 'Inquilino'
-    case 'COMPRADOR_INQUILINO':
-      return 'Compra o alquila'
-    case 'VENDEDOR':
-      return 'Vendedor'
-    case 'AMBOS':
-      return 'Compra y vende'
+  const etiquetas: string[] = []
+
+  if (rol.vende) etiquetas.push(rol.compra ? 'Compra y vende' : 'Vendedor')
+  else if (rol.compra) etiquetas.push(rol.inquilino ? 'Compra o alquila' : 'Comprador')
+  else if (rol.inquilino) etiquetas.push('Inquilino')
+
+  if (rol.duenoAlquila) {
+    const yaDiceInquilino = !rol.vende && rol.inquilino
+    if (rol.inquilino && !yaDiceInquilino) etiquetas.push('Inquilino')
+    etiquetas.push('Dueño que alquila')
   }
+
+  return etiquetas.join(' · ')
 }
 
 /**
@@ -66,14 +81,6 @@ export function etiquetaRol(rol: RolLead): string {
 function rolEnVenta(leadId: string, propietarioId: string | null | undefined): 'COMPRADOR' | 'VENDEDOR' | null {
   if (!propietarioId) return null
   return propietarioId === leadId ? 'VENDEDOR' : 'COMPRADOR'
-}
-
-function combinar(compra: boolean, alquila: boolean, vende: boolean): RolLead | null {
-  if (vende) return compra ? 'AMBOS' : 'VENDEDOR'
-  if (compra && alquila) return 'COMPRADOR_INQUILINO'
-  if (compra) return 'COMPRADOR'
-  if (alquila) return 'INQUILINO'
-  return null
 }
 
 /**
@@ -106,6 +113,7 @@ export async function clasificarLeads(leadIds: string[]): Promise<Map<string, Ro
   const compran = new Set<string>()
   const alquilan = new Set<string>()
   const venden = new Set<string>()
+  const duenos = new Set<string>()
 
   for (const fila of busquedas.data ?? []) {
     const lado = fila.tipo_operacion === 'ALQUILER' ? alquilan : compran
@@ -117,7 +125,7 @@ export async function clasificarLeads(leadIds: string[]): Promise<Map<string, Ro
   for (const fila of operaciones.data ?? []) {
     if (!fila.lead_id) continue
     if (fila.tipo === 'ALQUILER') {
-      venden.add(fila.lead_id)
+      duenos.add(fila.lead_id)
       continue
     }
     if (fila.tipo === 'BUSQUEDA_ALQUILER') {
@@ -130,8 +138,13 @@ export async function clasificarLeads(leadIds: string[]): Promise<Map<string, Ro
   }
 
   for (const id of leadIds) {
-    const rol = combinar(compran.has(id), alquilan.has(id), venden.has(id))
-    if (rol) resultado.set(id, rol)
+    const rol: RolLead = {
+      compra: compran.has(id),
+      inquilino: alquilan.has(id),
+      vende: venden.has(id),
+      duenoAlquila: duenos.has(id),
+    }
+    if (rol.compra || rol.inquilino || rol.vende || rol.duenoAlquila) resultado.set(id, rol)
   }
   return resultado
 }
@@ -145,19 +158,80 @@ export interface CorteDeRol {
   filtro: FiltroRol
   /** Sólo para `compradores`: los que compran en una VENTA ajena. Vacío en los demás. */
   compradoresEnVentas: string[]
+  /** Sólo para `alquileres`: los leads de los dos lados del alquiler. Vacío en los demás. */
+  enAlquileres: string[]
+}
+
+/** UUID nulo: no existe como lead, sirve para un `in` que no debe devolver nada. */
+const ID_NINGUNO = '00000000-0000-0000-0000-000000000000'
+
+/** Filas por viaje al juntar ids. PostgREST corta en silencio en su propio máximo. */
+const LOTE_DE_IDS = 1000
+
+/** Pide todas las filas de un query de lectura, de a lotes. */
+async function leerTodas<T>(
+  pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const todas: T[] = []
+  for (let desde = 0; ; desde += LOTE_DE_IDS) {
+    const { data, error } = await pagina(desde, desde + LOTE_DE_IDS - 1)
+    if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads.'))
+    todas.push(...(data ?? []))
+    if ((data?.length ?? 0) < LOTE_DE_IDS) return todas
+  }
+}
+
+/**
+ * Los leads de los dos lados del alquiler: quien tiene una búsqueda de alquiler
+ * o una operación BUSQUEDA_ALQUILER (inquilino) y quien tiene una operación
+ * ALQUILER (dueño que alquila). Mismas señales que `clasificarLeads`.
+ */
+async function leadsEnAlquileres(): Promise<string[]> {
+  const [busquedas, operaciones] = await Promise.all([
+    leerTodas((desde, hasta) =>
+      supabase
+        .from('busquedas')
+        .select('lead_id')
+        .eq('tipo_operacion', 'ALQUILER')
+        .order('id')
+        .range(desde, hasta),
+    ),
+    leerTodas((desde, hasta) =>
+      supabase
+        .from('operaciones')
+        .select('lead_id')
+        .in('tipo', ['ALQUILER', 'BUSQUEDA_ALQUILER'])
+        .not('lead_id', 'is', null)
+        .order('id')
+        .range(desde, hasta),
+    ),
+  ])
+
+  const ids = new Set<string>()
+  for (const fila of [...busquedas, ...operaciones]) {
+    if (fila.lead_id) ids.add(fila.lead_id)
+  }
+  return [...ids]
 }
 
 /**
  * Resuelve lo asíncrono de un `FiltroRol` antes de armar el query.
  *
  * Casi todo el filtro se resuelve en el server con relaciones embebidas (ver
- * `aplicarFiltroRol`). Lo único que PostgREST no puede expresar es comparar
- * dos columnas —el lead de la VENTA contra el dueño de su propiedad—, así que
- * esos ids se piden antes. Son las ventas con propiedad y lead: un puñado.
+ * `aplicarFiltroRol`). Hay dos cosas que PostgREST no expresa bien y se piden
+ * antes, como ids:
+ *
+ *  - compradores: comparar dos columnas —el lead de la VENTA contra el dueño
+ *    de su propiedad—. Son las ventas con propiedad y lead: un puñado.
+ *  - alquileres: la unión de tres señales en tres tablas. Un `or` sobre
+ *    relaciones embebidas con filtros propios no se comporta de forma fiable.
  */
 export async function resolverCorteDeRol(filtro: FiltroRol | undefined): Promise<CorteDeRol | undefined> {
   if (!filtro) return undefined
-  if (filtro !== 'compradores') return { filtro, compradoresEnVentas: [] }
+  if (filtro === 'vendedores') return { filtro, compradoresEnVentas: [], enAlquileres: [] }
+  if (filtro === 'alquileres') {
+    return { filtro, compradoresEnVentas: [], enAlquileres: await leadsEnAlquileres() }
+  }
 
   const { data, error } = await supabase
     .from('operaciones')
@@ -174,11 +248,12 @@ export async function resolverCorteDeRol(filtro: FiltroRol | undefined): Promise
       compradores.add(fila.lead_id)
     }
   }
-  return { filtro, compradoresEnVentas: [...compradores] }
+  return { filtro, compradoresEnVentas: [...compradores], enAlquileres: [] }
 }
 
 /**
  * Las relaciones que el filtro necesita embebidas en el `select` del listado.
+ * Alquileres no necesita ninguna: filtra por ids.
  *
  * PostgREST sólo deja filtrar por "tiene alguna fila relacionada" si la
  * relación está en el select. Se piden con `id` y nada más: el listado no las
@@ -191,7 +266,7 @@ export function embebidosDeRol(corte: CorteDeRol | undefined): string {
     case 'compradores':
       return ', busquedas(id)'
     case 'alquileres':
-      return ', busquedas(id), operaciones(id)'
+      return ''
     case 'vendedores':
       return ', propiedades(id), operaciones(id)'
   }
@@ -202,11 +277,7 @@ export interface QueryConRol<Self> {
   or(filtro: string, opciones?: { referencedTable: 'busquedas' }): Self
   // `filter` y no `eq`: el `eq` del listado ya está tipado para `estado`, y
   // dos firmas distintas del mismo método no se pueden pedir a la vez.
-  filter(
-    columna: 'operaciones.tipo' | 'busquedas.tipo_operacion',
-    operador: 'eq',
-    valor: 'ALQUILER' | 'BUSQUEDA_ALQUILER',
-  ): Self
+  filter(columna: 'operaciones.tipo', operador: 'eq', valor: 'ALQUILER'): Self
 }
 
 /**
@@ -219,7 +290,8 @@ export interface QueryConRol<Self> {
  *  - vendedores: `operaciones.tipo` deja sólo los alquileres; las propiedades
  *    cuentan todas porque la relación ya es la del dueño. Las VENTA donde el
  *    lead es el dueño no hace falta sumarlas: ya entra por sus propiedades.
- *  - alquileres: las búsquedas de alquiler o las operaciones BUSQUEDA_ALQUILER.
+ *  - alquileres: los ids de `leadsEnAlquileres` (búsqueda de alquiler, u
+ *    operación BUSQUEDA_ALQUILER o ALQUILER), sin relaciones embebidas.
  *  - compradores: las búsquedas que no son de alquiler (`tipo_operacion` nulo
  *    o COMPRA), más quien compra en una VENTA ajena.
  */
@@ -233,10 +305,10 @@ export function aplicarFiltroRol<Q extends QueryConRol<Q>>(query: Q, corte: Cort
   }
 
   if (corte.filtro === 'alquileres') {
-    return query
-      .filter('busquedas.tipo_operacion', 'eq', 'ALQUILER')
-      .filter('operaciones.tipo', 'eq', 'BUSQUEDA_ALQUILER')
-      .or('busquedas.not.is.null,operaciones.not.is.null')
+    // `in.()` vacío no es válido: sin nadie en alquileres se pide un id que no
+    // existe, y el listado queda vacío con count 0.
+    const ids = corte.enAlquileres.length > 0 ? corte.enAlquileres.join(',') : ID_NINGUNO
+    return query.or(`id.in.(${ids})`)
   }
 
   // `in.()` vacío no es un filtro válido: sin compradores por venta queda sólo

@@ -268,16 +268,13 @@ export function embebidosDeRol(corte: CorteDeRol | undefined): string {
     case 'alquileres':
       return ''
     case 'vendedores':
-      return ', propiedades(id), operaciones(id)'
+      return ', propiedades(id)'
   }
 }
 
 /** Lo que `aplicarFiltroRol` le pide al query, estructuralmente. */
 export interface QueryConRol<Self> {
   or(filtro: string, opciones?: { referencedTable: 'busquedas' }): Self
-  // `filter` y no `eq`: el `eq` del listado ya está tipado para `estado`, y
-  // dos firmas distintas del mismo método no se pueden pedir a la vez.
-  filter(columna: 'operaciones.tipo', operador: 'eq', valor: 'ALQUILER'): Self
 }
 
 /**
@@ -287,9 +284,10 @@ export interface QueryConRol<Self> {
  * relacionada que pase los filtros de esa relación". Esos filtros recortan el
  * embebido antes de la pregunta:
  *
- *  - vendedores: `operaciones.tipo` deja sólo los alquileres; las propiedades
- *    cuentan todas porque la relación ya es la del dueño. Las VENTA donde el
- *    lead es el dueño no hace falta sumarlas: ya entra por sus propiedades.
+ *  - vendedores: las propiedades cuentan todas porque la relación ya es la del
+ *    dueño. Las VENTA donde el lead es el dueño no hace falta sumarlas: ya
+ *    entra por sus propiedades. Las operaciones ALQUILER no cuentan: ese
+ *    dueño es de Alquileres.
  *  - alquileres: los ids de `leadsEnAlquileres` (búsqueda de alquiler, u
  *    operación BUSQUEDA_ALQUILER o ALQUILER), sin relaciones embebidas.
  *  - compradores: las búsquedas que no son de alquiler (`tipo_operacion` nulo
@@ -299,9 +297,7 @@ export function aplicarFiltroRol<Q extends QueryConRol<Q>>(query: Q, corte: Cort
   if (!corte) return query
 
   if (corte.filtro === 'vendedores') {
-    return query
-      .filter('operaciones.tipo', 'eq', 'ALQUILER')
-      .or('propiedades.not.is.null,operaciones.not.is.null')
+    return query.or('propiedades.not.is.null')
   }
 
   if (corte.filtro === 'alquileres') {

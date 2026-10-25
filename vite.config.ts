@@ -44,7 +44,7 @@ export default defineConfig({
         // trataba de evitar. Queda fuera del precache y se baja recién cuando
         // alguien abre el detalle de una propiedad.
         // La serif de "Crear imagen" tampoco: sólo la usa ese panel.
-        globIgnores: ['**/BotonExportarFicha-*.js', '**/exceljs*.js', '**/playfair-display-*.woff2'],
+        globIgnores: ['**/BotonExportarFicha-*.js', '**/exceljs*.js', '**/playfair-display-*.woff2', '**/email/**'],
         navigateFallback: '/index.html',
         // Nunca devolver el shell cacheado para llamadas a la API.
         navigateFallbackDenylist: [/^\/api\//, /\/auth\//],

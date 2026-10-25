@@ -61,10 +61,50 @@ function celda(a: Anillo): string {
 }
 
 /**
+ * Semana sin nada registrado en ninguna de las tres métricas. Tres anillos
+ * vacíos se leerían como un reproche para quien todavía no usa el modelo, así
+ * que en ese caso la sección invita en vez de mostrar el avance.
+ */
+export function esEstadoVacio(verdes: number, preTotal: number, nuevos: number): boolean {
+  return verdes === 0 && preTotal === 0 && nuevos === 0
+}
+
+/** La variante vacía: una tarjeta de invitación, sin imágenes. */
+function seccionVaciaHtml(): string {
+  const contactos =
+    METAS_GESTION.nuevosContactos === 1
+      ? '1 contacto nuevo'
+      : `${METAS_GESTION.nuevosContactos} contactos nuevos`
+  const metas =
+    `Tus metas semanales: ${METAS_GESTION.verdes} reuniones y visitas, ` +
+    `${METAS_GESTION.preListingBuying} prelistings y prebuyings, ${contactos}.`
+
+  return `<!-- TU GESTION -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+                <tr>
+                  <td valign="middle" style="color:#0b1f1a; font-size:16px; line-height:22px; font-weight:750; padding-bottom:10px;">Tu gestión</td>
+                  <td align="right" valign="middle" style="color:#4d6b62; font-size:12px; line-height:16px; padding-bottom:10px;">Metas semanales</td>
+                </tr>
+                <tr>
+                  <td colspan="2" bgcolor="#eef7f3" style="background-color:#eef7f3; border-radius:12px; padding:18px 20px;">
+                    <div style="color:#0b1f1a; font-size:14px; line-height:20px; font-weight:600;">Todavía no hay actividad registrada esta semana.</div>
+                    <div style="color:#4d6b62; font-size:13px; line-height:19px; padding-top:6px;">Cargá tus visitas y reuniones en LeadEra y mirá cómo avanzan tus anillos.</div>
+                    <div style="color:#4d6b62; font-size:12px; line-height:17px; padding-top:10px;">${metas}</div>
+                  </td>
+                </tr>
+              </table>
+              `
+}
+
+/**
  * El bloque HTML de la sección. Todo lo que se interpola son números y textos
  * fijos de este archivo: nada que venga de un campo de texto libre.
  */
 export function seccionGestionHtml(r: ResumenGestion): string {
+  if (esEstadoVacio(r.verdes, r.prelistings + r.prebuyings, r.nuevos_contactos)) {
+    return seccionVaciaHtml()
+  }
+
   const anillos: Anillo[] = [
     { etiqueta: 'Reuniones y visitas', valor: r.verdes, meta: METAS_GESTION.verdes },
     {

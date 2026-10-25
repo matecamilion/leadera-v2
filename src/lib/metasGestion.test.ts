@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { METAS_GESTION } from '../../supabase/functions/_shared/metasGestion.ts'
 import {
+  esEstadoVacio,
   nombreAnillo,
   seccionGestionHtml,
   textoEstado,
@@ -57,5 +58,35 @@ describe('seccionGestionHtml', () => {
     expect(html).toContain('/email/anillos/anillo-045.png')
     expect(html).toContain('/email/anillos/anillo-065.png')
     expect(html).toContain('/email/anillos/anillo-000.png')
+  })
+})
+
+describe('estado vacío de la sección', () => {
+  it('es vacío sólo cuando las tres métricas son 0', () => {
+    expect(esEstadoVacio(0, 0, 0)).toBe(true)
+    expect(esEstadoVacio(1, 0, 0)).toBe(false)
+    expect(esEstadoVacio(0, 1, 0)).toBe(false)
+    expect(esEstadoVacio(0, 0, 1)).toBe(false)
+  })
+
+  it('la variante vacía no lleva imágenes y la normal sí', () => {
+    const vacia = seccionGestionHtml({
+      periodo_inicio: '2026-10-12',
+      verdes: 0,
+      prelistings: 0,
+      prebuyings: 0,
+      nuevos_contactos: 0,
+    })
+    const normal = seccionGestionHtml({
+      periodo_inicio: '2026-10-12',
+      verdes: 0,
+      prelistings: 0,
+      prebuyings: 0,
+      nuevos_contactos: 1,
+    })
+    expect(vacia).not.toContain('<img')
+    expect(vacia).toContain('Todavía no hay actividad registrada esta semana.')
+    expect(vacia).toContain('15 reuniones y visitas, 3 prelistings y prebuyings, 1 contacto nuevo.')
+    expect(normal).toContain('<img')
   })
 })

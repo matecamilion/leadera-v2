@@ -36,6 +36,8 @@ export const PLANTILLA_REPORTE_SEMANAL = `<!doctype html>
       .mobile-card-gap { padding-right:0 !important; padding-bottom:12px !important; }
       .metric-card { width:100% !important; }
       .hero-title { font-size:34px !important; line-height:38px !important; }
+      .gestion-card { padding:12px 4px 10px !important; }
+      .gestion-gap { width:6px !important; }
     }
   </style>
 </head>
@@ -130,7 +132,7 @@ export const PLANTILLA_REPORTE_SEMANAL = `<!doctype html>
                 </tr>
               </table>
 
-              <!-- ROW 1 -->
+              {{gestion_html}}<!-- ROW 1 -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
                 <tr>
                   <td class="mobile-stack mobile-card-gap" width="50%" valign="top" style="width:50%; padding-right:6px;">

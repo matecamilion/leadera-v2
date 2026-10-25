@@ -8,6 +8,7 @@
  */
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { PLANTILLA_REPORTE_SEMANAL } from './plantillaReporteSemanal.ts'
+import { seccionGestionHtml, type ResumenGestion } from './seccionGestion.ts'
 
 /** Huso del negocio. Argentina no tiene horario de verano: siempre UTC-3. */
 export const ZONA = 'America/Argentina/Buenos_Aires'
@@ -162,6 +163,34 @@ async function metricasDe(
 }
 
 /**
+ * El HTML de la sección "Tu gestión", o '' si no se puede armar.
+ *
+ * Nunca lanza: si el RPC falla o devuelve otra semana, el mail sale igual sin
+ * la sección y el error queda en el log. Una falla del modelo de gestión no
+ * puede dejar a un agente sin su reporte.
+ */
+async function gestionDe(admin: SupabaseClient, agenteId: string, semana: Semana): Promise<string> {
+  try {
+    const { data, error } = await admin.rpc('resumen_gestion_agente', {
+      p_agente_id: agenteId,
+      p_periodo: 'semana',
+      p_referencia: semana.desde,
+    })
+    if (error) throw new Error(error.message)
+
+    const fila = (Array.isArray(data) ? data[0] : data) as ResumenGestion | undefined
+    if (!fila) throw new Error('el RPC no devolvió filas')
+    if (fila.periodo_inicio !== semana.desde) {
+      throw new Error(`la semana no coincide: pedida ${semana.desde}, devuelta ${fila.periodo_inicio}`)
+    }
+    return seccionGestionHtml(fila)
+  } catch (err) {
+    console.error(`reporteSemanal: sin sección de gestión para ${agenteId}`, err instanceof Error ? err.message : err)
+    return ''
+  }
+}
+
+/**
  * El reporte de un agente: los números de la semana, los de la anterior y las
  * variables ya listas para la plantilla.
  *
@@ -174,6 +203,8 @@ export async function armarReporte(
   agente: { id: string; nombre: string | null },
   hoy: string,
   unsubscribeUrl = '',
+  /** Si el agente ve "Tu gestión": modelo activo en su inmobiliaria y rol AGENTE o DUENO. */
+  conGestion = false,
 ): Promise<ReporteSemanal> {
   const semana = semanaAnterior(hoy)
   const previa = semanaPrevia(semana)
@@ -182,6 +213,8 @@ export async function armarReporte(
     metricasDe(admin, agente.id, semana),
     metricasDe(admin, agente.id, previa),
   ])
+
+  const gestionHtml = conGestion ? await gestionDe(admin, agente.id, semana) : ''
 
   const variables: Record<string, string> = {
     // Sólo el nombre de pila: el saludo es "¡Buenos días, Martina!".
@@ -202,6 +235,7 @@ export async function armarReporte(
     operations_advanced: String(metricas.operaciones),
     operations_change: formatearCambio(metricas.operaciones, metricasPrevias.operaciones),
     unsubscribe_url: unsubscribeUrl,
+    gestion_html: gestionHtml,
   }
 
   return {
@@ -227,11 +261,16 @@ export async function armarReporte(
  * Todo lo que entra va escapado: los números salen del RPC, pero `agent_name`
  * es texto que el agente escribió, y un apellido con `<` rompería el HTML del
  * mail.
+ *
+ * Única excepción: las claves que terminan en `_html` (hoy `gestion_html`) son
+ * bloques de HTML armados en este código y se insertan tal cual. Nunca deben
+ * llevar texto que haya escrito un usuario.
  */
 export function renderizar(variables: Record<string, string>): string {
   return PLANTILLA_REPORTE_SEMANAL.replace(/\{\{(\w+)\}\}/g, (original, clave: string) => {
     const valor = variables[clave]
-    return valor === undefined ? original : escaparHtml(valor)
+    if (valor === undefined) return original
+    return clave.endsWith('_html') ? valor : escaparHtml(valor)
   })
 }
 

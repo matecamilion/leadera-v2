@@ -29,6 +29,8 @@ interface Perfil {
   id: string
   nombre: string | null
   email: string | null
+  rol: string
+  inmobiliaria_id: string
 }
 
 Deno.serve(async (req) => {
@@ -51,7 +53,7 @@ Deno.serve(async (req) => {
   // profiles —desactivar no borra a nadie— pero ya no trabaja en la agencia.
   let query = admin
     .from('profiles')
-    .select('id, nombre, email')
+    .select('id, nombre, email, rol, inmobiliaria_id')
     .eq('reporte_semanal_activo', true)
     .eq('activo', true)
   if (entrada.agente_id) query = query.eq('id', entrada.agente_id)
@@ -62,9 +64,16 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'lectura_agentes', detalle: error.message }, { status: 500 })
   }
 
+  const lista = (perfiles ?? []) as Perfil[]
+  const conModelo = await inmobiliariasConModelo(admin, lista)
+
   const resultados = []
-  for (const perfil of (perfiles ?? []) as Perfil[]) {
-    resultados.push(await enviarA(admin, perfil, hoy, entrada))
+  for (const perfil of lista) {
+    // "Tu gestión" sólo para quien trabaja el modelo: la inmobiliaria lo tiene
+    // activo y el rol es AGENTE o DUENO (un ASISTENTE no tiene gestión propia).
+    const conGestion =
+      conModelo.has(perfil.inmobiliaria_id) && (perfil.rol === 'AGENTE' || perfil.rol === 'DUENO')
+    resultados.push(await enviarA(admin, perfil, hoy, entrada, conGestion))
   }
 
   return Response.json({
@@ -75,11 +84,36 @@ Deno.serve(async (req) => {
   })
 })
 
+/**
+ * Ids de las inmobiliarias con `modelo_gestion_activo`, en UNA consulta para
+ * toda la corrida. Si falla, ninguna cuenta ve la sección y los mails salen
+ * como siempre: el modelo de gestión no puede frenar el reporte.
+ */
+async function inmobiliariasConModelo(
+  admin: ReturnType<typeof adminClient>,
+  perfiles: Perfil[],
+): Promise<Set<string>> {
+  const ids = [...new Set(perfiles.map((p) => p.inmobiliaria_id))]
+  if (ids.length === 0) return new Set()
+
+  const { data, error } = await admin
+    .from('inmobiliarias')
+    .select('id')
+    .in('id', ids)
+    .eq('modelo_gestion_activo', true)
+  if (error) {
+    console.error('enviar-reportes-semanales: no se pudo leer modelo_gestion_activo', error)
+    return new Set()
+  }
+  return new Set((data ?? []).map((i: { id: string }) => i.id))
+}
+
 async function enviarA(
   admin: ReturnType<typeof adminClient>,
   perfil: Perfil,
   hoy: string,
   entrada: { destinatario?: string; dry_run?: boolean },
+  conGestion: boolean,
 ) {
   const base = { agente_id: perfil.id, email: entrada.destinatario ?? perfil.email }
 
@@ -89,7 +123,7 @@ async function enviarA(
 
     const urlBaja = `${Deno.env.get('SUPABASE_URL')?.replace(/\/+$/, '')}/functions/v1/reporte-semanal-baja?t=${encodeURIComponent(await firmarBaja(perfil.id))}`
 
-    const reporte = await armarReporte(admin, perfil, hoy, urlBaja)
+    const reporte = await armarReporte(admin, perfil, hoy, urlBaja, conGestion)
     const html = renderizar(reporte.variables)
 
     if (entrada.dry_run) {

@@ -29,6 +29,9 @@ import {
 import { FILTROS_ROL, etiquetaFiltroRol, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
+import { useAuth } from '../contexts/AuthContext'
+import { useEquipo } from '../hooks/useEquipo'
+import { mostrarChipMios, parametroMios, resolverMios } from '../lib/alcanceLeads'
 import { leerPagina } from '../lib/parametrosDeUrl'
 import { claves } from '../lib/queryKeys'
 import { useUiStore } from '../stores/ui'
@@ -94,6 +97,17 @@ export default function Leads() {
   const busqueda = searchParams.get('q') ?? ''
   const page = leerPagina(searchParams.get('page'))
 
+  // "Míos" (`asignado_a` = yo). Sin `?mios=` rige el default del rol: el
+  // asistente arranca en Míos, dueño y agente en Todos.
+  const { profile, user } = useAuth()
+  const rolUsuario = profile?.rol
+  const mios = resolverMios(rolUsuario, searchParams.get('mios'))
+  // Dueño y agente solo ven el chip si hay a quién delegarle. `useEquipo`
+  // comparte la entrada de cache de la pantalla de Equipo.
+  const equipo = useEquipo(rolUsuario === 'ASISTENTE' ? undefined : rolUsuario, profile?.id)
+  const hayAsistentesActivos = (equipo.data ?? []).some((m) => m.rol === 'ASISTENTE' && m.activo)
+  const verChipMios = mostrarChipMios(rolUsuario, hayAsistentesActivos)
+
   // La URL manda; si no trae orden, el último elegido; si tampoco, prioridad.
   // El guardado va en estado para que elegir "Prioridad" —que no se escribe en
   // la URL— se vea al instante y no recién al recargar.
@@ -117,8 +131,9 @@ export default function Leads() {
     filtroDelDia,
     filtroRol,
     orden,
+    mios,
   )
-  const { data: total } = useTotalLeads(busqueda, filtroRol)
+  const { data: total } = useTotalLeads(busqueda, filtroRol, mios)
 
   const leads = useMemo(() => data?.data ?? [], [data])
   const leadIds = useMemo(() => leads.map((l) => l.id), [leads])
@@ -169,6 +184,7 @@ export default function Leads() {
         estado: filtroEstado,
         delDia: filtroDelDia,
         rol: filtroRol,
+        asignadoA: mios ? user?.id : undefined,
         busqueda,
         orden,
       })
@@ -266,6 +282,24 @@ export default function Leads() {
   }
 
   /**
+   * "Míos" también es un eje aparte. Solo se escribe cuando se aparta del
+   * default del rol, así que la URL pelada sigue diciendo lo que corresponde.
+   */
+  function cambiarMios(valor: boolean) {
+    setSearchParams(
+      (previos) => {
+        const proximos = new URLSearchParams(previos)
+        const parametro = parametroMios(rolUsuario, valor)
+        if (parametro) proximos.set('mios', parametro)
+        else proximos.delete('mios')
+        proximos.delete('page')
+        return proximos
+      },
+      { replace: true },
+    )
+  }
+
+  /**
    * Mismo trato que el rol: va a la URL con `replace`, `prioridad` no se
    * escribe y se vuelve a la página 1 —la página 3 de otro orden es otra gente—.
    * Además queda guardado como el orden de la próxima visita.
@@ -314,6 +348,7 @@ export default function Leads() {
               {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
               {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
               {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
+              {mios && ' · Míos'}
             </span>
             {/* Mobile: Ordenar va junto al contador. Desktop: en la fila de filtros. */}
             {selectorOrden && <div className="shrink-0 md:hidden">{selectorOrden}</div>}
@@ -365,6 +400,8 @@ export default function Leads() {
               valor={filtroDelDia ?? filtroEstado}
               onCambiar={cambiarFiltro}
               total={total}
+              mios={mios}
+              onCambiarMios={verChipMios ? cambiarMios : undefined}
             />
             <div
               aria-hidden

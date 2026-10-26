@@ -57,6 +57,23 @@ export interface QueryDeLeads<Self> extends QueryConOr<Self> {
   lt(columna: 'fecha_proximo_seguimiento', valor: string): Self
 }
 
+/** Lo que `soloAsignadoA` le pide al query, estructuralmente. */
+interface QueryConAsignado<Self> {
+  eq(columna: 'asignado_a', valor: string): Self
+}
+
+/**
+ * Acota a los leads que lleva `asignadoA` (`leads.asignado_a`), o no toca nada
+ * si es `undefined`.
+ *
+ * Es el único lugar donde Mi día, el badge y el listado deciden "los míos":
+ * `agente_id` es de quién es el lead, `asignado_a` es quién lo trabaja. Quien
+ * llama decide si corresponde (ver `lib/alcanceLeads.ts`); acá solo se aplica.
+ */
+export function soloAsignadoA<Q extends QueryConAsignado<Q>>(query: Q, asignadoA: string | undefined): Q {
+  return asignadoA ? query.eq('asignado_a', asignadoA) : query
+}
+
 /**
  * Un lead GANADO ya no es una tarea pendiente.
  *
@@ -170,20 +187,20 @@ export interface CandidatosDelDia {
  * RLS acota todo a la inmobiliaria del usuario; no lo repetimos acá para no
  * dar la impresión de que es el frontend quien protege los datos.
  */
-export async function obtenerCandidatosDelDia(): Promise<CandidatosDelDia> {
+export async function obtenerCandidatosDelDia(asignadoA?: string): Promise<CandidatosDelDia> {
   const { inicioHoy, inicioManana } = limitesDelDia()
 
   const [prioritarios, nuevos, seguimientos, interacciones] = await Promise.all([
-    soloPrioritarios(supabase.from('leads').select('*'), inicioHoy)
+    soloPrioritarios(soloAsignadoA(supabase.from('leads').select('*'), asignadoA), inicioHoy)
       .order('fecha_proximo_seguimiento', { ascending: true, nullsFirst: false })
       .order('estado', { ascending: true, nullsFirst: true }),
 
-    soloNuevos(supabase.from('leads').select('*')).order('fecha_ingreso', {
+    soloNuevos(soloAsignadoA(supabase.from('leads').select('*'), asignadoA)).order('fecha_ingreso', {
       ascending: true,
     }),
 
     soloSeguimientosDeHoy(
-      supabase.from('leads').select('*'),
+      soloAsignadoA(supabase.from('leads').select('*'), asignadoA),
       inicioHoy,
       inicioManana,
     ).order('fecha_proximo_seguimiento', { ascending: true }),
@@ -325,7 +342,7 @@ export interface LeadContactado {
  * aparecer acá. El cruce con las interacciones es el mismo helper que usa
  * `obtenerCandidatosDelDia`; lo que cambia es de dónde salen los leads.
  */
-export async function obtenerContactadosHoy(): Promise<LeadContactado[]> {
+export async function obtenerContactadosHoy(asignadoA?: string): Promise<LeadContactado[]> {
   const { inicioHoy, inicioManana } = limitesDelDia()
 
   const { data: filas, error } = await supabase
@@ -342,10 +359,10 @@ export async function obtenerContactadosHoy(): Promise<LeadContactado[]> {
   const porLead = ultimaPorLead(filas ?? [])
   if (porLead.size === 0) return []
 
-  const { data: leads, error: errorLeads } = await supabase
-    .from('leads')
-    .select('*')
-    .in('id', [...porLead.keys()])
+  const { data: leads, error: errorLeads } = await soloAsignadoA(
+    supabase.from('leads').select('*').in('id', [...porLead.keys()]),
+    asignadoA,
+  )
 
   if (errorLeads) {
     throw new Error(interpretarErrorSupabase(errorLeads, 'No se pudieron cargar los contactados de hoy.'))

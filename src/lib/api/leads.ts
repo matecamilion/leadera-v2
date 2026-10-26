@@ -13,6 +13,7 @@ import { interpretarErrorSupabase } from '../errores'
 import {
   interaccionesDeHoy,
   limitesDelDia,
+  soloAsignadoA,
   soloNuevos,
   soloPrioritarios,
   soloSeguimientosDeHoy,
@@ -52,6 +53,8 @@ export interface ListarLeadsParams {
   delDia?: FiltroDelDia
   /** Comprador / vendedor. Se combina con el resto (AND), no los pisa. */
   rol?: FiltroRol
+  /** Solo los leads que lleva este usuario (`asignado_a`). `undefined` = todos los visibles. */
+  asignadoA?: string
   busqueda?: string
   /** `undefined` = `prioridad`. Con `delDia` se ignora (ver `aplicarOrden`). */
   orden?: OrdenLeads
@@ -74,6 +77,7 @@ export interface ListarLeadsResult {
  */
 interface QueryFiltrable<Self> extends QueryDeLeads<Self>, QueryConRol<Self> {
   eq(columna: 'estado', valor: EstadoLead): Self
+  eq(columna: 'asignado_a', valor: string): Self
   not(columna: 'id', operador: 'in', valor: string): Self
 }
 
@@ -112,8 +116,9 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
   busqueda: string | undefined,
   delDia?: CorteDelDia,
   rol?: CorteDeRol,
+  asignadoA?: string,
 ): Q {
-  let q = aplicarFiltroRol(query, rol)
+  let q = soloAsignadoA(aplicarFiltroRol(query, rol), asignadoA)
 
   if (delDia) {
     // Los mismos predicados que las secciones de Mi día, no una copia: si
@@ -226,6 +231,7 @@ export async function listarLeads({
   estado,
   delDia,
   rol,
+  asignadoA,
   busqueda,
   orden,
   page,
@@ -246,6 +252,7 @@ export async function listarLeads({
       busqueda,
       corteDelDia,
       corteDeRol,
+      asignadoA,
     ),
     orden,
     delDia,
@@ -263,7 +270,11 @@ export async function listarLeads({
  * Respeta el rol igual que respeta la búsqueda: con "Compradores" elegido,
  * "Todos (N)" son todos los compradores, cualquiera sea su temperatura.
  */
-export async function contarLeads(busqueda?: string, rol?: FiltroRol): Promise<number> {
+export async function contarLeads(
+  busqueda?: string,
+  rol?: FiltroRol,
+  asignadoA?: string,
+): Promise<number> {
   const corteDeRol = await resolverCorteDeRol(rol)
   const query = aplicarFiltros(
     supabase.from('leads').select(columnasConRol('id', corteDeRol), { count: 'exact', head: true }),
@@ -271,6 +282,7 @@ export async function contarLeads(busqueda?: string, rol?: FiltroRol): Promise<n
     busqueda,
     undefined,
     corteDeRol,
+    asignadoA,
   )
 
   const { count, error } = await query
@@ -656,6 +668,7 @@ export interface ExportarLeadsParams {
   estado?: FiltroEstado
   delDia?: FiltroDelDia
   rol?: FiltroRol
+  asignadoA?: string
   busqueda?: string
   orden?: OrdenLeads
 }
@@ -676,6 +689,7 @@ export async function listarLeadsParaExportar({
   estado,
   delDia,
   rol,
+  asignadoA,
   busqueda,
   orden,
 }: ExportarLeadsParams): Promise<LeadExportable[]> {
@@ -694,6 +708,7 @@ export async function listarLeadsParaExportar({
         busqueda,
         corte,
         corteDeRol,
+        asignadoA,
       ),
       orden,
       delDia,
@@ -754,11 +769,14 @@ export async function hayLeads(): Promise<boolean> {
  * `fecha_primer_contacto_real` (trigger `actualizar_fechas_contacto`), así que
  * un lead contactado hoy ya no es nuevo.
  *
+ * Con `asignadoA` cuenta solo los que lleva ese usuario: el badge de un
+ * asistente, que tiene que coincidir con el chip "Míos" del listado.
+ *
  * Sólo el conteo (`head: true`): no viaja ninguna fila.
  */
-export async function contarLeadsNuevos(): Promise<number> {
+export async function contarLeadsNuevos(asignadoA?: string): Promise<number> {
   const { count, error } = await soloNuevos(
-    supabase.from('leads').select('id', { count: 'exact', head: true }),
+    soloAsignadoA(supabase.from('leads').select('id', { count: 'exact', head: true }), asignadoA),
   )
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron contar los leads nuevos.'))
   return count ?? 0

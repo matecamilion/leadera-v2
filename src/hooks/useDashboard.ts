@@ -10,6 +10,8 @@ import {
   type LeadContactado,
   type LeadsDelDia,
 } from '../lib/api/dashboard'
+import { useAuth } from '../contexts/AuthContext'
+import { asignadoAPorDefecto } from '../lib/alcanceLeads'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
 
@@ -29,10 +31,14 @@ import { useUid } from './useUid'
  */
 function useCandidatosDelDia() {
   const uid = useUid()
+  // Un asistente trabaja lo que tiene asignado; el resto, todo lo visible.
+  // Espera al perfil: sin el rol se pediría el pool y después se corregiría.
+  const { profile } = useAuth()
+  const asignadoA = asignadoAPorDefecto(profile?.rol, uid)
   return useQuery<CandidatosDelDia>({
-    queryKey: claves.leads.delDia(uid),
-    queryFn: obtenerCandidatosDelDia,
-    enabled: !!uid,
+    queryKey: claves.leads.delDia(uid, asignadoA ? 'mios' : 'todos'),
+    queryFn: () => obtenerCandidatosDelDia(asignadoA),
+    enabled: !!uid && !!profile,
   })
 }
 
@@ -81,9 +87,11 @@ export function useCoincidenciasDelDia() {
 /** Los leads con una interacción de hoy, para la pantalla de contactados. */
 export function useContactadosHoy() {
   const uid = useUid()
+  const { profile } = useAuth()
+  const asignadoA = asignadoAPorDefecto(profile?.rol, uid)
   return useQuery<LeadContactado[]>({
-    queryKey: claves.leads.contactadosHoy(uid),
-    queryFn: obtenerContactadosHoy,
-    enabled: !!uid,
+    queryKey: claves.leads.contactadosHoy(uid, asignadoA ? 'mios' : 'todos'),
+    queryFn: () => obtenerContactadosHoy(asignadoA),
+    enabled: !!uid && !!profile,
   })
 }

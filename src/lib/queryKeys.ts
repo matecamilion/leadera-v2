@@ -24,6 +24,13 @@ import type { QueryKey } from '@tanstack/react-query'
 
 type Uid = string | undefined
 
+/**
+ * Sobre qué leads se hizo una lectura: los que lleva el usuario (`asignado_a`)
+ * o todos los que su RLS le deja ver. Sin esto en la clave, alternar entre uno
+ * y otro mostraría el cache del anterior.
+ */
+export type Alcance = 'mios' | 'todos'
+
 export const claves = {
   actividadReciente: {
     raiz: ['actividad-reciente'] as const,
@@ -172,16 +179,18 @@ export const claves = {
       uid: Uid,
       filtro: string,
       rol: string,
+      alcance: Alcance,
       busqueda: string,
       orden: string,
       page: number,
-    ) => ['leads', uid, filtro, rol, busqueda, orden, page] as const,
-    total: (uid: Uid, rol: string, busqueda: string) =>
-      ['leads', 'total', uid, rol, busqueda] as const,
-    delDia: (uid: Uid) => ['leads', 'del-dia', uid] as const,
-    contactadosHoy: (uid: Uid) => ['leads', 'contactados-hoy', uid] as const,
+    ) => ['leads', uid, filtro, rol, alcance, busqueda, orden, page] as const,
+    total: (uid: Uid, rol: string, alcance: Alcance, busqueda: string) =>
+      ['leads', 'total', uid, rol, alcance, busqueda] as const,
+    delDia: (uid: Uid, alcance: Alcance) => ['leads', 'del-dia', uid, alcance] as const,
+    contactadosHoy: (uid: Uid, alcance: Alcance) =>
+      ['leads', 'contactados-hoy', uid, alcance] as const,
     /** Conteo para el badge del menú. Bajo `leads`: lo refresca cualquier invalidación de leads. */
-    nuevos: (uid: Uid) => ['leads', 'nuevos', uid] as const,
+    nuevos: (uid: Uid, alcance: Alcance) => ['leads', 'nuevos', uid, alcance] as const,
     /** ¿Hay algún lead, de cualquier estado? Bajo `leads`: crear o borrar uno la invalida. */
     hay: (uid: Uid) => ['leads', 'hay', uid] as const,
   },

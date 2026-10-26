@@ -54,9 +54,15 @@ interface FiltrosChipsProps {
   onCambiar: (valor: ValorFiltro) => void
   /** Sólo el chip "Todos" muestra contador, como en el original. */
   total?: number
+  /**
+   * El chip "Míos": un interruptor aparte de la temperatura (se combina con
+   * ella, no la reemplaza). Sin `onCambiarMios` no se dibuja.
+   */
+  mios?: boolean
+  onCambiarMios?: (mios: boolean) => void
 }
 
-export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
+export function FiltrosChips({ valor, onCambiar, total, mios = false, onCambiarMios }: FiltrosChipsProps) {
   return (
     <nav
       aria-label="Filtrar leads por temperatura"
@@ -91,6 +97,24 @@ export function FiltrosChips({ valor, onCambiar, total }: FiltrosChipsProps) {
           </button>
         )
       })}
+      {onCambiarMios && (
+        <button
+          type="button"
+          aria-pressed={mios}
+          onClick={() => onCambiarMios(!mios)}
+          title={mios ? 'Mostrando solo los leads asignados a vos' : 'Mostrar solo los leads asignados a vos'}
+          className={[
+            'ml-1 inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[7px] md:px-4',
+            'text-[0.78rem] font-semibold transition-colors motion-reduce:transition-none md:text-[0.85rem]',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+            mios
+              ? 'border-ink bg-ink text-surface'
+              : 'border-border bg-surface text-ink hover:bg-background',
+          ].join(' ')}
+        >
+          Míos
+        </button>
+      )}
     </nav>
   )
 }

@@ -11,6 +11,7 @@ export {
 } from '../etiquetasLead'
 import { interpretarErrorSupabase } from '../errores'
 import { atribucionDeAlta } from '../atribucionLead'
+import { mensajeDeNegocio } from '../mensajesDeError'
 import {
   interaccionesDeHoy,
   limitesDelDia,
@@ -415,7 +416,15 @@ export interface CrearLeadInput {
   descripcion_inicial?: string
   /** Valor de un <input type="datetime-local">, en hora local. */
   fecha_proximo_seguimiento?: string
+  /**
+   * A quién se le asigna. Solo lo respeta un dueño o un agente (ver
+   * `atribucionDeAlta`); sin valor, lo lleva quien lo carga.
+   */
+  asignadoA?: string
 }
+
+/** Lo que se muestra cuando la base rechaza una asignación. */
+export const MENSAJE_ASIGNACION_RECHAZADA = 'No se puede asignar a ese miembro.'
 
 /**
  * Alta de lead.
@@ -433,7 +442,7 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
   // es el lead cuando lo carga un asistente (ver `atribucionDeAlta`).
   const { data: perfil, error: errorPerfil } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id, asiste_a')
+    .select('id, inmobiliaria_id, asiste_a, rol')
     .eq('id', userData.user.id)
     .single()
 
@@ -444,7 +453,7 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
     .insert({
       inmobiliaria_id: perfil.inmobiliaria_id,
       // El lead es del agente (cartera) y lo lleva quien lo carga.
-      ...atribucionDeAlta(perfil),
+      ...atribucionDeAlta(perfil, input.asignadoA),
       nombre: input.nombre.trim(),
       apellido: input.apellido.trim(),
       telefono: input.telefono.trim(),
@@ -459,6 +468,13 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
   if (error) {
     // 23505 = unique_violation. Si hay índice único por email, este es el caso.
     if (error.code === '23505') throw new Error('Ya existe un lead con ese email.')
+    // El trigger de asignación levanta una excepción (P0001) si el elegido no es
+    // el agente ni un asistente activo suyo. Los topes del plan también son
+    // P0001, pero traen un texto que el catálogo reconoce: esos siguen su camino.
+    if (error.code === 'P0001' && input.asignadoA && !mensajeDeNegocio(error.message ?? '')) {
+      console.error('[crearLead]', error)
+      throw new Error(MENSAJE_ASIGNACION_RECHAZADA)
+    }
     throw new Error(interpretarErrorSupabase(error, 'No se pudo crear el lead.'))
   }
 
@@ -568,7 +584,7 @@ export async function asignarLead(id: string, asignadoA: string): Promise<Lead> 
   if (error) {
     if (error.code === 'P0001') {
       console.error('[asignarLead]', error)
-      throw new Error('No se puede asignar a ese miembro.')
+      throw new Error(MENSAJE_ASIGNACION_RECHAZADA)
     }
     throw new Error(interpretarErrorSupabase(error, 'No se pudo asignar el lead.'))
   }

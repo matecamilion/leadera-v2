@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { InputTelefono } from '../components/comunes/InputTelefono'
 import { IconoPersonaMas } from '../components/leads/Iconos'
+import { useAuth } from '../contexts/AuthContext'
+import { useEquipo } from '../hooks/useEquipo'
 import { useCrearLead } from '../hooks/useLead'
 import {
   buscarLeadPorTelefono,
@@ -10,8 +12,10 @@ import {
   type LeadResumido,
   type OrigenLead,
 } from '../lib/api/leads'
+import { opcionesDeAsignacion } from '../lib/opcionesAsignacion'
 import { telefonoInvalido } from '../lib/telefono'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
+import { etiquetaRol } from '../lib/api/equipo'
 import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 
@@ -21,6 +25,23 @@ export default function NuevoLead() {
   const navigate = useNavigate()
   const crear = useCrearLead()
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
+
+  // "Asignar a": solo dueño y agente, y solo si tienen a quién (un asistente
+  // activo). Las opciones son las mismas que ofrece la ficha del lead: el
+  // propio usuario, que es el agente de lo que carga, y sus asistentes.
+  const { profile } = useAuth()
+  const puedeAsignar = profile?.rol === 'DUENO' || profile?.rol === 'AGENTE'
+  const equipo = useEquipo(puedeAsignar ? profile?.rol : undefined, profile?.id)
+  const opcionesAsignacion = puedeAsignar
+    ? opcionesDeAsignacion({
+        agenteId: profile?.id ?? null,
+        agenteNombre: profile ? `${profile.nombre} ${profile.apellido}`.trim() : null,
+        miembros: equipo.data ?? [],
+      })
+    : []
+  const mostrarAsignar = opcionesAsignacion.length > 1
+  // Vacío = el propio usuario, que es la opción preseleccionada.
+  const [asignadoA, setAsignadoA] = useState('')
 
   const [nombre, setNombre] = useState('')
   const [apellido, setApellido] = useState('')
@@ -90,6 +111,7 @@ export default function NuevoLead() {
         origen,
         descripcion_inicial: descripcion.trim() || undefined,
         fecha_proximo_seguimiento: seguimiento || undefined,
+        asignadoA: mostrarAsignar && asignadoA ? asignadoA : undefined,
       })
       // Antes de navegar y por el store: el alta se desmonta al saltar a la
       // ficha y no podría mostrar el aviso ella misma.
@@ -237,6 +259,26 @@ export default function NuevoLead() {
               </span>
             )}
           </Campo>
+
+          {mostrarAsignar && (
+            <Campo label="Asignar a">
+              <select
+                value={asignadoA || profile?.id}
+                onChange={(e) => setAsignadoA(e.target.value)}
+                className="w-full rounded-xl border border-border bg-surface-2 px-4 py-3.5 text-base text-ink transition-colors focus:border-primary focus:bg-surface focus:shadow-focus focus:outline-none motion-reduce:transition-none"
+              >
+                {opcionesAsignacion.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.id === profile?.id
+                      ? `${o.nombre} (yo)`
+                      : o.rol
+                        ? `${o.nombre} · ${etiquetaRol(o.rol)}`
+                        : o.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          )}
 
           <Campo label="¿Qué sabés del lead? (Opcional)" full>
             <textarea

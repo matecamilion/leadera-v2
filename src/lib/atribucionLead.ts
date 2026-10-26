@@ -1,3 +1,5 @@
+import type { RolAgente } from './api/auth'
+
 /**
  * De quién es un lead nuevo y quién lo lleva, según quién lo carga.
  *
@@ -6,12 +8,23 @@
  * agente y el asistente queda como quien lo lleva. Dueño y agente no asisten a
  * nadie (`asiste_a` es null), así que son las dos cosas a la vez.
  *
- * La base lo normaliza igual con un trigger; mandarlo bien desde acá hace que
- * el front no dependa de él.
+ * `asignadoA` es la elección del formulario y solo la respeta un dueño o un
+ * agente: ellos pueden darle el lead a un asistente suyo. Un asistente no
+ * asigna, así que se ignora y el lead queda con él.
+ *
+ * La base lo normaliza y valida igual con un trigger; mandarlo bien desde acá
+ * hace que el front no dependa de él.
  */
-export function atribucionDeAlta(perfil: { id: string; asiste_a: string | null }): {
+export function atribucionDeAlta(
+  perfil: { id: string; asiste_a: string | null; rol: RolAgente },
+  asignadoA?: string,
+): {
   agente_id: string
   asignado_a: string
 } {
-  return { agente_id: perfil.asiste_a ?? perfil.id, asignado_a: perfil.id }
+  const puedeAsignar = perfil.rol === 'DUENO' || perfil.rol === 'AGENTE'
+  return {
+    agente_id: perfil.asiste_a ?? perfil.id,
+    asignado_a: puedeAsignar && asignadoA ? asignadoA : perfil.id,
+  }
 }

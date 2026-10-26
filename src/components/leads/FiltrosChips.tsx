@@ -1,7 +1,7 @@
 import { etiquetaEstadoPlural, type EstadoLead } from '../../lib/etiquetasLead'
 
 /** `undefined` = "Todos": el listado sin filtro de estado. */
-export type ValorFiltro = EstadoLead | undefined
+export type ValorFiltro = EstadoLead | 'sin_clasificar' | undefined
 
 interface Opcion {
   valor: ValorFiltro
@@ -9,6 +9,8 @@ interface Opcion {
   /** Color del dot y, cuando está activo, del fondo sólido. */
   dot: string
   activo: string
+  /** Punto hueco, para distinguir "Sin clasificar" del gris relleno de Inactivos. */
+  hueco?: boolean
 }
 
 const OPCIONES: Opcion[] = [
@@ -42,7 +44,30 @@ const OPCIONES: Opcion[] = [
     dot: 'bg-inactivo',
     activo: 'border-inactivo bg-inactivo text-white',
   },
+  {
+    valor: 'sin_clasificar',
+    label: 'Sin clasificar',
+    dot: 'border-[1.5px] border-ink-3 bg-transparent',
+    activo: 'border-ink-3 bg-ink-3 text-white',
+    hueco: true,
+  },
 ]
+
+/** Cuántos leads hay detrás de cada chip. Todo opcional: sin números, los chips van pelados. */
+export interface ConteosChips {
+  todos: number
+  CALIENTE: number
+  TIBIO: number
+  FRIO: number
+  INACTIVO: number
+  sin_clasificar: number
+}
+
+function cantidadDe(opcion: Opcion, conteos: ConteosChips | undefined): number | undefined {
+  if (!conteos) return undefined
+  // GANADO cabe en el tipo del valor pero no tiene chip: nunca llega acá.
+  return conteos[(opcion.valor ?? 'todos') as keyof ConteosChips]
+}
 
 interface FiltrosChipsProps {
   /**
@@ -52,8 +77,11 @@ interface FiltrosChipsProps {
    */
   valor: ValorFiltro | 'nuevos' | 'prioritarios' | 'seguimientos'
   onCambiar: (valor: ValorFiltro) => void
-  /** Sólo el chip "Todos" muestra contador, como en el original. */
-  total?: number
+  /**
+   * Los contadores de cada chip, desde `md` (en mobile los chips scrollean y
+   * los números los ensancharían). No dependen del chip activo.
+   */
+  conteos?: ConteosChips
   /**
    * El chip "Míos": un interruptor aparte de la temperatura (se combina con
    * ella, no la reemplaza). Sin `onCambiarMios` no se dibuja.
@@ -62,7 +90,7 @@ interface FiltrosChipsProps {
   onCambiarMios?: (mios: boolean) => void
 }
 
-export function FiltrosChips({ valor, onCambiar, total, mios = false, onCambiarMios }: FiltrosChipsProps) {
+export function FiltrosChips({ valor, onCambiar, conteos, mios = false, onCambiarMios }: FiltrosChipsProps) {
   return (
     <nav
       aria-label="Filtrar leads por temperatura"
@@ -89,12 +117,23 @@ export function FiltrosChips({ valor, onCambiar, total, mios = false, onCambiarM
             ].join(' ')}
           >
             <span
-              className={`size-1.5 shrink-0 rounded-full md:size-2 ${activo ? 'bg-current/70' : opcion.dot}`}
+              className={`size-1.5 shrink-0 rounded-full md:size-2 ${
+                activo
+                  ? opcion.hueco
+                    ? 'border-[1.5px] border-current bg-transparent'
+                    : 'bg-current/70'
+                  : opcion.dot
+              }`}
             />
             <span>
               {opcion.label}
-              {opcion.valor === undefined && total !== undefined && (
-                <span className="max-md:hidden"> ({total})</span>
+              {cantidadDe(opcion, conteos) !== undefined && (
+                <span
+                  className={`max-md:hidden tabular-nums ${cantidadDe(opcion, conteos) === 0 ? 'opacity-60' : ''}`}
+                >
+                  {' '}
+                  ({cantidadDe(opcion, conteos)})
+                </span>
               )}
             </span>
           </button>

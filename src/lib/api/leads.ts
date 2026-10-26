@@ -39,8 +39,13 @@ export type LeadConAsignado = Lead & {
 export type EstadoLead = Database['public']['Enums']['estado_lead']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
 
-/** Filtro de estado que acepta el listado. `undefined` = todos. */
-export type FiltroEstado = EstadoLead | 'nuevos'
+/**
+ * Filtro de estado que acepta el listado. `undefined` = todos.
+ *
+ * `nuevos` = nunca contactado. `sin_clasificar` = `estado` null: otra cosa,
+ * aunque suelan coincidir.
+ */
+export type FiltroEstado = EstadoLead | 'nuevos' | 'sin_clasificar'
 
 /**
  * Las secciones de Mi día que no se pueden expresar con un estado: el destino
@@ -142,6 +147,8 @@ function aplicarFiltros<Q extends QueryFiltrable<Q>>(
   } else if (estado === 'nuevos') {
     // Un lead es "nuevo" por no haber sido contactado nunca, no por su estado.
     q = q.is('fecha_primer_contacto_real', null)
+  } else if (estado === 'sin_clasificar') {
+    q = q.is('estado', null)
   } else if (estado) {
     q = q.eq('estado', estado)
   }
@@ -300,6 +307,68 @@ export async function contarLeads(
   const { count, error } = await query
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo contar los leads.'))
   return count ?? 0
+}
+
+/** Cuántos leads hay por chip del listado. `todos` excluye GANADO, como el listado. */
+export interface ConteosPorEstado {
+  todos: number
+  CALIENTE: number
+  TIBIO: number
+  FRIO: number
+  INACTIVO: number
+  sin_clasificar: number
+}
+
+/**
+ * Lo que muestran los contadores de los chips: cuántos leads habría al tocar
+ * cada uno, con la búsqueda, el rol y "Míos" aplicados y SIN el filtro de
+ * temperatura. Así los números no se mueven cuando cambia el chip activo.
+ *
+ * Seis `head: true` en paralelo, todas por `aplicarFiltros`: contador y lista
+ * no pueden desincronizarse. El corte de rol (que puede ser varias consultas)
+ * se resuelve UNA vez y se comparte. Como GANADO queda afuera de todas,
+ * Calientes + Tibios + Fríos + Inactivos + Sin clasificar = Todos.
+ */
+export async function contarLeadsPorEstado(
+  busqueda?: string,
+  rol?: FiltroRol,
+  asignadoA?: string,
+): Promise<ConteosPorEstado> {
+  const corteDeRol = await resolverCorteDeRol(rol)
+
+  const contar = (estado?: FiltroEstado) =>
+    aplicarFiltros(
+      supabase
+        .from('leads')
+        .select(columnasConRol('id', corteDeRol), { count: 'exact', head: true }),
+      estado,
+      busqueda,
+      undefined,
+      corteDeRol,
+      asignadoA,
+    )
+
+  const [todos, CALIENTE, TIBIO, FRIO, INACTIVO, sinClasificar] = await Promise.all([
+    contar(),
+    contar('CALIENTE'),
+    contar('TIBIO'),
+    contar('FRIO'),
+    contar('INACTIVO'),
+    contar('sin_clasificar'),
+  ])
+
+  const fallo =
+    todos.error ?? CALIENTE.error ?? TIBIO.error ?? FRIO.error ?? INACTIVO.error ?? sinClasificar.error
+  if (fallo) throw new Error(interpretarErrorSupabase(fallo, 'No se pudo contar los leads.'))
+
+  return {
+    todos: todos.count ?? 0,
+    CALIENTE: CALIENTE.count ?? 0,
+    TIBIO: TIBIO.count ?? 0,
+    FRIO: FRIO.count ?? 0,
+    INACTIVO: INACTIVO.count ?? 0,
+    sin_clasificar: sinClasificar.count ?? 0,
+  }
 }
 
 export interface ResumenOperaciones {

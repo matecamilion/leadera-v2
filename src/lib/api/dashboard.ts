@@ -52,7 +52,7 @@ interface QueryConOr<Self> {
 }
 
 export interface QueryDeLeads<Self> extends QueryConOr<Self> {
-  is(columna: 'fecha_primer_contacto_real', valor: null): Self
+  is(columna: 'fecha_primer_contacto_real' | 'estado', valor: null): Self
   gte(columna: 'fecha_proximo_seguimiento', valor: string): Self
   lt(columna: 'fecha_proximo_seguimiento', valor: string): Self
 }

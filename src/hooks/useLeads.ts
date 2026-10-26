@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import {
   contarLeads,
   contarLeadsNuevos,
+  contarLeadsPorEstado,
   hayLeads,
   listarLeads,
+  type ConteosPorEstado,
   type FiltroDelDia,
   type FiltroEstado,
   type ListarLeadsResult,
@@ -68,6 +70,22 @@ export function useTotalLeads(busqueda: string, rol?: FiltroRol, mios = false, h
     queryKey: claves.leads.total(uid, rol ?? 'todos', mios ? 'mios' : 'todos', busqueda),
     queryFn: () => contarLeads(busqueda, rol, asignadoA),
     enabled: !!uid && !!profile && habilitado,
+    placeholderData: anteriorDelMismoUsuario(uid),
+  })
+}
+
+/**
+ * Los contadores de los chips del listado (Todos y cada temperatura, más Sin
+ * clasificar). Dependen de la búsqueda, el rol y "Míos", no del chip activo.
+ */
+export function useConteosPorEstado(busqueda: string, rol?: FiltroRol, mios = false) {
+  const uid = useUid()
+  const asignadoA = mios ? uid : undefined
+  const { profile } = useAuth()
+  return useQuery<ConteosPorEstado>({
+    queryKey: claves.leads.porEstado(uid, rol ?? 'todos', mios ? 'mios' : 'todos', busqueda),
+    queryFn: () => contarLeadsPorEstado(busqueda, rol, asignadoA),
+    enabled: !!uid && !!profile,
     placeholderData: anteriorDelMismoUsuario(uid),
   })
 }

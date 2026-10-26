@@ -13,7 +13,7 @@ import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { Paginacion } from '../components/leads/Paginacion'
 import { OPCIONES_ORDEN, SelectorOrdenLeads } from '../components/leads/SelectorOrdenLeads'
-import { LEADS_POR_PAGINA, useHayLeads, useLeads, useTotalLeads } from '../hooks/useLeads'
+import { LEADS_POR_PAGINA, useConteosPorEstado, useHayLeads, useLeads } from '../hooks/useLeads'
 import {
   useInteraccionesPorLead,
   useOperacionesPorLead,
@@ -33,20 +33,11 @@ import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
 import { mostrarAsignado, mostrarChipMios, parametroMios, resolverMios } from '../lib/alcanceLeads'
+import { conEstado, leerFiltroEstado, sufijoDelFiltro } from '../lib/filtroEstadoLeads'
 import { leerPagina } from '../lib/parametrosDeUrl'
 import { sinLeadsAsignados } from '../lib/sinLeadsAsignados'
 import { claves } from '../lib/queryKeys'
 import { useUiStore } from '../stores/ui'
-
-/** Los valores de `?estado=` que entiende el listado. */
-const FILTROS_VALIDOS: FiltroEstado[] = [
-  'CALIENTE',
-  'TIBIO',
-  'FRIO',
-  'INACTIVO',
-  'GANADO',
-  'nuevos',
-]
 
 /** Los valores de `?filtro=`: los cortes de Mi día que no son un estado. */
 const FILTROS_DEL_DIA: FiltroDelDia[] = ['prioritarios', 'seguimientos']
@@ -93,7 +84,7 @@ export default function Leads() {
   // No hay que forzar que los tres estén siempre: lo que falta cae en su
   // default (sin filtro, sin búsqueda, página 1).
   const [searchParams, setSearchParams] = useSearchParams()
-  const filtroEstado = FILTROS_VALIDOS.find((f) => f === searchParams.get('estado'))
+  const filtroEstado = leerFiltroEstado(searchParams.get('estado'))
   const filtroDelDia = FILTROS_DEL_DIA.find((f) => f === searchParams.get('filtro'))
   const filtroRol = FILTROS_ROL.find((f) => f === searchParams.get('rol'))
   const busqueda = searchParams.get('q') ?? ''
@@ -137,7 +128,7 @@ export default function Leads() {
     orden,
     mios,
   )
-  const { data: total } = useTotalLeads(busqueda, filtroRol, mios)
+  const { data: conteos } = useConteosPorEstado(busqueda, filtroRol, mios)
 
   const leads = useMemo(() => data?.data ?? [], [data])
   const leadIds = useMemo(() => leads.map((l) => l.id), [leads])
@@ -249,10 +240,7 @@ export default function Leads() {
   ) {
     setSearchParams(
       (previos) => {
-        const proximos = new URLSearchParams(previos)
-
-        if (estado) proximos.set('estado', estado)
-        else proximos.delete('estado')
+        const proximos = conEstado(previos, estado)
 
         if (salirDelCorte) proximos.delete('filtro')
 
@@ -357,6 +345,7 @@ export default function Leads() {
           <div className="flex items-center justify-between gap-3">
             <span className="min-w-0 text-ink">
               {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
+              {sufijoDelFiltro(filtroEstado) && ` · ${sufijoDelFiltro(filtroEstado)}`}
               {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
               {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
               {mios && ' · Míos'}
@@ -412,7 +401,7 @@ export default function Leads() {
             <FiltrosChips
               valor={filtroDelDia ?? filtroEstado}
               onCambiar={cambiarFiltro}
-              total={total}
+              conteos={conteos}
               mios={mios}
               onCambiarMios={verChipMios ? cambiarMios : undefined}
             />

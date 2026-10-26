@@ -192,6 +192,9 @@ export const claves = {
     ) => ['leads', uid, filtro, rol, alcance, busqueda, orden, page] as const,
     total: (uid: Uid, rol: string, alcance: Alcance, busqueda: string) =>
       ['leads', 'total', uid, rol, alcance, busqueda] as const,
+    /** Los contadores de los chips de temperatura. Bajo `leads`: cualquier cambio de un lead los refresca. */
+    porEstado: (uid: Uid, rol: string, alcance: Alcance, busqueda: string) =>
+      ['leads', 'por-estado', uid, rol, alcance, busqueda] as const,
     delDia: (uid: Uid, alcance: Alcance) => ['leads', 'del-dia', uid, alcance] as const,
     contactadosHoy: (uid: Uid, alcance: Alcance) =>
       ['leads', 'contactados-hoy', uid, alcance] as const,

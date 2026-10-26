@@ -120,6 +120,9 @@ function useCambiarEstadoVisita(
       // Fuera del `if`: una visita que sale de REALIZADA también mueve las
       // actividades verdes, no sólo la que entra.
       queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })
+      // Cancelar o marcar realizada mueve los contadores de visitas por estado
+      // y la próxima visita de las métricas de la ficha.
+      queryClient.invalidateQueries({ queryKey: claves.lead.raiz })
 
       // Marcar realizada inserta una interacción llamando a la API directo, sin
       // pasar por `useCrearInteraccion`, así que hay que repetir acá lo que ese
@@ -127,7 +130,6 @@ function useCambiarEstadoVisita(
       // fechas de contacto—, el listado y los conteos por lead.
       if (estado === 'REALIZADA') {
         queryClient.invalidateQueries({ queryKey: claves.interacciones.raiz })
-        queryClient.invalidateQueries({ queryKey: claves.lead.raiz })
         queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
         queryClient.invalidateQueries({ queryKey: claves.interaccionesPorLead.raiz })
       }
@@ -159,6 +161,8 @@ export function useCrearVisita() {
     onSuccess: (creada) => {
       queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
+      // Las métricas de la ficha cuentan visitas por estado y la próxima agendada.
+      queryClient.invalidateQueries({ queryKey: claves.lead.raiz })
       sincronizarConGoogle({ tipo: 'visita', accion: 'crear', registro_id: creada.id })
     },
   })
@@ -174,6 +178,7 @@ export function useEliminarVisita() {
     onSuccess: (googleEventId, id) => {
       queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.lead.raiz })
       if (googleEventId) {
         sincronizarConGoogle({
           tipo: 'visita',

@@ -161,6 +161,12 @@ export const claves = {
   lead: {
     raiz: ['lead'] as const,
     detalle: (uid: Uid, id: string) => ['lead', uid, id] as const,
+    /**
+     * Las minimétricas de la ficha. Colgada de `detalle` a propósito: toda
+     * mutación que ya invalida la ficha (interacciones, estado, asignación)
+     * invalida esto también.
+     */
+    metricas: (uid: Uid, id: string) => ['lead', uid, id, 'metricas'] as const,
   },
 
   leadResumido: {

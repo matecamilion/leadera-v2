@@ -12,6 +12,7 @@ import {
   IconoTelefono,
 } from './Iconos'
 import { AsignadoA } from './AsignadoA'
+import { TarjetasMetricasLead } from './TarjetasMetricasLead'
 import { SeccionConsultaLead } from './ConsultaDelLead'
 import { ICONOS } from './iconosInteraccion'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
@@ -104,20 +105,25 @@ export function ResumenLead({
     // `min-w-0` en las dos zonas: hijas de un grid, su `min-width` es `auto`
     // y en un teléfono se plantaban en el ancho de su contenido en vez de
     // ajustarse a la columna.
-    <div className="grid gap-4 lg:grid-cols-3 lg:items-start [&>*]:min-w-0">
-      <ColumnaIdentidad
-        lead={lead}
-        leadId={leadId}
-        onEditarContacto={onEditarContacto}
-      />
+    <>
+      {/* Cómo viene el lead, de un vistazo: a ancho completo, sobre la grilla. */}
+      <TarjetasMetricasLead lead={lead} />
 
-      <div className="space-y-4 lg:col-span-2">
-        <PanelInteracciones leadId={leadId} onIrATab={onIrATab} />
-        <PanelTareas leadId={leadId} onIrATab={onIrATab} />
-        <PanelPropiedades leadId={leadId} onIrATab={onIrATab} />
-        <PanelOperaciones leadId={leadId} onIrATab={onIrATab} />
+      <div className="grid gap-4 lg:grid-cols-3 lg:items-start [&>*]:min-w-0">
+        <ColumnaIdentidad
+          lead={lead}
+          leadId={leadId}
+          onEditarContacto={onEditarContacto}
+        />
+
+        <div className="space-y-4 lg:col-span-2">
+          <PanelInteracciones leadId={leadId} onIrATab={onIrATab} />
+          <PanelTareas leadId={leadId} onIrATab={onIrATab} />
+          <PanelPropiedades leadId={leadId} onIrATab={onIrATab} />
+          <PanelOperaciones leadId={leadId} onIrATab={onIrATab} />
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

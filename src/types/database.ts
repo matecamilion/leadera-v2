@@ -1815,6 +1815,22 @@ export type Database = {
           tipo: string
         }[]
       }
+      metricas_lead: {
+        Args: { p_lead_id: string }
+        Returns: {
+          contactos_reales: number
+          emails: number
+          interacciones_total: number
+          llamadas: number
+          proxima_visita_fecha: string | null
+          proxima_visita_hora: string | null
+          reuniones: number
+          visitas_agendadas: number
+          visitas_canceladas: number
+          visitas_realizadas: number
+          whatsapps: number
+        }[]
+      }
       metricas_semanales: {
         Args: { p_agente_id: string; p_desde: string; p_hasta: string }
         Returns: {

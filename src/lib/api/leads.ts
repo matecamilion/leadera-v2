@@ -564,6 +564,26 @@ export async function actualizarEstado(
   return data
 }
 
+/** Las minimétricas de un lead, tal como las devuelve `metricas_lead`. */
+export type MetricasLead = Database['public']['Functions']['metricas_lead']['Returns'][number]
+
+/**
+ * Cómo viene un lead: interacciones por tipo, contactos reales y visitas por
+ * estado, en un solo viaje.
+ *
+ * La función es SECURITY DEFINER y verifica el acceso al lead con la misma regla
+ * que `leads_select`: cuenta también las visitas que el usuario no podría leer
+ * con un select común (las de otro asistente del mismo agente), así que dos
+ * usuarios que ven el lead ven los mismos números. Sin acceso, devuelve cero
+ * filas y esto devuelve `null`.
+ */
+export async function obtenerMetricasLead(leadId: string): Promise<MetricasLead | null> {
+  const { data, error } = await supabase.rpc('metricas_lead', { p_lead_id: leadId })
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las métricas del lead.'))
+  return data?.[0] ?? null
+}
+
 /**
  * Pasa un lead a otro miembro (`asignado_a`). `agente_id` no se toca.
  *

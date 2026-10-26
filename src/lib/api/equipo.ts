@@ -73,19 +73,20 @@ export async function listarEquipo(rol: RolAgente, miId: string): Promise<Miembr
   const perfiles = (data ?? []) as FilaProfile[]
   if (perfiles.length === 0) return []
 
-  // Los conteos de leads salen de una sola lectura: traer `agente_id` de la
-  // cartera viva y agrupar en memoria. Es una consulta en vez de una por
-  // persona, y para el tamaño de un equipo el costo es despreciable.
+  // Los conteos de leads salen de una sola lectura: traer `asignado_a` de la
+  // cartera viva y agrupar en memoria. Es por quién lo trabaja, no de quién es
+  // la cartera. Es una consulta en vez de una por persona, y para el tamaño de
+  // un equipo el costo es despreciable.
   const { data: leads, error: errorLeads } = await supabase
     .from('leads')
-    .select('agente_id')
+    .select('asignado_a')
     .or(`estado.is.null,estado.in.(${ESTADOS_ACTIVOS.join(',')})`)
 
   if (errorLeads) throw new Error(interpretarErrorSupabase(errorLeads, 'No se pudo contar los leads.'))
 
   const porAgente = new Map<string, number>()
   for (const lead of leads ?? []) {
-    if (lead.agente_id) porAgente.set(lead.agente_id, (porAgente.get(lead.agente_id) ?? 0) + 1)
+    porAgente.set(lead.asignado_a, (porAgente.get(lead.asignado_a) ?? 0) + 1)
   }
 
   // Para resolver "asiste a" hace falta el nombre del asistido, que puede no
@@ -199,7 +200,7 @@ export async function obtenerStatsEquipo(): Promise<StatsEquipo> {
     supabase.from('profiles').select('id, nombre, apellido, rol').order('nombre'),
     supabase
       .from('leads')
-      .select('agente_id, estado, fecha_ingreso, fecha_primer_contacto_real'),
+      .select('asignado_a, estado, fecha_ingreso, fecha_primer_contacto_real'),
     supabase
       .from('operaciones')
       .select('agente_id, estado, fecha_cierre')
@@ -227,7 +228,7 @@ export async function obtenerStatsEquipo(): Promise<StatsEquipo> {
   }
 
   for (const lead of leads.data ?? []) {
-    const destinos = lead.agente_id ? [totales, dame(lead.agente_id)] : [totales]
+    const destinos = [totales, dame(lead.asignado_a)]
 
     const esActivo = lead.estado == null || ESTADOS_ACTIVOS.includes(lead.estado)
     const esDelMes = lead.fecha_ingreso >= inicioMes && lead.fecha_ingreso < finMes
@@ -269,6 +270,8 @@ export async function obtenerStatsEquipo(): Promise<StatsEquipo> {
 
 export interface LeadDelEquipo extends Lead {
   agente: { nombre: string; apellido: string } | null
+  /** Quién trabaja el lead. */
+  asignado: { nombre: string; apellido: string } | null
 }
 
 export interface LeadsEquipoResult {
@@ -277,7 +280,7 @@ export interface LeadsEquipoResult {
 }
 
 /**
- * Todos los leads de la inmobiliaria, con el agente asignado.
+ * Todos los leads de la inmobiliaria, con el agente de la cartera y quién lo trabaja.
  *
  * Sólo tiene sentido para un DUENO —la pantalla no muestra la tab a nadie
  * más—, pero la barrera real es RLS: un agente que llame a esto igual recibe
@@ -291,7 +294,10 @@ export async function listarLeadsDelEquipo(
 
   const { data, error, count } = await supabase
     .from('leads')
-    .select('*, agente:profiles!leads_agente_id_fkey(nombre, apellido)', { count: 'exact' })
+    .select(
+      '*, agente:profiles!leads_agente_id_fkey(nombre, apellido), asignado:profiles!leads_asignado_a_fkey(nombre, apellido)',
+      { count: 'exact' },
+    )
     .order('fecha_ingreso', { ascending: false })
     .range(desde, desde + pageSize - 1)
 

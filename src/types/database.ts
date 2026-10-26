@@ -697,6 +697,7 @@ export type Database = {
         Row: {
           agente_id: string | null
           apellido: string | null
+          asignado_a: string
           created_at: string
           descripcion_inicial: string | null
           email: string | null
@@ -715,6 +716,7 @@ export type Database = {
         Insert: {
           agente_id?: string | null
           apellido?: string | null
+          asignado_a: string
           created_at?: string
           descripcion_inicial?: string | null
           email?: string | null
@@ -733,6 +735,7 @@ export type Database = {
         Update: {
           agente_id?: string | null
           apellido?: string | null
+          asignado_a?: string
           created_at?: string
           descripcion_inicial?: string | null
           email?: string | null
@@ -752,6 +755,13 @@ export type Database = {
           {
             foreignKeyName: "leads_agente_id_fkey"
             columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_asignado_a_fkey"
+            columns: ["asignado_a"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1786,6 +1796,25 @@ export type Database = {
           tipo: string
         }[]
       }
+      filas_gestion_agente: {
+        Args: { p_agente_id: string; p_periodo: string; p_referencia: string }
+        Returns: {
+          categoria: string
+          dia: string
+          es_nuevo_contacto: boolean
+          es_prebuying: boolean
+          es_prelisting: boolean
+          es_verde: boolean
+          fuente: string
+          hora: string
+          id: string
+          lead_id: string
+          momento: string
+          origen: string
+          propiedad_id: string
+          tipo: string
+        }[]
+      }
       metricas_semanales: {
         Args: { p_agente_id: string; p_desde: string; p_hasta: string }
         Returns: {
@@ -1891,6 +1920,19 @@ export type Database = {
       }
       resumen_gestion: {
         Args: { p_periodo?: string; p_referencia?: string }
+        Returns: {
+          dia_actual: number
+          dias_totales: number
+          nuevos_contactos: number
+          periodo_fin: string
+          periodo_inicio: string
+          prebuyings: number
+          prelistings: number
+          verdes: number
+        }[]
+      }
+      resumen_gestion_agente: {
+        Args: { p_agente_id: string; p_periodo?: string; p_referencia?: string }
         Returns: {
           dia_actual: number
           dias_totales: number

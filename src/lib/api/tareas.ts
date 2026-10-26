@@ -100,7 +100,7 @@ export async function listarSeguimientosComoEventos(
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, apellido, telefono, estado, fecha_proximo_seguimiento')
-    .eq('agente_id', userData.user.id)
+    .eq('asignado_a', userData.user.id)
     .not('fecha_proximo_seguimiento', 'is', null)
     .gte('fecha_proximo_seguimiento', inicio.toISOString())
     .lt('fecha_proximo_seguimiento', fin.toISOString())

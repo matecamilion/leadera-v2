@@ -420,6 +420,9 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
     .insert({
       inmobiliaria_id: perfil.inmobiliaria_id,
       agente_id: perfil.id,
+      // Hoy quien lo carga es también quien lo trabaja. Cuando `agente_id` pase a
+      // ser siempre el agente dueño de la cartera, esto sigue siendo el que carga.
+      asignado_a: perfil.id,
       nombre: input.nombre.trim(),
       apellido: input.apellido.trim(),
       telefono: input.telefono.trim(),

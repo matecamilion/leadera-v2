@@ -78,18 +78,32 @@ function contar(promesa: { count: number | null; error: unknown }): number {
 }
 
 /**
- * Métricas personales del agente logueado.
+ * Con qué columna de `leads` se arman las cifras personales.
  *
- * TODO lo de acá va filtrado por `agente_id = usuario actual`, incluso si el
- * usuario es DUEÑO: esta pantalla es "mi perfil", no el panel de la
- * inmobiliaria. RLS ya acota a la inmobiliaria; el filtro por agente es lo
- * que hace que las cifras sean personales.
+ * Dueño y agente miden su cartera (`agente_id`). Un asistente no tiene cartera
+ * propia: mide los leads que trabaja (`asignado_a`).
+ */
+async function columnaDeLeads(usuarioId: string): Promise<'agente_id' | 'asignado_a'> {
+  const { data, error } = await supabase.from('profiles').select('rol').eq('id', usuarioId).single()
+  if (error || !data) throw new Error('No encontramos tu perfil.')
+  return data.rol === 'ASISTENTE' ? 'asignado_a' : 'agente_id'
+}
+
+/**
+ * Métricas personales del usuario logueado.
+ *
+ * TODO lo de acá va filtrado por el usuario actual, incluso si es DUEÑO: esta
+ * pantalla es "mi perfil", no el panel de la inmobiliaria. RLS ya acota a la
+ * inmobiliaria; el filtro es lo que hace que las cifras sean personales. Los
+ * leads van por `columnaDeLeads` (cartera o asignación según el rol); el resto
+ * de las tablas, por `agente_id`.
  */
 export async function obtenerMetricasPerfil(): Promise<MetricasPerfil> {
   const { data: userData, error: errorUser } = await supabase.auth.getUser()
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
   const agenteId = userData.user.id
+  const columnaLeads = await columnaDeLeads(agenteId)
   const { inicio: inicioMes, fin: finMes } = limitesDelMes()
 
   const hace7Dias = new Date()
@@ -98,7 +112,7 @@ export async function obtenerMetricasPerfil(): Promise<MetricasPerfil> {
   const corteSinMovimiento = new Date()
   corteSinMovimiento.setDate(corteSinMovimiento.getDate() - DIAS_SIN_MOVIMIENTO)
 
-  const leadsDelAgente = () => supabase.from('leads').select('id', { count: 'exact', head: true }).eq('agente_id', agenteId)
+  const leadsDelAgente = () => supabase.from('leads').select('id', { count: 'exact', head: true }).eq(columnaLeads, agenteId)
 
   const [
     activos,
@@ -163,10 +177,10 @@ export async function obtenerMetricasPerfil(): Promise<MetricasPerfil> {
     supabase
       .from('leads')
       .select('fecha_ingreso, fecha_primer_contacto_real')
-      .eq('agente_id', agenteId)
+      .eq(columnaLeads, agenteId)
       .not('fecha_primer_contacto_real', 'is', null),
 
-    supabase.from('leads').select('origen').eq('agente_id', agenteId),
+    supabase.from('leads').select('origen').eq(columnaLeads, agenteId),
 
     supabase
       .from('operaciones')
@@ -366,19 +380,20 @@ export async function obtenerEmbudo(): Promise<Embudo> {
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
   const agenteId = userData.user.id
+  const columnaLeads = await columnaDeLeads(agenteId)
 
   const [contactados, calificados, conVisita, conOferta, cerradas] =
     await Promise.all([
       supabase
         .from('leads')
         .select('id', { count: 'exact', head: true })
-        .eq('agente_id', agenteId)
+        .eq(columnaLeads, agenteId)
         .not('fecha_primer_contacto_real', 'is', null),
 
       supabase
         .from('leads')
         .select('id', { count: 'exact', head: true })
-        .eq('agente_id', agenteId)
+        .eq(columnaLeads, agenteId)
         .not('estado', 'is', null),
 
       supabase

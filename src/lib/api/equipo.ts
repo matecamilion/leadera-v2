@@ -331,7 +331,7 @@ export interface CupoEquipo {
 }
 
 /**
- * Cuántos lugares del plan están ocupados.
+ * Cuántos lugares del plan están ocupados. Un miembro inactivo no ocupa lugar.
  *
  * Las dos lecturas filtran por la inmobiliaria en vez de confiar en la RLS: el
  * superadmin ve todas las inmobiliarias y todos los profiles, así que sin
@@ -344,7 +344,8 @@ export async function obtenerCupo(inmobiliariaId: string): Promise<CupoEquipo> {
     supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
-      .eq('inmobiliaria_id', inmobiliariaId),
+      .eq('inmobiliaria_id', inmobiliariaId)
+      .eq('activo', true),
   ])
 
   if (conteo.error) throw new Error(interpretarErrorSupabase(conteo.error, 'No se pudo leer el cupo.'))

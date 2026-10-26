@@ -5,12 +5,20 @@
  * hacerlo, y sólo sobre gente de su propia inmobiliaria.
  *
  * Desactivar no borra nada: banea al usuario en Auth (no puede volver a
- * loguearse ni refrescar su sesión) y baja `profiles.activo`. Reactivar
- * levanta el baneo y vuelve a subir la bandera.
+ * loguearse ni refrescar su sesión) y baja `profiles.activo`. Un miembro
+ * desactivado no ocupa lugar del plan. Reactivar levanta el baneo y vuelve a
+ * subir la bandera, y por eso primero verifica que haya lugar.
  */
 import { preflight } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/http.ts'
-import { adminClient, bearerToken, type PerfilBasico } from '../_shared/supabase.ts'
+import {
+  adminClient,
+  bearerToken,
+  hayCupo,
+  mensajeSinCupo,
+  type PerfilBasico,
+  type RolAgente,
+} from '../_shared/supabase.ts'
 
 /**
  * Duración del baneo al desactivar.
@@ -23,6 +31,10 @@ import { adminClient, bearerToken, type PerfilBasico } from '../_shared/supabase
 const BANEO_LARGO = '876000h'
 const SIN_BANEO = 'none'
 
+/** Lo muestra la UI tal cual; no menciona el tope concreto que se chocó. */
+const MENSAJE_SIN_LUGAR_PARA_REACTIVAR =
+  'No hay lugar en tu plan para reactivar a esta persona. Desactivá a otro miembro o ampliá el plan.'
+
 interface ToggleInput {
   profileId?: unknown
   activo?: unknown
@@ -30,7 +42,8 @@ interface ToggleInput {
 
 interface PerfilObjetivo {
   id: string
-  rol: string
+  rol: RolAgente
+  asiste_a: string | null
   nombre: string
   apellido: string
   inmobiliaria_id: string
@@ -97,7 +110,7 @@ Deno.serve(async (req) => {
     // --- 4. El objetivo: existe, es de la misma inmobiliaria, no es DUENO -
     const { data: objetivo } = await admin
       .from('profiles')
-      .select('id, rol, nombre, apellido, inmobiliaria_id, activo')
+      .select('id, rol, asiste_a, nombre, apellido, inmobiliaria_id, activo')
       .eq('id', profileId)
       .maybeSingle<PerfilObjetivo>()
 
@@ -121,7 +134,30 @@ Deno.serve(async (req) => {
       )
     }
 
-    // --- 5. Banear/desbanear en Auth y actualizar el profile -------------
+    // --- 5. Reactivar necesita lugar --------------------------------------
+    // Antes de tocar Auth: si no hay lugar, el miembro sigue baneado. Desactivar
+    // no valida nada, y reactivar a quien ya está activo tampoco: ya ocupa su
+    // lugar y volver a contarlo lo rechazaría contra su propio puesto. Mientras
+    // está inactivo no cuenta, así que `hayCupo` responde la misma pregunta que
+    // en una invitación: ¿entra uno más con este rol y este `asiste_a`?
+    if (activo && !objetivo.activo) {
+      const cupo = await hayCupo(admin, objetivo.inmobiliaria_id, {
+        rol: objetivo.rol,
+        asisteA: objetivo.asiste_a,
+      })
+      if (!cupo.ok) {
+        return errorResponse(
+          req,
+          cupo.motivo === 'SIN_AGENTE'
+            ? mensajeSinCupo(cupo, 'propia')
+            : MENSAJE_SIN_LUGAR_PARA_REACTIVAR,
+          409,
+          'SIN_CUPO',
+        )
+      }
+    }
+
+    // --- 6. Banear/desbanear en Auth y actualizar el profile -------------
     // Primero Auth: si falla, `activo` no queda mintiendo sobre un usuario que
     // en realidad sí puede entrar.
     const { error: authError } = await admin.auth.admin.updateUserById(objetivo.id, {

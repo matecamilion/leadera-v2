@@ -59,6 +59,8 @@ export default function Equipo() {
   const sinCupo =
     cupo.data?.limite != null && cupo.data.usados >= cupo.data.limite
 
+  const hayInactivos = (miembros.data ?? []).some((m) => !m.activo)
+
   const TABS: { valor: Tab; label: string }[] = [
     { valor: 'miembros', label: 'Miembros' },
     { valor: 'stats', label: 'Estadísticas' },
@@ -102,7 +104,14 @@ export default function Equipo() {
         </div>
 
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-end">
-          {cupo.data && <IndicadorCupo cupo={cupo.data} />}
+          {cupo.data && (
+            <div>
+              <IndicadorCupo cupo={cupo.data} />
+              {hayInactivos && (
+                <p className="mt-1 text-[0.75rem] text-ink-3">Los miembros inactivos no ocupan lugar.</p>
+              )}
+            </div>
+          )}
 
           <button
             type="button"

@@ -1,4 +1,12 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import {
+  type AltaCupo,
+  evaluarCupo,
+  type MiembroCupo,
+  type ResultadoCupo,
+  type RolAgente,
+  type TopesCupo,
+} from './cupo.ts'
 
 /**
  * Cliente admin (service role). Bypassea RLS: se usa para crear usuarios,
@@ -39,7 +47,12 @@ export function bearerToken(req: Request): string | null {
   return match ? match[1].trim() : null
 }
 
-export type RolAgente = 'DUENO' | 'AGENTE' | 'ASISTENTE'
+export type {
+  AltaCupo,
+  MotivoSinCupo,
+  ResultadoCupo,
+  RolAgente,
+} from './cupo.ts'
 
 export interface PerfilBasico {
   id: string
@@ -47,57 +60,11 @@ export interface PerfilBasico {
   inmobiliaria_id: string
 }
 
-/** Por qué no entra un usuario más. Ausente cuando sí entra. */
-export type MotivoSinCupo =
-  | 'TECHO_TOTAL'
-  | 'TOPE_AGENTES'
-  | 'TOPE_ASISTENTES'
-  | 'SIN_AGENTE'
-
-/**
- * El alta que se está por hacer.
- *
- * Sin esto no se puede chequear nada por rol, así que `hayCupo` cae al techo
- * total y nada más.
- */
-export interface AltaCupo {
-  rol: RolAgente
-  /** A qué agente asiste. Obligatorio cuando `rol` es ASISTENTE. */
-  asisteA?: string | null
-}
-
-export interface ResultadoCupo {
-  ok: boolean
-  /** Profiles que ya tiene la inmobiliaria, sin filtrar por rol ni por activo. */
-  usados: number
-  /** Techo total vigente. NULL = sin tope. */
-  limite: number | null
-  motivo?: MotivoSinCupo
-  /** El tope concreto contra el que se chocó, para poder nombrarlo en el mensaje. */
-  tope?: number
-}
-
-interface CupoDelPlan {
-  limiteUsuarios: number | null
-  maxAgentes: number | null
-  maxAsistentesPorAgente: number | null
-}
-
-interface FilaProfileCupo {
-  rol: RolAgente
-  asiste_a: string | null
-}
-
 /**
  * Cupo de la inmobiliaria: ¿entra un usuario más, con este rol?
  *
- * Son tres topes, todos de `planes_cupo`, y cada uno se saltea si su valor es
- * NULL ("sin tope"):
- *   - `limite_usuarios`           → techo total de profiles del plan
- *   - `max_agentes`               → cuántos DUENO + AGENTE admite. El dueño
- *     cuenta como agente: en SOLO, `max_agentes = 1` es él y no entra ninguno más.
- *   - `max_asistentes_por_agente` → cuántos ASISTENTE puede tener CADA agente,
- *     contados por `asiste_a`. No es un total de asistentes de la inmobiliaria.
+ * Lee la base y delega la decisión en `evaluarCupo` (`cupo.ts`), que tiene la
+ * descripción de los tres topes y es la que se testea.
  *
  * El techo total sale de `planes_cupo` y NO de `inmobiliarias.limite_usuarios`
  * a propósito. Esa columna es una copia que escriben el webhook de Mercado Pago
@@ -108,14 +75,12 @@ interface FilaProfileCupo {
  * ese ruido. La columna queda como fallback para las cuentas sin plan, que es
  * exactamente el comportamiento que había antes de los topes por rol.
  *
- * El conteo NO filtra por `activo`: un miembro desactivado sigue ocupando un
- * lugar del plan, y eso es a propósito, no un filtro que se olvidó. Desactivar
- * no borra a nadie —`toggle-activo-miembro` banea en Auth y baja la bandera,
- * pero el profile y toda su cartera siguen ahí— así que el lugar sigue tomado.
- * Si no contaran, una inmobiliaria podría desactivar y sumar gente sin techo,
- * reactivando a los viejos cuando le conviene, y el límite del plan no
- * limitaría nada. Para liberar el lugar hay que borrar al miembro, no
- * desactivarlo.
+ * El conteo SÓLO mira miembros activos: un miembro desactivado no ocupa lugar.
+ * Desactivar no borra a nadie —`toggle-activo-miembro` banea en Auth y baja la
+ * bandera, pero el profile y toda su cartera siguen ahí— y por eso volver a
+ * activarlo vuelve a pedir lugar: `toggle-activo-miembro` llama a esta función
+ * con el rol y el `asiste_a` del miembro antes de desbanearlo. Sin esa
+ * validación, alternar activo/inactivo permitiría superar el plan.
  */
 export async function hayCupo(
   admin: SupabaseClient,
@@ -134,7 +99,7 @@ export async function hayCupo(
         .single<{ plan: string | null; limite_usuarios: number | null }>(),
       admin
         .from('profiles')
-        .select('rol, asiste_a')
+        .select('rol, asiste_a, activo')
         .eq('inmobiliaria_id', inmobiliariaId),
     ])
 
@@ -143,63 +108,9 @@ export async function hayCupo(
     throw new Error('No se pudo contar los usuarios de la inmobiliaria')
   }
 
-  const equipo = perfiles as FilaProfileCupo[]
-  const usados = equipo.length
+  const topes = await cupoDelPlan(admin, inmobiliaria.plan)
 
-  const cupoPlan = await cupoDelPlan(admin, inmobiliaria.plan)
-
-  // Sin plan, o con un plan que no tiene fila en `planes_cupo`: se cae al
-  // comportamiento de antes, que sólo conoce un número total.
-  if (!cupoPlan) {
-    const limite = inmobiliaria.limite_usuarios
-    if (limite === null) return { ok: true, usados, limite: null }
-    if (usados < limite) return { ok: true, usados, limite }
-    return { ok: false, usados, limite, motivo: 'TECHO_TOTAL', tope: limite }
-  }
-
-  const limite = cupoPlan.limiteUsuarios
-
-  // Los topes por rol van ANTES del techo total, y el orden se nota: una cuenta
-  // SOLO con el dueño y sus dos asistentes choca los dos a la vez (3 de 3
-  // usuarios, y 2 de 2 asistentes del dueño). Decirle "ese agente ya tiene 2
-  // asistentes" le explica qué pasó; decirle "3 de 3 usuarios" la deja
-  // buscando cuál de los tres sobra. Gana el tope más específico.
-  if (alta?.rol === 'AGENTE' && cupoPlan.maxAgentes !== null) {
-    const agentes = equipo.filter((p) => p.rol === 'DUENO' || p.rol === 'AGENTE').length
-    if (agentes >= cupoPlan.maxAgentes) {
-      return { ok: false, usados, limite, motivo: 'TOPE_AGENTES', tope: cupoPlan.maxAgentes }
-    }
-  }
-
-  if (alta?.rol === 'ASISTENTE') {
-    const asisteA = alta.asisteA ?? null
-
-    // Un asistente sin agente no es un problema de cupo sino de datos: no se
-    // puede contar contra ningún tope, y dejarlo entrar rompería el conteo de
-    // todos los demás. Se corta incluso en los planes sin tope.
-    if (!asisteA) return { ok: false, usados, limite, motivo: 'SIN_AGENTE' }
-
-    if (cupoPlan.maxAsistentesPorAgente !== null) {
-      const asistentes = equipo.filter(
-        (p) => p.rol === 'ASISTENTE' && p.asiste_a === asisteA,
-      ).length
-      if (asistentes >= cupoPlan.maxAsistentesPorAgente) {
-        return {
-          ok: false,
-          usados,
-          limite,
-          motivo: 'TOPE_ASISTENTES',
-          tope: cupoPlan.maxAsistentesPorAgente,
-        }
-      }
-    }
-  }
-
-  if (limite !== null && usados >= limite) {
-    return { ok: false, usados, limite, motivo: 'TECHO_TOTAL', tope: limite }
-  }
-
-  return { ok: true, usados, limite }
+  return evaluarCupo(perfiles as MiembroCupo[], topes, inmobiliaria.limite_usuarios, alta)
 }
 
 /**
@@ -260,7 +171,7 @@ function plural(n: number, uno: string, varios: string): string {
 async function cupoDelPlan(
   admin: SupabaseClient,
   plan: string | null,
-): Promise<CupoDelPlan | null> {
+): Promise<TopesCupo | null> {
   if (!plan) return null
 
   const { data, error } = await admin

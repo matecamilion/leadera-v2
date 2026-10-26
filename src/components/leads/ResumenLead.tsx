@@ -10,8 +10,8 @@ import {
   IconoMail,
   IconoReloj,
   IconoTelefono,
-  IconoUsuarios,
 } from './Iconos'
+import { AsignadoA } from './AsignadoA'
 import { SeccionConsultaLead } from './ConsultaDelLead'
 import { ICONOS } from './iconosInteraccion'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
@@ -21,7 +21,7 @@ import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { BadgeEstadoPropiedad } from '../propiedades/BadgeEstadoPropiedad'
 import { useAuth } from '../../contexts/AuthContext'
 import { useInteraccionesPorLead } from '../../hooks/useInteracciones'
-import { useActualizarDescripcion, useNombreAgente } from '../../hooks/useLead'
+import { useActualizarDescripcion } from '../../hooks/useLead'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
 import { useBusquedasDeLead } from '../../hooks/useOperaciones'
 import { usePropiedadesPorLead } from '../../hooks/usePropiedades'
@@ -136,8 +136,6 @@ function ColumnaIdentidad({
 }) {
   const busquedas = useBusquedasDeLead(leadId)
   const visitas = useVisitasDeLead(leadId)
-  const agente = useNombreAgente(lead.agente_id)
-
   const filas = busquedas.data ?? []
   // La sección aparece si hay algo que decir: búsquedas, o el estado de la
   // consulta. Con la consulta resuelta y sin filas no se muestra nada, mismo
@@ -203,14 +201,9 @@ function ColumnaIdentidad({
             Desde {formatearFecha(lead.fecha_ingreso)}
           </span>
 
-          {/* Sin agente asignado, o si el perfil no se pudo leer, no se muestra
-              la fila: mismo criterio de ocultar-si-no-hay que el resto. */}
-          {agente.data && (
-            <span className="flex min-w-0 items-center gap-1.5 text-[0.82rem] text-ink-3">
-              <IconoUsuarios className="size-4 shrink-0" />
-              <span className="truncate">Asignado a {agente.data}</span>
-            </span>
-          )}
+          {/* Quién lo lleva (`asignado_a`), con selector para dueño y agente.
+              Sin nombre y sin a quién reasignar, la fila no se muestra. */}
+          <AsignadoA lead={lead} />
 
           {cantidadVisitas > 0 && (
             <span className="flex items-center gap-1.5 text-[0.82rem] text-ink-3">

@@ -1,5 +1,11 @@
 import { Link } from 'react-router-dom'
-import { etiquetaOrigen, type Lead, type ResumenOperaciones } from '../../lib/api/leads'
+import {
+  etiquetaOrigen,
+  type Lead,
+  type LeadConAsignado,
+  type ResumenOperaciones,
+} from '../../lib/api/leads'
+import { nombreAsignado } from '../../lib/opcionesAsignacion'
 import { esVencido, formatearFecha, tiempoTranscurrido } from '../../lib/formatoFecha'
 import { AccionesContacto } from '../comunes/AccionesContacto'
 import type { RolLead } from '../../lib/api/rolLead'
@@ -8,7 +14,9 @@ import { BadgeRol } from './BadgeRol'
 import { IconoTacho } from './Iconos'
 
 interface LeadsCardsProps {
-  leads: Lead[]
+  leads: LeadConAsignado[]
+  /** "Asignado a": solo tiene sentido si la cuenta tiene asistentes. */
+  mostrarAsignado?: boolean
   operaciones: (leadId: string) => ResumenOperaciones
   interacciones: (leadId: string) => { cantidad: number; ultimoDetalle: string | null }
   rol: (leadId: string) => RolLead | null
@@ -20,6 +28,7 @@ interface LeadsCardsProps {
 /** Mismo contenido que la tabla, en tarjetas. Se usa por debajo de `md`. */
 export function LeadsCards({
   leads,
+  mostrarAsignado = false,
   operaciones,
   interacciones,
   rol,
@@ -83,6 +92,12 @@ export function LeadsCards({
               </span>
               {' · '}
               {lead.fecha_ultimo_contacto_real ? `Contacto: ${contacto}` : contacto}
+              {mostrarAsignado && nombreAsignado(lead.asignado) && (
+                <>
+                  {' · '}
+                  <span className="whitespace-nowrap">Asignado a {nombreAsignado(lead.asignado)}</span>
+                </>
+              )}
               {lead.fecha_proximo_seguimiento && (
                 <>
                   {' · '}

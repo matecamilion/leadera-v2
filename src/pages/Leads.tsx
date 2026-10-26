@@ -463,6 +463,7 @@ export default function Leads() {
           <div className="hidden rounded-[16px] border border-border bg-surface p-5 md:block">
             <LeadsTabla
               leads={leads}
+              mostrarAsignado={verChipMios}
               ultimaInteraccion={(id) => interacciones(id).ultimoDetalle}
               rol={roles}
               onRegistrar={setLeadARegistrar}
@@ -473,6 +474,7 @@ export default function Leads() {
           <div className="md:hidden">
             <LeadsCards
               leads={leads}
+              mostrarAsignado={verChipMios}
               operaciones={operaciones}
               interacciones={interacciones}
               rol={roles}

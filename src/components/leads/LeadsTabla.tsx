@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { etiquetaOrigen, type Lead } from '../../lib/api/leads'
+import { etiquetaOrigen, type Lead, type LeadConAsignado } from '../../lib/api/leads'
+import { nombreAsignado } from '../../lib/opcionesAsignacion'
 import { esVencido, formatearFecha, tiempoTranscurrido } from '../../lib/formatoFecha'
 import { AccionesContacto } from '../comunes/AccionesContacto'
 import type { RolLead } from '../../lib/api/rolLead'
@@ -8,7 +9,9 @@ import { BadgeRol } from './BadgeRol'
 import { IconoTacho } from './Iconos'
 
 interface LeadsTablaProps {
-  leads: Lead[]
+  leads: LeadConAsignado[]
+  /** La columna "Asignado a": solo tiene sentido si la cuenta tiene asistentes. */
+  mostrarAsignado?: boolean
   /** Detalle de la última interacción del lead, o null. */
   ultimaInteraccion: (leadId: string) => string | null
   /** Comprador / vendedor inferido, o null sin señal. */
@@ -26,10 +29,20 @@ const COLUMNAS = [
   'Próx. seguimiento',
   'Acciones',
 ]
+const COLUMNAS_CON_ASIGNADO = [
+  'Lead',
+  'Temperatura',
+  'Origen',
+  'Asignado a',
+  'Último contacto',
+  'Próx. seguimiento',
+  'Acciones',
+]
 
 /** Listado en tabla. Visible de `md` para arriba; abajo va LeadsCards. */
 export function LeadsTabla({
   leads,
+  mostrarAsignado = false,
   ultimaInteraccion,
   rol,
   onRegistrar,
@@ -46,19 +59,35 @@ export function LeadsTabla({
     // encoge, así que el contenido se salía de la celda—; ahora 26% de 68rem
     // da 283px y entra entero. Lo que cedió es la columna Lead, que trunca.
     <div className="overflow-x-auto">
-    <table className="w-full min-w-[68rem] table-fixed border-collapse text-[0.88rem]">
+    <table
+      className={`w-full table-fixed border-collapse text-[0.88rem] ${mostrarAsignado ? 'min-w-[76rem]' : 'min-w-[68rem]'}`}
+    >
       <colgroup>
-        <col className="w-[26%]" />
-        <col className="w-[11%]" />
-        <col className="w-[11%]" />
-        <col className="w-[13%]" />
-        <col className="w-[13%]" />
-        <col className="w-[26%]" />
+        {mostrarAsignado ? (
+          <>
+            <col className="w-[23%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+            <col className="w-[24%]" />
+          </>
+        ) : (
+          <>
+            <col className="w-[26%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[26%]" />
+          </>
+        )}
       </colgroup>
 
       <thead>
         <tr>
-          {COLUMNAS.map((c) => (
+          {(mostrarAsignado ? COLUMNAS_CON_ASIGNADO : COLUMNAS).map((c) => (
             <th
               key={c}
               scope="col"
@@ -74,7 +103,7 @@ export function LeadsTabla({
         {leads.length === 0 ? (
           <tr>
             <td
-              colSpan={6}
+              colSpan={mostrarAsignado ? 7 : 6}
               className="p-8 text-center text-[0.88rem] text-ink-3 italic"
             >
               No hay leads que coincidan con el filtro.
@@ -121,6 +150,12 @@ export function LeadsTabla({
                     {formatearFecha(lead.fecha_ingreso)}
                   </span>
                 </td>
+
+                {mostrarAsignado && (
+                  <td className="px-3.5 py-4 align-middle text-ink">
+                    <span className="block truncate">{nombreAsignado(lead.asignado) ?? '—'}</span>
+                  </td>
+                )}
 
                 <td className="px-3.5 py-4 align-middle text-ink">
                   {tiempoTranscurrido(lead.fecha_ultimo_contacto_real)}

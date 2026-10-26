@@ -29,6 +29,11 @@ import {
 } from './rolLead'
 
 export type Lead = Database['public']['Tables']['leads']['Row']
+
+/** Un lead del listado con el nombre de quien lo trabaja (`asignado_a`). */
+export type LeadConAsignado = Lead & {
+  asignado?: { nombre: string; apellido: string } | null
+}
 export type EstadoLead = Database['public']['Enums']['estado_lead']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
 
@@ -64,7 +69,7 @@ export interface ListarLeadsParams {
 }
 
 export interface ListarLeadsResult {
-  data: Lead[]
+  data: LeadConAsignado[]
   /** Total de filas que matchean el filtro, para la paginación. */
   count: number
 }
@@ -247,7 +252,12 @@ export async function listarLeads({
 
   const query = aplicarOrden(
     aplicarFiltros(
-      supabase.from('leads').select(columnasConRol('*', corteDeRol), { count: 'exact' }),
+      supabase
+        .from('leads')
+        .select(
+          columnasConRol('*, asignado:profiles!leads_asignado_a_fkey(nombre, apellido)', corteDeRol),
+          { count: 'exact' },
+        ),
       estado,
       busqueda,
       corteDelDia,
@@ -261,7 +271,7 @@ export async function listarLeads({
   const { data, error, count } = await query
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar los leads.'))
 
-  return { data: data ?? [], count: count ?? 0 }
+  return { data: (data ?? []) as unknown as LeadConAsignado[], count: count ?? 0 }
 }
 
 /**
@@ -534,6 +544,34 @@ export async function actualizarEstado(
     .maybeSingle()
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el estado.'))
+  if (!data) throw new Error('No tenés permiso para editar este lead.')
+  return data
+}
+
+/**
+ * Pasa un lead a otro miembro (`asignado_a`). `agente_id` no se toca.
+ *
+ * La regla —el nuevo asignado es el agente del lead o un asistente activo de
+ * ese agente— la hace cumplir un trigger de la base, que levanta una excepción
+ * (P0001) si no se cumple. Ese es el único `raise` que puede salir de este
+ * update de una sola columna, así que se lo traduce a un mensaje claro en vez
+ * de mostrar el texto del motor.
+ */
+export async function asignarLead(id: string, asignadoA: string): Promise<Lead> {
+  const { data, error } = await supabase
+    .from('leads')
+    .update({ asignado_a: asignadoA })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    if (error.code === 'P0001') {
+      console.error('[asignarLead]', error)
+      throw new Error('No se puede asignar a ese miembro.')
+    }
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo asignar el lead.'))
+  }
   if (!data) throw new Error('No tenés permiso para editar este lead.')
   return data
 }

@@ -3,6 +3,7 @@ import {
   actualizarContacto,
   actualizarDescripcion,
   actualizarEstado,
+  asignarLead,
   crearLead,
   eliminarLead,
   obtenerLeadPorId,
@@ -97,6 +98,29 @@ export function useActualizarEstado(id: string) {
     onSuccess: (lead) => {
       queryClient.setQueryData(claves.lead.detalle(uid, id), lead)
       invalidar(id)
+    },
+  })
+}
+
+/**
+ * Asignar un lead a otro miembro.
+ *
+ * Todo lo que cuelga de `claves.leads.raiz` se refresca: el listado y sus
+ * totales, el badge del menú, Mi día (secciones y contactados) y el conteo de
+ * asignados del asistente. Además la ficha y el equipo, que cuenta por
+ * `asignado_a`.
+ */
+export function useAsignarLead(id: string) {
+  const queryClient = useQueryClient()
+  const uid = useUid()
+  const invalidar = useInvalidarLead()
+
+  return useMutation({
+    mutationFn: (asignadoA: string) => asignarLead(id, asignadoA),
+    onSuccess: (lead) => {
+      queryClient.setQueryData(claves.lead.detalle(uid, id), lead)
+      invalidar(id)
+      queryClient.invalidateQueries({ queryKey: claves.equipo.raiz })
     },
   })
 }

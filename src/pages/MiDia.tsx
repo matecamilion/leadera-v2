@@ -5,6 +5,7 @@ import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
+import { EstadoSinAsignados } from '../components/leads/EstadoSinAsignados'
 import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
 import {
@@ -24,10 +25,11 @@ import {
 } from '../components/leads/Iconos'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { useCoincidenciasDelDia, useLeadsDelDia } from '../hooks/useDashboard'
-import { useHayLeads } from '../hooks/useLeads'
+import { useHayLeads, useTotalLeads } from '../hooks/useLeads'
 import { useModeloGestionActivo } from '../hooks/useModeloGestion'
 import { useEventosCalendario } from '../hooks/useTareas'
 import { hoyComoClave } from '../lib/calendario'
+import { sinLeadsAsignados } from '../lib/sinLeadsAsignados'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useUiStore } from '../stores/ui'
@@ -82,6 +84,20 @@ export default function MiDia() {
   const hayLeads = useHayLeads(alDia)
   const sinLeads = alDia && hayLeads.data === false
 
+  // Un asistente al día puede estarlo porque no tiene nada asignado: el pool
+  // tiene leads pero Mi día solo cuenta lo suyo. Se pregunta solo entonces, y
+  // solo a él; dueño y agente ven el pool entero.
+  const esAsistente = profile?.rol === 'ASISTENTE'
+  const asignados = useTotalLeads('', undefined, true, alDia && esAsistente)
+  const sinAsignados =
+    esAsistente &&
+    alDia &&
+    sinLeadsAsignados({
+      mios: true,
+      cantidadAsignados: asignados.data,
+      hayLeadsEnElPool: hayLeads.data,
+    })
+
   // El error va antes que el skeleton: con la query fallada `data` queda
   // undefined, y si el `!data` de abajo se evaluara primero el error no se
   // mostraría nunca.
@@ -102,7 +118,9 @@ export default function MiDia() {
   //
   // Mientras se averigua si la cuenta está vacía tampoco se dice "Estás al día"
   // ni "Empecemos": cualquiera de los dos sería un parpadeo.
-  if (isPending || !data || (alDia && hayLeads.isPending)) return <Skeleton />
+  if (isPending || !data || (alDia && hayLeads.isPending) || (alDia && esAsistente && asignados.isPending)) {
+    return <Skeleton />
+  }
 
   const { prioritarios, nuevos, seguimientos } = data
 
@@ -120,6 +138,8 @@ export default function MiDia() {
           <h1 className="m-0 text-[1.4rem] leading-tight font-bold text-balance text-ink">
             {sinLeads ? (
               <>Empecemos{profile ? `, ${profile.nombre}` : ''}</>
+            ) : sinAsignados ? (
+              <>Hola{profile ? `, ${profile.nombre}` : ''}</>
             ) : alDia ? (
               <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
             ) : (
@@ -132,7 +152,9 @@ export default function MiDia() {
           <p className="mt-0.5 text-[0.85rem] text-ink-3">
             {sinLeads
               ? 'Cargá tu primer lead y acá vas a ver tus seguimientos del día'
-              : alDia
+              : sinAsignados
+                ? 'Cuando te asignen leads, acá vas a ver tus seguimientos del día'
+                : alDia
                 ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
                 : 'Gestioná tus contactos y hacé crecer tu cartera'}
           </p>
@@ -213,7 +235,9 @@ export default function MiDia() {
 
       {/* Par 1: los dos frentes de leads que se atienden primero. Sin leads no
           hay par: la invitación ya está arriba. */}
-      {sinLeads ? null : alDia ? (
+      {sinLeads ? null : sinAsignados ? (
+        <EstadoSinAsignados a="/leads?mios=0" />
+      ) : alDia ? (
         <div className="mb-4 rounded-2xl border border-dashed border-border bg-surface px-6 py-10 text-center">
           <span
             aria-hidden

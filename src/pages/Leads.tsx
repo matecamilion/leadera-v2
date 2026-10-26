@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BuscadorLeads } from '../components/leads/BuscadorLeads'
 import { FiltrosChips, type ValorFiltro } from '../components/leads/FiltrosChips'
 import { FiltroRolChips } from '../components/leads/FiltroRolChips'
+import { EstadoSinAsignados } from '../components/leads/EstadoSinAsignados'
 import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
 import { IconoMas, IconoTabla } from '../components/leads/Iconos'
 import { LeadsCards } from '../components/leads/LeadsCards'
@@ -33,6 +34,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
 import { mostrarChipMios, parametroMios, resolverMios } from '../lib/alcanceLeads'
 import { leerPagina } from '../lib/parametrosDeUrl'
+import { sinLeadsAsignados } from '../lib/sinLeadsAsignados'
 import { claves } from '../lib/queryKeys'
 import { useUiStore } from '../stores/ui'
 
@@ -165,6 +167,13 @@ export default function Leads() {
   const hayLeads = useHayLeads(vacioSinFiltros)
   const sinLeads = vacioSinFiltros && hayLeads.data === false
   const verificandoLeads = vacioSinFiltros && hayLeads.isPending
+  // Con "Míos" y nada asignado no hay "cuenta vacía": hay un pool al que no se
+  // tiene acceso por defecto. Se dice y se ofrece apagar "Míos".
+  const sinAsignados = sinLeadsAsignados({
+    mios: mios && vacioSinFiltros,
+    cantidadAsignados: cantidad,
+    hayLeadsEnElPool: hayLeads.data,
+  })
 
   /**
    * Exporta lo que el usuario está viendo, no la base entera: van el mismo
@@ -446,6 +455,8 @@ export default function Leads() {
         />
       ) : sinLeads ? (
         <EstadoSinLeads />
+      ) : sinAsignados ? (
+        <EstadoSinAsignados onVerTodos={() => cambiarMios(false)} />
       ) : (
         <>
           {/* Desktop: la tabla va dentro de su card blanca */}

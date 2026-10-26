@@ -60,14 +60,14 @@ export function useLeads(
 }
 
 /** Total sin filtro de estado, para el contador del chip "Todos". */
-export function useTotalLeads(busqueda: string, rol?: FiltroRol, mios = false) {
+export function useTotalLeads(busqueda: string, rol?: FiltroRol, mios = false, habilitado = true) {
   const uid = useUid()
   const asignadoA = mios ? uid : undefined
   const { profile } = useAuth()
   return useQuery({
     queryKey: claves.leads.total(uid, rol ?? 'todos', mios ? 'mios' : 'todos', busqueda),
     queryFn: () => contarLeads(busqueda, rol, asignadoA),
-    enabled: !!uid && !!profile,
+    enabled: !!uid && !!profile && habilitado,
     placeholderData: anteriorDelMismoUsuario(uid),
   })
 }

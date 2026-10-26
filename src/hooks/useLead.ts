@@ -49,6 +49,9 @@ export function useCrearLead() {
   return useMutation({
     mutationFn: (input: CrearLeadInput) => crearLead(input),
     onSuccess: (lead) => {
+      // Refresca todo lo que cuelga de `claves.leads.raiz`: el listado, sus
+      // totales, el badge y Mi día, así el lead aparece según el alcance
+      // (Míos / Todos) de quien lo cargó.
       invalidar(lead.id)
       // Un lead REFERIDO o MANUAL suma a los nuevos contactos del día y la semana.
       queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })

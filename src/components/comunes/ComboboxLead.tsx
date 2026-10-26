@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   buscarLeadsParaCombobox,
   crearLead,
@@ -208,6 +208,7 @@ function FormularioRapido({
   onCancelar: () => void
   onCreado: (lead: LeadResumido) => void
 }) {
+  const queryClient = useQueryClient()
   const inicial = partirNombre(textoInicial)
   const [nombre, setNombre] = useState(inicial.nombre)
   const [apellido, setApellido] = useState(inicial.apellido)
@@ -230,6 +231,9 @@ function FormularioRapido({
         telefono,
         origen: 'MANUAL',
       })
+      // El lead nuevo tiene que aparecer en el listado, los totales, el badge y
+      // Mi día, según el alcance (Míos / Todos) de quien lo cargó.
+      queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
       onCreado({
         id: lead.id,
         nombre: lead.nombre,

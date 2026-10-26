@@ -10,6 +10,7 @@ export {
   etiquetaEstado,
 } from '../etiquetasLead'
 import { interpretarErrorSupabase } from '../errores'
+import { atribucionDeAlta } from '../atribucionLead'
 import {
   interaccionesDeHoy,
   limitesDelDia,
@@ -428,10 +429,11 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
   // inmobiliaria_id es NOT NULL y RLS exige que sea la del agente, así que
-  // ambos salen del profile y nunca del formulario.
+  // ambos salen del profile y nunca del formulario. `asiste_a` decide de quién
+  // es el lead cuando lo carga un asistente (ver `atribucionDeAlta`).
   const { data: perfil, error: errorPerfil } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id')
+    .select('id, inmobiliaria_id, asiste_a')
     .eq('id', userData.user.id)
     .single()
 
@@ -441,10 +443,8 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
     .from('leads')
     .insert({
       inmobiliaria_id: perfil.inmobiliaria_id,
-      agente_id: perfil.id,
-      // Hoy quien lo carga es también quien lo trabaja. Cuando `agente_id` pase a
-      // ser siempre el agente dueño de la cartera, esto sigue siendo el que carga.
-      asignado_a: perfil.id,
+      // El lead es del agente (cartera) y lo lleva quien lo carga.
+      ...atribucionDeAlta(perfil),
       nombre: input.nombre.trim(),
       apellido: input.apellido.trim(),
       telefono: input.telefono.trim(),

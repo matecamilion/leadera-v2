@@ -32,7 +32,7 @@ import { EstadoError, BotonError } from '../components/comunes/EstadoError'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
-import { mostrarChipMios, parametroMios, resolverMios } from '../lib/alcanceLeads'
+import { mostrarAsignado, mostrarChipMios, parametroMios, resolverMios } from '../lib/alcanceLeads'
 import { leerPagina } from '../lib/parametrosDeUrl'
 import { sinLeadsAsignados } from '../lib/sinLeadsAsignados'
 import { claves } from '../lib/queryKeys'
@@ -104,11 +104,13 @@ export default function Leads() {
   const { profile, user } = useAuth()
   const rolUsuario = profile?.rol
   const mios = resolverMios(rolUsuario, searchParams.get('mios'))
-  // Dueño y agente solo ven el chip si hay a quién delegarle. `useEquipo`
-  // comparte la entrada de cache de la pantalla de Equipo.
+  // "Míos" es solo del asistente. Aparte, la columna "Asignado a" la ve quien
+  // tiene asistentes en la cuenta. `useEquipo` comparte la entrada de cache de
+  // la pantalla de Equipo.
   const equipo = useEquipo(rolUsuario === 'ASISTENTE' ? undefined : rolUsuario, profile?.id)
   const hayAsistentesActivos = (equipo.data ?? []).some((m) => m.rol === 'ASISTENTE' && m.activo)
-  const verChipMios = mostrarChipMios(rolUsuario, hayAsistentesActivos)
+  const verChipMios = mostrarChipMios(rolUsuario)
+  const verAsignado = mostrarAsignado(rolUsuario, hayAsistentesActivos)
 
   // La URL manda; si no trae orden, el último elegido; si tampoco, prioridad.
   // El guardado va en estado para que elegir "Prioridad" —que no se escribe en
@@ -401,10 +403,12 @@ export default function Leads() {
 
       {/* Sin ningún lead no hay nada que filtrar ni ordenar. */}
       {!sinLeads && (
-        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* En mobile los chips no entran en una fila: scrollean y el degradé avisa
-              que hay más. El padding derecho deja al último salir de debajo. */}
-          <div className="relative min-w-0 max-md:[&>nav]:pr-10">
+        <div className="mb-5 flex flex-col gap-3">
+          {/* Fila 1: temperatura (y "Míos" para el asistente). `@container`: los
+              chips miden esta fila, no la ventana. Angosta (mobile) scrollean y
+              el degradé avisa que hay más; con lugar, hacen wrap en la misma
+              fila sin recortarse ni pasar por debajo de nada. */}
+          <div className="@container relative min-w-0">
             <FiltrosChips
               valor={filtroDelDia ?? filtroEstado}
               onCambiar={cambiarFiltro}
@@ -414,9 +418,11 @@ export default function Leads() {
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent md:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent @[40rem]:hidden"
             />
           </div>
+          {/* Fila 2: Ordenar y los tabs de rol, propia y con wrap. En mobile
+              Ordenar va junto al contador y acá queda solo el rol. */}
           <div className="flex flex-wrap items-center gap-3">
             {selectorOrden && <div className="hidden md:contents">{selectorOrden}</div>}
             <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
@@ -463,7 +469,7 @@ export default function Leads() {
           <div className="hidden rounded-[16px] border border-border bg-surface p-5 md:block">
             <LeadsTabla
               leads={leads}
-              mostrarAsignado={verChipMios}
+              mostrarAsignado={verAsignado}
               ultimaInteraccion={(id) => interacciones(id).ultimoDetalle}
               rol={roles}
               onRegistrar={setLeadARegistrar}
@@ -474,7 +480,7 @@ export default function Leads() {
           <div className="md:hidden">
             <LeadsCards
               leads={leads}
-              mostrarAsignado={verChipMios}
+              mostrarAsignado={verAsignado}
               operaciones={operaciones}
               interacciones={interacciones}
               rol={roles}

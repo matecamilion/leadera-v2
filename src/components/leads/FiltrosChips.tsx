@@ -66,7 +66,10 @@ export function FiltrosChips({ valor, onCambiar, total, mios = false, onCambiarM
   return (
     <nav
       aria-label="Filtrar leads por temperatura"
-      className="-mx-1 flex snap-x snap-proximity scroll-px-1 gap-1.5 overflow-x-auto md:gap-2 px-1 py-0.5 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      // Se mide contra el contenedor (el padre debe ser `@container`): angosto,
+      // una fila que scrollea (con aire a la derecha para el degradé); desde
+      // 40rem, wrap, para que ningún chip —"Míos" incluido— quede recortado.
+      className="-mx-1 flex snap-x snap-proximity scroll-px-1 gap-1.5 overflow-x-auto px-1 py-0.5 pr-10 whitespace-nowrap [scrollbar-width:none] md:gap-2 [&::-webkit-scrollbar]:hidden @[40rem]:flex-wrap @[40rem]:overflow-visible @[40rem]:pr-1 @[40rem]:whitespace-normal"
     >
       {OPCIONES.map((opcion) => {
         const activo = opcion.valor === valor
@@ -104,7 +107,7 @@ export function FiltrosChips({ valor, onCambiar, total, mios = false, onCambiarM
           onClick={() => onCambiarMios(!mios)}
           title={mios ? 'Mostrando solo los leads asignados a vos' : 'Mostrar solo los leads asignados a vos'}
           className={[
-            'ml-1 inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[7px] md:px-4',
+            'inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[7px] md:px-4',
             'text-[0.78rem] font-semibold transition-colors motion-reduce:transition-none md:text-[0.85rem]',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
             mios

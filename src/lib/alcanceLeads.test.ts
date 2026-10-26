@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   asignadoAPorDefecto,
   miosPorDefecto,
+  mostrarAsignado,
   mostrarChipMios,
   parametroMios,
   resolverMios,
@@ -17,50 +18,75 @@ describe('miosPorDefecto', () => {
 })
 
 describe('resolverMios', () => {
-  it('sin parámetro rige el default del rol', () => {
+  it('el asistente: sin parámetro rige Míos', () => {
     expect(resolverMios('ASISTENTE', null)).toBe(true)
-    expect(resolverMios('AGENTE', null)).toBe(false)
-    expect(resolverMios('DUENO', null)).toBe(false)
   })
 
-  it('?mios=1 y ?mios=0 mandan sobre el rol', () => {
+  it('el asistente: ?mios=0 y ?mios=1 mandan', () => {
     expect(resolverMios('ASISTENTE', '0')).toBe(false)
-    expect(resolverMios('AGENTE', '1')).toBe(true)
-    expect(resolverMios('DUENO', '1')).toBe(true)
+    expect(resolverMios('ASISTENTE', '1')).toBe(true)
   })
 
-  it('un valor desconocido cae al default', () => {
+  it('el asistente: un valor desconocido cae al default', () => {
     expect(resolverMios('ASISTENTE', 'si')).toBe(true)
-    expect(resolverMios('DUENO', '')).toBe(false)
+    expect(resolverMios('ASISTENTE', '')).toBe(true)
+  })
+
+  it('dueño y agente nunca filtran, ni con ?mios=1 en la URL', () => {
+    expect(resolverMios('DUENO', null)).toBe(false)
+    expect(resolverMios('AGENTE', null)).toBe(false)
+    expect(resolverMios('DUENO', '1')).toBe(false)
+    expect(resolverMios('AGENTE', '1')).toBe(false)
+  })
+
+  it('sin rol cargado no filtra', () => {
+    expect(resolverMios(undefined, '1')).toBe(false)
   })
 })
 
 describe('parametroMios', () => {
-  it('no escribe nada cuando coincide con el default', () => {
+  it('el asistente: no escribe nada cuando coincide con el default', () => {
     expect(parametroMios('ASISTENTE', true)).toBeNull()
-    expect(parametroMios('AGENTE', false)).toBeNull()
   })
 
-  it('escribe el valor cuando se aparta del default', () => {
+  it('el asistente: escribe 0 cuando pasa a Todos', () => {
     expect(parametroMios('ASISTENTE', false)).toBe('0')
-    expect(parametroMios('DUENO', true)).toBe('1')
+  })
+
+  it('dueño y agente nunca escriben el parámetro', () => {
+    expect(parametroMios('DUENO', true)).toBeNull()
+    expect(parametroMios('AGENTE', true)).toBeNull()
+    expect(parametroMios('AGENTE', false)).toBeNull()
   })
 })
 
 describe('mostrarChipMios', () => {
+  it('solo el asistente lo ve', () => {
+    expect(mostrarChipMios('ASISTENTE')).toBe(true)
+    expect(mostrarChipMios('DUENO')).toBe(false)
+    expect(mostrarChipMios('AGENTE')).toBe(false)
+    expect(mostrarChipMios(undefined)).toBe(false)
+  })
+})
+
+describe('mostrarAsignado', () => {
   it('el asistente siempre lo ve', () => {
-    expect(mostrarChipMios('ASISTENTE', false)).toBe(true)
+    expect(mostrarAsignado('ASISTENTE', false)).toBe(true)
   })
 
-  it('dueño y agente solo si hay asistentes activos', () => {
-    expect(mostrarChipMios('DUENO', true)).toBe(true)
-    expect(mostrarChipMios('AGENTE', true)).toBe(true)
-    expect(mostrarChipMios('DUENO', false)).toBe(false)
-    expect(mostrarChipMios('AGENTE', false)).toBe(false)
+  it('dueño y agente lo ven si la cuenta tiene asistentes activos, aunque no tengan el chip', () => {
+    expect(mostrarAsignado('DUENO', true)).toBe(true)
+    expect(mostrarAsignado('AGENTE', true)).toBe(true)
+    expect(mostrarChipMios('DUENO')).toBe(false)
+  })
+
+  it('en una cuenta sin asistentes no se muestra', () => {
+    expect(mostrarAsignado('DUENO', false)).toBe(false)
+    expect(mostrarAsignado('AGENTE', false)).toBe(false)
   })
 
   it('sin rol cargado no se muestra', () => {
-    expect(mostrarChipMios(undefined, true)).toBe(false)
+    expect(mostrarAsignado(undefined, true)).toBe(false)
   })
 })
 
@@ -70,5 +96,11 @@ describe('asignadoAPorDefecto', () => {
     expect(asignadoAPorDefecto('AGENTE', 'u1')).toBeUndefined()
     expect(asignadoAPorDefecto('DUENO', 'u1')).toBeUndefined()
     expect(asignadoAPorDefecto('ASISTENTE', undefined)).toBeUndefined()
+  })
+
+  it('es coherente con resolverMios sin parámetro', () => {
+    for (const rol of ['ASISTENTE', 'AGENTE', 'DUENO'] as const) {
+      expect(asignadoAPorDefecto(rol, 'u1') !== undefined).toBe(resolverMios(rol, null))
+    }
   })
 })

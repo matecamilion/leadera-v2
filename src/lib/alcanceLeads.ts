@@ -16,10 +16,15 @@ export function miosPorDefecto(rol: RolAgente | undefined): boolean {
 }
 
 /**
- * `?mios=` del listado: `1` fuerza Míos, `0` fuerza Todos, y sin parámetro (o
- * con cualquier otra cosa) rige el default del rol.
+ * `?mios=` del listado: para el asistente, `1` fuerza Míos, `0` fuerza Todos y
+ * sin parámetro (o con cualquier otra cosa) rige su default.
+ *
+ * Dueño y agente nunca filtran por asignado: es una decisión de producto, para
+ * que un filtro olvidado no les haga perder el rastro de un lead. Una URL con
+ * `?mios=1` no cambia eso.
  */
 export function resolverMios(rol: RolAgente | undefined, parametro: string | null): boolean {
+  if (rol !== 'ASISTENTE') return false
   if (parametro === '1') return true
   if (parametro === '0') return false
   return miosPorDefecto(rol)
@@ -30,16 +35,25 @@ export function resolverMios(rol: RolAgente | undefined, parametro: string | nul
  * con el default del rol y el parámetro sobra (la URL pelada ya lo dice).
  */
 export function parametroMios(rol: RolAgente | undefined, mios: boolean): '1' | '0' | null {
+  if (rol !== 'ASISTENTE') return null
   if (mios === miosPorDefecto(rol)) return null
   return mios ? '1' : '0'
 }
 
+/** El chip "Míos" es solo del asistente: dueño y agente no filtran por asignado. */
+export function mostrarChipMios(rol: RolAgente | undefined): boolean {
+  return rol === 'ASISTENTE'
+}
+
 /**
- * ¿Tiene sentido mostrar el chip "Míos"? Para un asistente siempre; para el
- * resto, solo si la cuenta tiene al menos un asistente activo a quien delegar.
- * En una cuenta Solo sin equipo, todo es mío y el chip no aporta.
+ * ¿Se muestra a quién está asignado cada lead en el listado? Para un asistente
+ * siempre; para el resto, solo si la cuenta tiene al menos un asistente activo.
+ * En una cuenta Solo sin equipo todo es del mismo, y la columna no aporta.
+ *
+ * Es independiente del chip: el dueño no tiene "Míos" pero sí ve a quién está
+ * asignado cada lead.
  */
-export function mostrarChipMios(rol: RolAgente | undefined, hayAsistentesActivos: boolean): boolean {
+export function mostrarAsignado(rol: RolAgente | undefined, hayAsistentesActivos: boolean): boolean {
   return rol === 'ASISTENTE' || (rol !== undefined && hayAsistentesActivos)
 }
 

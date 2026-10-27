@@ -68,6 +68,10 @@ export function normalizarTelefonoAR(valor: string): string {
   // 0 de larga distancia.
   if (digitos.startsWith('0')) digitos = digitos.slice(1)
 
+  // Celular con el 9 pero sin el 54: 9 + área + número = 11 dígitos. Si no, el
+  // 9 se tomaría por parte del área y saldría `54 9 9...`, un dígito de más.
+  if (digitos.length === 11 && digitos.startsWith('9')) return `54${digitos}`
+
   digitos = sacarEl15(digitos)
   digitos = asumirMarDelPlata(digitos)
 

@@ -33,6 +33,13 @@ Deno.test('normalizarTelefonoAR: formatos de la práctica', () => {
   assertEquals(normalizarTelefonoAR('444-5555'), '5492234445555')
 })
 
+Deno.test('normalizarTelefonoAR: celular con el 9 pero sin el 54 (igual que el front)', () => {
+  assertEquals(normalizarTelefonoAR('9 11 5550-0104'), '5491155500104')
+  assertEquals(normalizarTelefonoAR('9 223 555-0101'), '5492235550101')
+  // 10 dígitos que empiezan con 9: no es un teléfono argentino válido, no se toca.
+  assertEquals(normalizarTelefonoAR('9 223 555-010'), '5499223555010')
+})
+
 Deno.test('normalizarTelefonoAR: abonado pelado que empieza con 54 (igual que el front)', () => {
   // Rareza heredada de src/lib/telefono.ts: "545-1180" se toma como si trajera
   // el código de país. La copia tiene que dar lo mismo que el front; si se

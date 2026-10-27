@@ -782,6 +782,27 @@ export type Database = {
           },
         ]
       }
+      leads_backup_fase2: {
+        Row: {
+          agente_id_original: string | null
+          asignado_a_original: string | null
+          inmobiliaria_id: string | null
+          lead_id: string | null
+        }
+        Insert: {
+          agente_id_original?: string | null
+          asignado_a_original?: string | null
+          inmobiliaria_id?: string | null
+          lead_id?: string | null
+        }
+        Update: {
+          agente_id_original?: string | null
+          asignado_a_original?: string | null
+          inmobiliaria_id?: string | null
+          lead_id?: string | null
+        }
+        Relationships: []
+      }
       links_consulta: {
         Row: {
           activo: boolean
@@ -1815,6 +1836,7 @@ export type Database = {
           tipo: string
         }[]
       }
+      importar_leads: { Args: { p_filas: Json }; Returns: Json }
       metricas_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -2062,6 +2084,7 @@ export type Database = {
         | "INSTAGRAM"
         | "FACEBOOK"
         | "LINK_CONSULTA"
+        | "IMPORTACION"
       plan_leadera: "SOLO" | "AGENCIA_CHICA" | "AGENCIA_GRANDE"
       rol_agente: "DUENO" | "AGENTE" | "ASISTENTE"
       tipo_interaccion:
@@ -2246,6 +2269,7 @@ export const Constants = {
         "INSTAGRAM",
         "FACEBOOK",
         "LINK_CONSULTA",
+        "IMPORTACION",
       ],
       plan_leadera: ["SOLO", "AGENCIA_CHICA", "AGENCIA_GRANDE"],
       rol_agente: ["DUENO", "AGENTE", "ASISTENTE"],

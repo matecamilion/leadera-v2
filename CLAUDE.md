@@ -23,6 +23,13 @@ Front:
 Reglas para trabajar en esto:
 - No se aplican migraciones desde Claude Code: Mateo pega el SQL en el SQL Editor. Tampoco tocar RLS/policies sin pedido explícito.
 - Al regenerar `database.ts` hay que conservar los alias manuales del final y los overrides de `estado`/`recurrencia`. Generar a un archivo temporal con `Out-File -Encoding utf8`; en Windows PowerShell 5.1 eso agrega BOM, así que hay que sacarlo después: la primera línea tiene que ser exactamente `export type Json =`.
+- Overrides manuales DENTRO del cuerpo generado de `database.ts` (el generador los pisa; hay que reaplicarlos tras regenerar, además de los alias del final). Son 12 líneas; después de reaplicarlos el diff contra el archivo anterior no debe mostrar ninguno:
+  - `Tables.tareas`, `estado` → `EstadoTarea` (`estado: EstadoTarea` en Row; `estado?: EstadoTarea` en Insert y en Update). Generado: `string` / `string?`.
+  - `Tables.tareas_series`, `recurrencia` → `Recurrencia` (`recurrencia: Recurrencia` en Row e Insert; `recurrencia?: Recurrencia` en Update). Generado: `string` / `string?`.
+  - `Tables.visitas`, `estado` → `EstadoVisita` (`estado: EstadoVisita` en Row; `estado?: EstadoVisita` en Insert y en Update). Generado: `string` / `string?`.
+  - `Functions.admin_metricas_inmobiliaria`, `Returns[]`: `ultima_actividad: string | null` (el generador da `string`).
+  - `Functions.metricas_lead`, `Returns`: `proxima_visita_fecha: string | null` y `proxima_visita_hora: string | null` (el generador da `string`).
+  - Los tipos `EstadoTarea`, `Recurrencia` y `EstadoVisita` se declaran en la cola manual del archivo, después de `} as const`.
 - `ComboboxLead` (carga rápida) crea el lead asignado a quien lo carga.
 
 Pendiente de esta línea:

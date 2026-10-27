@@ -18,6 +18,30 @@ const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * cambio al enum, cuando llegue, sea tocar un solo lugar.
  */
 export const ORIGEN_IMPORTACION = 'IMPORTACION'
+
+/**
+ * Los topes que valida la RPC `importar_leads` (en caracteres). Pasados, la base
+ * devuelve ERROR para la fila: acá se detecta antes, para que no llegue.
+ */
+export const LIMITES_DE_CAMPO = {
+  nombre: 100,
+  apellido: 100,
+  telefono: 50,
+  email: 254,
+  descripcion: 2000,
+} as const
+
+/** Cuánto en el futuro puede estar la fecha de ingreso: el mismo margen que la RPC. */
+const MS_TOLERANCIA_FUTURO = 86_400_000
+
+/** Largo en caracteres, como `char_length` de Postgres (un emoji cuenta 1, no 2). */
+function largo(texto: string): number {
+  return Array.from(texto).length
+}
+
+function recortar(texto: string, maximo: number): string {
+  return Array.from(texto).slice(0, maximo).join('').trimEnd()
+}
 export type OrigenImportacion = string
 
 export type EstadoImportado = 'CALIENTE' | 'TIBIO' | 'FRIO' | 'GANADO' | 'INACTIVO'
@@ -225,11 +249,21 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
       : (partido?.apellido ?? null)
 
   if (!nombre) errores.push('Falta el nombre.')
+  // Nombre y apellido no se recortan: quedarían mal. La fila no se importa.
+  if (largo(nombre) > LIMITES_DE_CAMPO.nombre) {
+    errores.push(`El nombre supera los ${LIMITES_DE_CAMPO.nombre} caracteres.`)
+  }
+  if (apellido && largo(apellido) > LIMITES_DE_CAMPO.apellido) {
+    errores.push(`El apellido supera los ${LIMITES_DE_CAMPO.apellido} caracteres.`)
+  }
 
   // Teléfono
   const tel = analizarTelefono(celda('telefono'))
   if (celda('telefono') && !tel.telefono) {
     avisos.push('El teléfono no tiene números: se ignora.')
+  }
+  if (tel.telefono && largo(tel.telefono) > LIMITES_DE_CAMPO.telefono) {
+    errores.push(`El teléfono supera los ${LIMITES_DE_CAMPO.telefono} caracteres.`)
   }
   if (tel.dudoso) {
     avisos.push(
@@ -243,8 +277,14 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
   let email: string | null = null
   if (emailCrudo) {
     const candidato = emailCrudo.replace(/^mailto:/i, '').trim().toLowerCase()
-    if (EMAIL_VALIDO.test(candidato)) email = candidato
-    else avisos.push('El email no tiene un formato válido: se ignora.')
+    if (EMAIL_VALIDO.test(candidato)) {
+      email = candidato
+      if (largo(candidato) > LIMITES_DE_CAMPO.email) {
+        errores.push(`El email supera los ${LIMITES_DE_CAMPO.email} caracteres.`)
+      }
+    } else {
+      avisos.push('El email no tiene un formato válido: se ignora.')
+    }
   }
 
   // Estado
@@ -256,9 +296,21 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
 
   // Fecha de ingreso
   const fechaCruda = celda('fechaIngreso')
-  const fechaIngreso = parsearFecha(fechaCruda)
+  let fechaIngreso = parsearFecha(fechaCruda)
   if (fechaCruda && !fechaIngreso) {
     avisos.push(`No entendimos la fecha "${fechaCruda}": se usa la de hoy.`)
+  }
+  // Mismo criterio que la RPC: a más de un día en el futuro, se usa la de hoy.
+  if (fechaIngreso && fechaIngreso.getTime() > Date.now() + MS_TOLERANCIA_FUTURO) {
+    fechaIngreso = null
+    avisos.push('La fecha de ingreso es futura: se usa la de hoy.')
+  }
+
+  // La descripción sí se recorta: lo que sobra es texto de más, no un dato mal.
+  let descripcion = celda('descripcion')
+  if (descripcion && largo(descripcion) > LIMITES_DE_CAMPO.descripcion) {
+    descripcion = recortar(descripcion, LIMITES_DE_CAMPO.descripcion)
+    avisos.push(`La descripción es muy larga: se guardan los primeros ${LIMITES_DE_CAMPO.descripcion} caracteres.`)
   }
 
   if (!email && (!tel.telefono || tel.dudoso)) {
@@ -276,7 +328,7 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
     estado,
     origen: ORIGEN_IMPORTACION,
     fechaIngreso,
-    descripcion: celda('descripcion'),
+    descripcion,
     errores,
     avisos,
   }

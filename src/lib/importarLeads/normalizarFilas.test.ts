@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FilaCruda } from './leerArchivo'
 import type { MapeoColumnas } from './mapeoColumnas'
 import {
@@ -268,5 +268,167 @@ describe('fila completa', () => {
   it('conserva el número de fila original de cada una', () => {
     const r = normalizarFilas([cruda(['Ana'], 5), cruda(['Luis'], 9)], { nombre: 0 })
     expect(r.map((f) => f.fila)).toEqual([5, 9])
+  })
+})
+
+describe('fecha de ingreso futura', () => {
+  const AVISO = 'La fecha de ingreso es futura: se usa la de hoy.'
+
+  // Hora fija para que "hoy", "ayer" y "en 2 días" no dependan de cuándo corre el test.
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  /** dd/mm/aaaa de hoy + `dias`. */
+  const enDias = (dias: number) => {
+    const d = new Date(2026, 5, 15 + dias)
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  }
+  const fechaDe = (texto: string) => unaFila(['Ana', null, null, null, null, texto, null])
+
+  it('ayer y hoy se respetan, sin aviso', () => {
+    for (const dias of [-1, 0]) {
+      const f = fechaDe(enDias(dias))
+      expect(f.fechaIngreso).toEqual(new Date(2026, 5, 15 + dias))
+      expect(f.avisos).not.toContain(AVISO)
+    }
+  })
+
+  it('mañana a la medianoche todavía entra (dentro del margen de un día)', () => {
+    expect(fechaDe(enDias(1)).fechaIngreso).toEqual(new Date(2026, 5, 16))
+  })
+
+  it('dentro de 2 días es futura: queda null con aviso', () => {
+    const f = fechaDe(enDias(2))
+    expect(f.fechaIngreso).toBeNull()
+    expect(f.avisos).toContain(AVISO)
+    expect(f.errores).toEqual([])
+  })
+
+  it('dentro de un año también', () => {
+    const f = fechaDe('15/06/2027')
+    expect(f.fechaIngreso).toBeNull()
+    expect(f.avisos).toContain(AVISO)
+  })
+
+  it('con hora: pasado el margen de 24 h es futura, antes no', () => {
+    // Ahora es 15/06 12:00: el margen llega hasta el 16/06 12:00.
+    expect(fechaDe('16/06/2026 11:59').fechaIngreso).not.toBeNull()
+    expect(fechaDe('16/06/2026 12:01').fechaIngreso).toBeNull()
+  })
+
+  it('una fecha ilegible sigue dando su aviso de siempre, no el de futura', () => {
+    const f = fechaDe('mañana')
+    expect(f.avisos.some((a) => a.includes('No entendimos la fecha'))).toBe(true)
+    expect(f.avisos).not.toContain(AVISO)
+  })
+})
+
+describe('largos máximos', () => {
+  const con = (campo: 'nombre' | 'apellido' | 'telefono' | 'email' | 'descripcion', valor: string) => {
+    const base: (string | null)[] = ['Ana', null, null, null, null, null, null]
+    const posicion = { nombre: 0, apellido: 1, telefono: 2, email: 3, descripcion: 6 }[campo]
+    base[posicion] = valor
+    return unaFila(base)
+  }
+
+  describe('descripción (se recorta)', () => {
+    it('de 2000 caracteres se deja tal cual', () => {
+      const f = con('descripcion', 'd'.repeat(2000))
+      expect(f.descripcion).toHaveLength(2000)
+      expect(f.avisos.some((a) => a.includes('muy larga'))).toBe(false)
+      expect(f.errores).toEqual([])
+    })
+
+    it('de 2001 se recorta a 2000 y avisa', () => {
+      const f = con('descripcion', 'd'.repeat(2001))
+      expect(f.descripcion).toHaveLength(2000)
+      expect(f.avisos).toContain('La descripción es muy larga: se guardan los primeros 2000 caracteres.')
+      expect(f.errores).toEqual([])
+    })
+
+    it('se recorta por caracteres, no por unidades UTF-16 (un emoji cuenta 1)', () => {
+      const f = con('descripcion', '😀'.repeat(2001))
+      expect(Array.from(f.descripcion ?? '')).toHaveLength(2000)
+    })
+
+    it('el recorte no deja espacios al final', () => {
+      const f = con('descripcion', 'a'.repeat(1999) + ' ' + 'b'.repeat(10))
+      expect(f.descripcion).toBe('a'.repeat(1999))
+    })
+  })
+
+  describe('nombre (error si se pasa)', () => {
+    it('de 100 caracteres entra', () => {
+      const f = con('nombre', 'N'.repeat(100))
+      expect(f.nombre).toHaveLength(100)
+      expect(f.errores).toEqual([])
+    })
+
+    it('de 101 es error bloqueante y no se recorta', () => {
+      const f = con('nombre', 'N'.repeat(101))
+      expect(f.nombre).toHaveLength(101)
+      expect(f.errores).toEqual(['El nombre supera los 100 caracteres.'])
+    })
+  })
+
+  describe('apellido', () => {
+    it('de 100 entra y de 101 es error', () => {
+      expect(con('apellido', 'A'.repeat(100)).errores).toEqual([])
+
+      const f = con('apellido', 'A'.repeat(101))
+      expect(f.apellido).toHaveLength(101)
+      expect(f.errores).toEqual(['El apellido supera los 100 caracteres.'])
+    })
+
+    it('el apellido que sale de partir un nombre completo también cuenta', () => {
+      const f = unaFila(['Ana ' + 'P'.repeat(101)], { nombreCompleto: 0 })
+      expect(f.errores).toEqual(['El apellido supera los 100 caracteres.'])
+    })
+  })
+
+  describe('teléfono', () => {
+    it('de 50 caracteres entra y de 51 es error', () => {
+      const de = (n: number) => '2235550101' + ' '.repeat(n - 11) + '1'
+      expect(de(50)).toHaveLength(50)
+      expect(con('telefono', de(50)).errores).toEqual([])
+
+      const f = con('telefono', de(51))
+      expect(f.telefono).toHaveLength(51)
+      expect(f.errores).toEqual(['El teléfono supera los 50 caracteres.'])
+    })
+  })
+
+  describe('email', () => {
+    // Un email válido de exactamente `n` caracteres: local + "@ejemplo.com" (12).
+    const emailDe = (n: number) => 'a'.repeat(n - 12) + '@ejemplo.com'
+
+    it('de 254 caracteres entra', () => {
+      const f = con('email', emailDe(254))
+      expect(f.email).toHaveLength(254)
+      expect(f.errores).toEqual([])
+    })
+
+    it('de 255 es error bloqueante y no se recorta', () => {
+      const f = con('email', emailDe(255))
+      expect(f.email).toHaveLength(255)
+      expect(f.errores).toEqual(['El email supera los 254 caracteres.'])
+    })
+
+    it('un email largo pero inválido sigue siendo solo un aviso', () => {
+      const f = con('email', 'a'.repeat(300))
+      expect(f.email).toBeNull()
+      expect(f.errores).toEqual([])
+    })
+  })
+
+  it('varios problemas a la vez dan un mensaje por campo', () => {
+    const f = unaFila(['N'.repeat(101), 'A'.repeat(101), '2235550101', 'a@b.co', null, null, null])
+    expect(f.errores).toEqual([
+      'El nombre supera los 100 caracteres.',
+      'El apellido supera los 100 caracteres.',
+    ])
   })
 })

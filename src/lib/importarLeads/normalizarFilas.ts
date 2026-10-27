@@ -5,7 +5,7 @@
  * fila trae `errores` (bloquean: la fila no se puede importar) y `avisos`
  * (informan: la fila entra igual, pero con algo que el usuario debería saber).
  */
-import { normalizarTelefonoAR } from '../telefono'
+import { esTelefonoConfiable, normalizarTelefonoAR } from '../telefono'
 import type { FilaCruda } from './leerArchivo'
 import type { CampoDestino, MapeoColumnas } from './mapeoColumnas'
 
@@ -52,13 +52,6 @@ export interface FilaNormalizada {
 // Teléfono
 // ---------------------------------------------------------------------------
 
-/**
- * Un celular argentino normalizado es `54` + `9` + 10 dígitos = 13 en total.
- * `normalizarTelefonoAR` nunca falla —antepone `549` a lo que le den—, así que
- * un extranjero, un número de 9 dígitos o uno con basura salen con otro largo.
- */
-const CELULAR_AR_NORMALIZADO = /^549\d{10}$/
-
 function analizarTelefono(texto: string | null): {
   telefono: string | null
   norm: string | null
@@ -70,7 +63,7 @@ function analizarTelefono(texto: string | null): {
   // Sin un solo dígito ("no tiene") no hay teléfono que guardar.
   if (!norm) return { telefono: null, norm: null, dudoso: false }
 
-  return { telefono: texto, norm, dudoso: !CELULAR_AR_NORMALIZADO.test(norm) }
+  return { telefono: texto, norm, dudoso: !esTelefonoConfiable(texto) }
 }
 
 // ---------------------------------------------------------------------------

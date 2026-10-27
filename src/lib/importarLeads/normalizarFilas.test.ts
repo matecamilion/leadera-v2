@@ -41,6 +41,8 @@ describe('teléfono (números inventados)', () => {
     ['223 555-012', '549223555012', true],
     ['13105550107', '54913105550107', true],
     ['+1 310 555 0108', '54913105550108', true],
+    // 13 dígitos, pero el área no puede empezar con 9.
+    ['9 223 555-010', '5499223555010', true],
   ]
 
   it.each(casos)('%s -> %s (dudoso: %s)', (entrada, norm, dudoso) => {

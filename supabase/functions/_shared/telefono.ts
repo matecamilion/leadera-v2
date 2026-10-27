@@ -49,6 +49,20 @@ export function normalizarTelefonoAR(valor: string): string {
   return `549${digitos}`
 }
 
+/**
+ * ¿Normaliza a un celular argentino completo? `54` + `9` + 10 dígitos = 13.
+ *
+ * `normalizarTelefonoAR` nunca falla —antepone `549` a lo que le den—, así que
+ * un extranjero o un número con dígitos de más o de menos sale con otro largo.
+ * Solo un teléfono confiable sirve para decir que dos personas son la misma.
+ *
+ * El dígito tras `549` es el primero del código de área, que nunca es 0 ni 9:
+ * un número de 10 dígitos que empieza con 9 no es argentino.
+ */
+export function esTelefonoConfiable(valor: string): boolean {
+  return /^549[1-8]\d{9}$/.test(normalizarTelefonoAR(valor))
+}
+
 function sacarEl15(digitos: string): string {
   if (digitos.length <= 10) return digitos
 

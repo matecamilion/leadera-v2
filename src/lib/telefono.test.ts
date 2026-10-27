@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { normalizarTelefonoAR } from './telefono'
+import { esTelefonoConfiable, normalizarTelefonoAR } from './telefono'
 // La copia que usan las Edge Functions (Deno): tiene que dar lo mismo que el front.
-import { normalizarTelefonoAR as normalizarEnFunciones } from '../../supabase/functions/_shared/telefono'
+import {
+  esTelefonoConfiable as esConfiableEnFunciones,
+  normalizarTelefonoAR as normalizarEnFunciones,
+} from '../../supabase/functions/_shared/telefono'
 
 // Todos inventados.
 const CASOS: [string, string][] = [
@@ -61,4 +64,38 @@ describe('las dos copias de normalizarTelefonoAR', () => {
   it.each(ENTRADAS)('%j da lo mismo en el front y en las funciones', (entrada) => {
     expect(normalizarEnFunciones(entrada)).toBe(normalizarTelefonoAR(entrada))
   })
+
+  it.each(ENTRADAS)('%j: esTelefonoConfiable también coincide', (entrada) => {
+    expect(esConfiableEnFunciones(entrada)).toBe(esTelefonoConfiable(entrada))
+  })
+})
+
+describe('esTelefonoConfiable', () => {
+  it.each([
+    '223 555-0101',
+    '114 555-0105',
+    '+54 9 223 555-0103',
+    '9 11 4555-0104',
+    '0223 15 555-0106',
+  ])(
+    '%s es confiable',
+    (entrada) => {
+      expect(esTelefonoConfiable(entrada)).toBe(true)
+    },
+  )
+
+  it.each([
+    '223 555-012',
+    '13105550107',
+    '+1 310 555 0108',
+    // Normaliza a 5499223555010: 13 dígitos, pero el área no puede empezar con 9.
+    '9 223 555-010',
+    'sin números',
+    '',
+  ])(
+    '%j no es confiable',
+    (entrada) => {
+      expect(esTelefonoConfiable(entrada)).toBe(false)
+    },
+  )
 })

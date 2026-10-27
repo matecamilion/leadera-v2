@@ -517,3 +517,11 @@ verify_jwt = false
 [functions.consulta-publica]
 enabled = true
 verify_jwt = false
+
+# verificar-duplicados-importacion es de solo lectura: dice qué filas de un
+# archivo ya existen en los leads de la cuenta. verify_jwt frena a los anónimos;
+# adentro se valida la sesión y que el perfil esté activo, y la inmobiliaria sale
+# siempre del perfil, no del pedido.
+[functions.verificar-duplicados-importacion]
+enabled = true
+verify_jwt = true

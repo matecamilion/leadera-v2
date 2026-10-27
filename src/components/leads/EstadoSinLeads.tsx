@@ -20,6 +20,14 @@ export function EstadoSinLeads() {
         <IconoMas className="size-5" />
         Cargar mi primer lead
       </Link>
+      <p className="mt-3 mb-0">
+        <Link
+          to="/leads/importar"
+          className="inline-flex min-h-11 items-center rounded-md text-[0.85rem] font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Importar desde Excel
+        </Link>
+      </p>
     </div>
   )
 }

@@ -368,6 +368,15 @@ export default function Leads() {
             <span className="sr-only md:not-sr-only">Nuevo Lead</span>
           </Link>
 
+          {/* Solo desktop, como Exportar. En mobile se entra por el estado vacío. */}
+          <Link
+            to="/leads/importar"
+            className="hidden items-center justify-center gap-2 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+          >
+            <IconoTabla className="size-5 text-excel" />
+            Importar
+          </Link>
+
           <button
             type="button"
             onClick={exportar}

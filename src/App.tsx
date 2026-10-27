@@ -23,6 +23,7 @@ const ContactadosHoy = lazy(() => import('./pages/ContactadosHoy'))
 const Leads = lazy(() => import('./pages/Leads'))
 const Consultas = lazy(() => import('./pages/Consultas'))
 const NuevoLead = lazy(() => import('./pages/NuevoLead'))
+const ImportarLeads = lazy(() => import('./pages/ImportarLeads'))
 const DetalleLead = lazy(() => import('./pages/DetalleLead'))
 const DetalleMatch = lazy(() => import('./pages/DetalleMatch'))
 const Coincidencias = lazy(() => import('./pages/Coincidencias'))
@@ -120,6 +121,7 @@ export default function App() {
                   <Route path="/mi-dia/contactados" element={<ContactadosHoy />} />
                   <Route path="/leads" element={<Leads />} />
                   <Route path="/leads/nuevo" element={<NuevoLead />} />
+                  <Route path="/leads/importar" element={<ImportarLeads />} />
                   <Route path="/leads/:id" element={<DetalleLead />} />
                   <Route path="/consultas" element={<Consultas />} />
                   <Route path="/propiedades" element={<Propiedades />} />

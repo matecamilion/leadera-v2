@@ -1,4 +1,5 @@
 import type { OrdenLeads } from '../../lib/api/leads'
+import { SelectorFiltro } from './SelectorFiltro'
 
 /** El orden en que se ofrecen, y cómo se nombran en pantalla. */
 export const OPCIONES_ORDEN: { valor: OrdenLeads; label: string }[] = [
@@ -10,28 +11,18 @@ export const OPCIONES_ORDEN: { valor: OrdenLeads; label: string }[] = [
 interface SelectorOrdenLeadsProps {
   valor: OrdenLeads
   onCambiar: (valor: OrdenLeads) => void
+  className?: string
 }
 
-/**
- * Un `<select>` nativo y no otro control segmentado: al lado de los chips de
- * rol, un tercer grupo de botones se leería como un filtro más, y ordenar no
- * saca a nadie de la lista.
- */
-export function SelectorOrdenLeads({ valor, onCambiar }: SelectorOrdenLeadsProps) {
+/** Ordenar no saca a nadie de la lista: es un desplegable más, sin destacar. */
+export function SelectorOrdenLeads({ valor, onCambiar, className }: SelectorOrdenLeadsProps) {
   return (
-    <label className="inline-flex shrink-0 items-center gap-2 text-[0.82rem] text-ink-3">
-      <span className="max-md:sr-only">Ordenar:</span>
-      <select
-        value={valor}
-        onChange={(e) => onCambiar(e.target.value as OrdenLeads)}
-        className="rounded-full border border-border bg-surface px-3 py-[5px] text-[0.82rem] font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        {OPCIONES_ORDEN.map((o) => (
-          <option key={o.valor} value={o.valor}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SelectorFiltro
+      etiqueta="Ordenar"
+      valor={valor}
+      opciones={OPCIONES_ORDEN}
+      onCambiar={onCambiar}
+      className={className}
+    />
   )
 }

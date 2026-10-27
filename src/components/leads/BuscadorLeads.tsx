@@ -28,14 +28,14 @@ export function BuscadorLeads({
   }, [texto, valor, onCambiar, debounceMs])
 
   return (
-    <div className="relative w-full md:max-w-[400px]">
+    <div className="relative min-w-0 flex-1 @[64rem]:max-w-[26rem] @[64rem]:min-w-56">
       <IconoLupa className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-ink-3" />
       <input
         type="search"
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
-        aria-label="Buscar leads"
-        placeholder="Buscar por nombre, email o teléfono..."
+        aria-label="Buscar leads por nombre, email o teléfono"
+        placeholder="Nombre, email o teléfono…"
         className="w-full rounded-md border border-border bg-surface py-3 pr-3 pl-[42px] text-[0.9rem] text-ink placeholder:text-ink-3 focus:border-primary focus:shadow-focus focus:outline-none"
       />
     </div>

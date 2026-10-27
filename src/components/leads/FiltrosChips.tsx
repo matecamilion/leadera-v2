@@ -82,21 +82,15 @@ interface FiltrosChipsProps {
    * los números los ensancharían). No dependen del chip activo.
    */
   conteos?: ConteosChips
-  /**
-   * El chip "Míos": un interruptor aparte de la temperatura (se combina con
-   * ella, no la reemplaza). Sin `onCambiarMios` no se dibuja.
-   */
-  mios?: boolean
-  onCambiarMios?: (mios: boolean) => void
 }
 
-export function FiltrosChips({ valor, onCambiar, conteos, mios = false, onCambiarMios }: FiltrosChipsProps) {
+export function FiltrosChips({ valor, onCambiar, conteos }: FiltrosChipsProps) {
   return (
     <nav
       aria-label="Filtrar leads por temperatura"
       // Se mide contra el contenedor (el padre debe ser `@container`): angosto,
       // una fila que scrollea (con aire a la derecha para el degradé); desde
-      // 40rem, wrap, para que ningún chip —"Míos" incluido— quede recortado.
+      // 40rem, wrap, para que ningún chip quede recortado.
       className="-mx-1 flex snap-x snap-proximity scroll-px-1 gap-1.5 overflow-x-auto px-1 py-0.5 pr-10 whitespace-nowrap [scrollbar-width:none] md:gap-2 [&::-webkit-scrollbar]:hidden @[40rem]:flex-wrap @[40rem]:overflow-visible @[40rem]:pr-1 @[40rem]:whitespace-normal"
     >
       {OPCIONES.map((opcion) => {
@@ -139,24 +133,6 @@ export function FiltrosChips({ valor, onCambiar, conteos, mios = false, onCambia
           </button>
         )
       })}
-      {onCambiarMios && (
-        <button
-          type="button"
-          aria-pressed={mios}
-          onClick={() => onCambiarMios(!mios)}
-          title={mios ? 'Mostrando solo los leads asignados a vos' : 'Mostrar solo los leads asignados a vos'}
-          className={[
-            'inline-flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-2.5 py-[7px] md:px-4',
-            'text-[0.78rem] font-semibold transition-colors motion-reduce:transition-none md:text-[0.85rem]',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-            mios
-              ? 'border-ink bg-ink text-surface'
-              : 'border-border bg-surface text-ink hover:bg-background',
-          ].join(' ')}
-        >
-          Míos
-        </button>
-      )}
     </nav>
   )
 }

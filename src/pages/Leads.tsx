@@ -3,16 +3,17 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { BuscadorLeads } from '../components/leads/BuscadorLeads'
 import { FiltrosChips, type ValorFiltro } from '../components/leads/FiltrosChips'
-import { FiltroRolChips } from '../components/leads/FiltroRolChips'
+import { FiltroAlcance } from '../components/leads/FiltroAlcance'
 import { EstadoSinAsignados } from '../components/leads/EstadoSinAsignados'
 import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
-import { IconoMas, IconoTabla } from '../components/leads/Iconos'
+import { IconoBajar, IconoMas, IconoSubir } from '../components/leads/Iconos'
 import { LeadsCards } from '../components/leads/LeadsCards'
 import { LeadsTabla } from '../components/leads/LeadsTabla'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { Paginacion } from '../components/leads/Paginacion'
 import { OPCIONES_ORDEN, SelectorOrdenLeads } from '../components/leads/SelectorOrdenLeads'
+import { SelectorTipoLeads } from '../components/leads/SelectorTipoLeads'
 import { LEADS_POR_PAGINA, useConteosPorEstado, useHayLeads, useLeads } from '../hooks/useLeads'
 import {
   useInteraccionesPorLead,
@@ -328,13 +329,13 @@ export default function Leads() {
 
   // En un corte de Mi día el orden es el de la sección y no se elige (ver
   // `aplicarOrden`): un selector que no hace nada confunde.
-  const selectorOrden = !filtroDelDia && (
-    <SelectorOrdenLeads valor={orden} onCambiar={cambiarOrden} />
-  )
+  const verOrden = !filtroDelDia
 
   return (
-    <div className="mx-auto max-w-[1200px] text-ink">
-      <header className="mb-4 flex flex-col gap-4 md:mb-8 md:flex-row md:items-center md:justify-between">
+    // `@container`: el header y los filtros se acomodan según el ancho de la
+    // página (que cambia con el sidebar) y no según el de la ventana.
+    <div className="@container mx-auto max-w-[1200px] text-ink">
+      <header className="mb-4 flex flex-col gap-4 md:mb-8 @[64rem]:flex-row @[64rem]:items-center @[64rem]:justify-between">
         <div>
           <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
             Gestión de leads
@@ -342,22 +343,18 @@ export default function Leads() {
           <h1 className="m-0 text-[2rem] leading-tight font-bold text-ink">
             Todos los leads
           </h1>
-          <div className="flex items-center justify-between gap-3">
-            <span className="min-w-0 text-ink">
-              {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
-              {sufijoDelFiltro(filtroEstado) && ` · ${sufijoDelFiltro(filtroEstado)}`}
-              {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
-              {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
-              {mios && ' · Míos'}
-            </span>
-            {/* Mobile: Ordenar va junto al contador. Desktop: en la fila de filtros. */}
-            {selectorOrden && <div className="shrink-0 md:hidden">{selectorOrden}</div>}
-          </div>
+          <span className="block min-w-0 text-ink">
+            {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
+            {sufijoDelFiltro(filtroEstado) && ` · ${sufijoDelFiltro(filtroEstado)}`}
+            {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
+            {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
+            {mios && ' · Míos'}
+          </span>
         </div>
 
         {/* En mobile buscador y "+" comparten fila y Exportar se oculta: el menú
             Crear del header ya ofrece "Nuevo lead" y exportar es de escritorio. */}
-        <div className="flex w-full flex-row items-center gap-3 md:w-auto md:justify-end">
+        <div className="flex w-full min-w-0 flex-row items-center gap-3 @[64rem]:w-auto @[64rem]:flex-1 @[64rem]:justify-end">
           <BuscadorLeads valor={busqueda} onCambiar={cambiarBusqueda} />
 
           <Link
@@ -371,9 +368,9 @@ export default function Leads() {
           {/* Solo desktop, como Exportar. En mobile se entra por el estado vacío. */}
           <Link
             to="/leads/importar"
-            className="hidden items-center justify-center gap-2 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+            className="hidden shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
           >
-            <IconoTabla className="size-5 text-excel" />
+            <IconoSubir className="size-5" />
             Importar
           </Link>
 
@@ -382,9 +379,9 @@ export default function Leads() {
             onClick={exportar}
             disabled={exportando}
             title="Exporta los leads que coinciden con el filtro y la búsqueda actuales"
-            className="hidden items-center justify-center gap-2 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
+            className="hidden shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-[18px] md:inline-flex py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none"
           >
-            <IconoTabla className="size-5 text-excel" />
+            <IconoBajar className="size-5" />
             {exportando ? 'Exportando…' : 'Exportar Excel'}
           </button>
         </div>
@@ -401,29 +398,45 @@ export default function Leads() {
 
       {/* Sin ningún lead no hay nada que filtrar ni ordenar. */}
       {!sinLeads && (
-        <div className="mb-5 flex flex-col gap-3">
-          {/* Fila 1: temperatura (y "Míos" para el asistente). `@container`: los
-              chips miden esta fila, no la ventana. Angosta (mobile) scrollean y
+        // Temperatura en pastillas; al lado (o debajo, si no entra) los
+        // desplegables Tipo y Ordenar y, para el asistente, "Míos/Todos". Los
+        // umbrales miden la página, no la ventana.
+        <div className="mb-5 flex flex-col gap-3 @[68rem]:flex-row @[68rem]:items-start @[68rem]:justify-between">
+          {/* `@container`: los chips miden esta fila. Angosta (mobile) scrollean y
               el degradé avisa que hay más; con lugar, hacen wrap en la misma
               fila sin recortarse ni pasar por debajo de nada. */}
-          <div className="@container relative min-w-0">
+          <div className="@container relative min-w-0 @[68rem]:flex-1">
             <FiltrosChips
               valor={filtroDelDia ?? filtroEstado}
               onCambiar={cambiarFiltro}
               conteos={conteos}
-              mios={mios}
-              onCambiarMios={verChipMios ? cambiarMios : undefined}
             />
             <div
               aria-hidden
               className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background from-25% to-transparent @[40rem]:hidden"
             />
           </div>
-          {/* Fila 2: Ordenar y los tabs de rol, propia y con wrap. En mobile
-              Ordenar va junto al contador y acá queda solo el rol. */}
-          <div className="flex flex-wrap items-center gap-3">
-            {selectorOrden && <div className="hidden md:contents">{selectorOrden}</div>}
-            <FiltroRolChips valor={filtroRol} onCambiar={cambiarRol} />
+          {/* Mobile: Tipo y Ordenar 50/50 y "Míos/Todos" en su propia fila. */}
+          <div className="grid grid-cols-2 gap-3 @[36rem]:flex @[36rem]:flex-wrap @[36rem]:items-center @[68rem]:shrink-0">
+            <SelectorTipoLeads
+              valor={filtroRol}
+              onCambiar={cambiarRol}
+              className={verOrden ? 'w-full @[36rem]:w-auto' : 'col-span-2 @[36rem]:w-auto'}
+            />
+            {verOrden && (
+              <SelectorOrdenLeads
+                valor={orden}
+                onCambiar={cambiarOrden}
+                className="w-full @[36rem]:w-auto"
+              />
+            )}
+            {verChipMios && (
+              <FiltroAlcance
+                mios={mios}
+                onCambiar={cambiarMios}
+                className="col-span-2 @[36rem]:w-auto"
+              />
+            )}
           </div>
         </div>
       )}
@@ -464,7 +477,7 @@ export default function Leads() {
       ) : (
         <>
           {/* Desktop: la tabla va dentro de su card blanca */}
-          <div className="hidden rounded-[16px] border border-border bg-surface p-5 md:block">
+          <div className="@container hidden rounded-[16px] border border-border bg-surface p-5 md:block">
             <LeadsTabla
               leads={leads}
               mostrarAsignado={verAsignado}

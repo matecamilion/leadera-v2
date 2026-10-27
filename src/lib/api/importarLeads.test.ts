@@ -285,11 +285,12 @@ describe('verificarDuplicados', () => {
           { fila: 3, duplicado: 'email' },
           { fila: 4, duplicado: null },
         ],
+        cupo: { limite: 200, usados: 150 },
       },
       error: null,
     })
 
-    const mapa = await verificarDuplicados([
+    const { duplicados: mapa, cupo } = await verificarDuplicados([
       { fila: 2, telefono: '2235550101', email: null },
       { fila: 3, telefono: null, email: 'a@b.co' },
       { fila: 4, telefono: null, email: null },
@@ -309,12 +310,44 @@ describe('verificarDuplicados', () => {
       [3, 'email'],
       [4, null],
     ])
+    expect(cupo).toEqual({ limite: 200, usados: 150 })
   })
 
-  it('sin filas no llama a la función', async () => {
-    const mapa = await verificarDuplicados([])
-    expect(invoke).not.toHaveBeenCalled()
-    expect(mapa.size).toBe(0)
+  it('un plan sin tope llega como límite null', async () => {
+    invoke.mockResolvedValueOnce({
+      data: { resultados: [], cupo: { limite: null, usados: 40 } },
+      error: null,
+    })
+
+    const { cupo } = await verificarDuplicados([{ fila: 2, telefono: null, email: 'a@b.co' }])
+
+    expect(cupo).toEqual({ limite: null, usados: 40 })
+  })
+
+  it('sin filas también llama a la función: el cupo se necesita igual', async () => {
+    invoke.mockResolvedValueOnce({
+      data: { resultados: [], cupo: { limite: 200, usados: 12 } },
+      error: null,
+    })
+
+    const { duplicados, cupo } = await verificarDuplicados([])
+
+    expect(invoke).toHaveBeenCalledWith('verificar-duplicados-importacion', { body: { filas: [] } })
+    expect(duplicados.size).toBe(0)
+    expect(cupo).toEqual({ limite: 200, usados: 12 })
+  })
+
+  it('una respuesta sin cupo (función vieja) o con un cupo mal formado es un error', async () => {
+    const fila = [{ fila: 2, telefono: null, email: 'a@b.co' }]
+
+    invoke.mockResolvedValueOnce({ data: { resultados: [] }, error: null })
+    await expect(verificarDuplicados(fila)).rejects.toThrow('No se pudo verificar')
+
+    invoke.mockResolvedValueOnce({ data: { resultados: [], cupo: { limite: '200', usados: 1 } }, error: null })
+    await expect(verificarDuplicados(fila)).rejects.toThrow('No se pudo verificar')
+
+    invoke.mockResolvedValueOnce({ data: { resultados: [], cupo: { limite: 200 } }, error: null })
+    await expect(verificarDuplicados(fila)).rejects.toThrow('No se pudo verificar')
   })
 
   it('traduce el error de la función con el mensaje que devolvió', async () => {

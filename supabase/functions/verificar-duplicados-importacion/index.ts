@@ -2,7 +2,8 @@
  * verificar-duplicados-importacion
  *
  * Dada una lista de filas (teléfono + email), dice cuáles ya existen en los
- * leads de la inmobiliaria del caller. Es de SOLO LECTURA.
+ * leads de la inmobiliaria del caller, y cuántos leads usa la cuenta contra el
+ * tope de su plan. Es de SOLO LECTURA.
  *
  * Por qué una función y no la RLS: la RLS deja ver a un agente o asistente
  * solo sus leads, y un duplicado puede ser de un compañero. Acá se lee con
@@ -16,6 +17,7 @@
 import { preflight } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/http.ts'
 import { adminClient, bearerToken } from '../_shared/supabase.ts'
+import { armarRespuesta, calcularCupo } from './cupo.ts'
 import { type FilaAVerificar, type LeadExistente, verificarDuplicados } from './logica.ts'
 
 const MAX_FILAS = 2000
@@ -76,6 +78,48 @@ async function leerLeadsDeLaCuenta(
   }
 
   throw new Error('leer leads: se superó el tope de páginas')
+}
+
+/** Cuántos leads tiene la cuenta, sin traer ninguna fila. */
+async function contarLeadsDeLaCuenta(
+  admin: ReturnType<typeof adminClient>,
+  inmobiliariaId: string,
+): Promise<number> {
+  const { count, error } = await admin
+    .from('leads')
+    .select('id', { count: 'exact', head: true })
+    .eq('inmobiliaria_id', inmobiliariaId)
+
+  if (error) throw new Error(`contar leads: ${error.message}`)
+  return count ?? 0
+}
+
+/**
+ * El tope de leads del plan de la inmobiliaria, o null si no restringe: sin
+ * plan, sin fila en `planes_limites_recursos` o con `limite_leads` null (el
+ * mismo criterio de `leads_verificar_limite`).
+ */
+async function leerLimiteDeLeads(
+  admin: ReturnType<typeof adminClient>,
+  inmobiliariaId: string,
+): Promise<number | null> {
+  const { data: inmobiliaria, error } = await admin
+    .from('inmobiliarias')
+    .select('plan')
+    .eq('id', inmobiliariaId)
+    .maybeSingle<{ plan: string | null }>()
+
+  if (error) throw new Error(`leer plan: ${error.message}`)
+  if (!inmobiliaria?.plan) return null
+
+  const { data: limites, error: errorLimites } = await admin
+    .from('planes_limites_recursos')
+    .select('limite_leads')
+    .eq('plan', inmobiliaria.plan)
+    .maybeSingle<{ limite_leads: number | null }>()
+
+  if (errorLimites) throw new Error(`leer límites: ${errorLimites.message}`)
+  return limites?.limite_leads ?? null
 }
 
 Deno.serve(async (req) => {
@@ -147,13 +191,30 @@ Deno.serve(async (req) => {
       filas.push(fila)
     }
 
-    // --- 4. Comparar -----------------------------------------------------
-    // Sin filas no hay nada que comparar: no vale la pena leer la base.
-    if (filas.length === 0) return jsonResponse(req, { resultados: [] })
+    // --- 4. Comparar y medir el cupo -------------------------------------
+    // Con filas se leen los leads para compararlos y de ahí sale el conteo; sin
+    // filas no hay nada que comparar y alcanza con contarlos. El cupo se
+    // devuelve igual: la pantalla lo necesita aunque el archivo no traiga datos
+    // para chequear.
+    const inmobiliariaId = perfil.inmobiliaria_id
 
-    const existentes = await leerLeadsDeLaCuenta(admin, perfil.inmobiliaria_id)
+    if (filas.length === 0) {
+      const [usados, limite] = await Promise.all([
+        contarLeadsDeLaCuenta(admin, inmobiliariaId),
+        leerLimiteDeLeads(admin, inmobiliariaId),
+      ])
+      return jsonResponse(req, armarRespuesta([], calcularCupo(usados, limite)))
+    }
 
-    return jsonResponse(req, { resultados: verificarDuplicados(filas, existentes) })
+    const [existentes, limite] = await Promise.all([
+      leerLeadsDeLaCuenta(admin, inmobiliariaId),
+      leerLimiteDeLeads(admin, inmobiliariaId),
+    ])
+
+    return jsonResponse(
+      req,
+      armarRespuesta(verificarDuplicados(filas, existentes), calcularCupo(existentes.length, limite)),
+    )
   } catch (err) {
     console.error(
       'verificar-duplicados-importacion: error inesperado',

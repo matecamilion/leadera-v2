@@ -21,6 +21,17 @@ export const TAMANO_LOTE = 200
 
 export type DuplicadoEnBase = 'telefono' | 'email'
 
+/** Cuántos leads usa la cuenta y cuántos admite su plan (null = sin tope). */
+export interface CupoDeLeads {
+  limite: number | null
+  usados: number
+}
+
+export interface VerificacionDeDuplicados {
+  duplicados: Map<number, DuplicadoEnBase | null>
+  cupo: CupoDeLeads
+}
+
 export interface FilaAVerificar {
   fila: number
   telefono: string | null
@@ -35,30 +46,36 @@ export function armarPedidoDeVerificacion(filas: FilaNormalizada[]): FilaAVerifi
 /**
  * Qué filas ya existen en los leads de la cuenta (de cualquier agente).
  *
- * Devuelve un mapa fila → cómo coincidió, o null si no existe. La función no
- * dice de quién es el lead: solo si hay uno con ese teléfono o ese email.
+ * Devuelve `duplicados`, un mapa fila → cómo coincidió (o null si no existe), y
+ * el `cupo` de leads de la cuenta. La función no dice de quién es el lead:
+ * solo si hay uno con ese teléfono o ese email.
+ *
+ * Se llama también sin filas: el cupo se necesita igual.
  */
-export async function verificarDuplicados(
-  filas: FilaAVerificar[],
-): Promise<Map<number, DuplicadoEnBase | null>> {
-  const mapa = new Map<number, DuplicadoEnBase | null>()
-  if (filas.length === 0) return mapa
-
+export async function verificarDuplicados(filas: FilaAVerificar[]): Promise<VerificacionDeDuplicados> {
   const { data, error } = await supabase.functions.invoke<{
     resultados?: { fila: number; duplicado: DuplicadoEnBase | null }[]
+    cupo?: { limite?: unknown; usados?: unknown }
   }>('verificar-duplicados-importacion', { body: { filas } })
 
   if (error) {
     throw new Error(await mensajeDeFuncion(error, 'No se pudo verificar si los leads ya existen.'))
   }
-  if (!data || !Array.isArray(data.resultados)) {
+  const cupo = data?.cupo
+  if (
+    !data ||
+    !Array.isArray(data.resultados) ||
+    typeof cupo?.usados !== 'number' ||
+    (cupo.limite !== null && typeof cupo.limite !== 'number')
+  ) {
     throw new Error('No se pudo verificar si los leads ya existen.')
   }
 
+  const duplicados = new Map<number, DuplicadoEnBase | null>()
   for (const r of data.resultados) {
-    mapa.set(r.fila, r.duplicado === 'telefono' || r.duplicado === 'email' ? r.duplicado : null)
+    duplicados.set(r.fila, r.duplicado === 'telefono' || r.duplicado === 'email' ? r.duplicado : null)
   }
-  return mapa
+  return { duplicados, cupo: { limite: cupo.limite, usados: cupo.usados } }
 }
 
 // ---------------------------------------------------------------------------

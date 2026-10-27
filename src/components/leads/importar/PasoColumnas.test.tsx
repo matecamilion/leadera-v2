@@ -117,3 +117,44 @@ describe('PasoColumnas', () => {
     expect(screen.getByText(/Mostrando 5 de 12/)).toBeTruthy()
   })
 })
+
+describe('PasoColumnas: revisión de duplicados', () => {
+  const mapeo = { nombre: 0 }
+  const montar = (extra: { verificando?: boolean; errorVerificacion?: string | null }, onContinuar = vi.fn()) => {
+    render(
+      <PasoColumnas
+        archivo={ARCHIVO}
+        mapeo={mapeo}
+        onMapeo={() => {}}
+        onVolver={() => {}}
+        onContinuar={onContinuar}
+        {...extra}
+      />,
+    )
+    return onContinuar
+  }
+
+  it('mientras revisa: el botón dice que está revisando y queda deshabilitado, igual que Volver', () => {
+    montar({ verificando: true })
+
+    const boton = screen.getByRole('button', { name: 'Revisando duplicados en tu cuenta…' }) as HTMLButtonElement
+    expect(boton.disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Volver' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('si falla: muestra el mensaje y "Reintentar" vuelve a pedir la revisión', () => {
+    const onContinuar = montar({ errorVerificacion: 'Sesión inválida o expirada' })
+
+    expect(screen.getByRole('alert').textContent).toContain('Sesión inválida o expirada')
+    // El usuario puede volver al paso anterior.
+    expect((screen.getByRole('button', { name: 'Volver' }) as HTMLButtonElement).disabled).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+    expect(onContinuar).toHaveBeenCalledOnce()
+  })
+
+  it('sin error ni revisión en curso no hay botón de reintentar', () => {
+    montar({})
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
+  })
+})

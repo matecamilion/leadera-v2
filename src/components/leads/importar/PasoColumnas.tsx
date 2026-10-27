@@ -52,10 +52,14 @@ interface PasoColumnasProps {
   onMapeo: (mapeo: MapeoColumnas) => void
   onVolver: () => void
   onContinuar: () => void
+  /** Revisando duplicados en la cuenta: no se avanza hasta tener la respuesta. */
+  verificando?: boolean
+  /** Ya redactado. Si viene, se ofrece reintentar. */
+  errorVerificacion?: string | null
 }
 
 const BOTON_SECUNDARIO =
-  'inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-surface px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none'
+  'inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-surface px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none'
 
 const BOTON_PRIMARIO =
   'inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-[18px] py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-55 motion-reduce:transition-none'
@@ -65,7 +69,15 @@ function formatearFecha(fecha: Date | null): string {
 }
 
 /** Paso 2: relacionar las columnas del archivo con los datos del lead. */
-export function PasoColumnas({ archivo, mapeo, onMapeo, onVolver, onContinuar }: PasoColumnasProps) {
+export function PasoColumnas({
+  archivo,
+  mapeo,
+  onMapeo,
+  onVolver,
+  onContinuar,
+  verificando = false,
+  errorVerificacion = null,
+}: PasoColumnasProps) {
   const prefijo = useId()
   const hayNombre = mapeoTieneNombre(mapeo)
 
@@ -179,13 +191,35 @@ export function PasoColumnas({ archivo, mapeo, onMapeo, onVolver, onContinuar }:
         </div>
       </div>
 
+      {errorVerificacion && (
+        <div
+          role="alert"
+          className="mt-4 rounded-lg border border-peligro-borde bg-peligro-soft px-4 py-3 text-[0.9rem] text-peligro-ink"
+        >
+          <p className="m-0">{errorVerificacion}</p>
+          <button
+            type="button"
+            onClick={onContinuar}
+            className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-peligro-ink bg-surface px-4 py-2 text-[0.85rem] font-semibold text-peligro-ink hover:bg-peligro-borde focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-peligro-ink"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
       <div className="@container mt-5">
         <div className="flex flex-col-reverse gap-3 @[28rem]:flex-row @[28rem]:justify-between">
-          <button type="button" onClick={onVolver} className={BOTON_SECUNDARIO}>
+          <button type="button" onClick={onVolver} disabled={verificando} className={BOTON_SECUNDARIO}>
             Volver
           </button>
-          <button type="button" onClick={onContinuar} disabled={!hayNombre} className={BOTON_PRIMARIO}>
-            Continuar
+          <button
+            type="button"
+            onClick={onContinuar}
+            disabled={!hayNombre || verificando}
+            aria-busy={verificando}
+            className={BOTON_PRIMARIO}
+          >
+            {verificando ? 'Revisando duplicados en tu cuenta…' : 'Continuar'}
           </button>
         </div>
       </div>

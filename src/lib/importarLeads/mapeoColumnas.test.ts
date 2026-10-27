@@ -75,6 +75,55 @@ describe('sugerirMapeo', () => {
     expect(sugerirMapeo(['Apellido y Nombre']).mapeo).toEqual({})
   })
 
+  describe('nombre, apellido y nombre completo', () => {
+    it.each([
+      ['Nombre y apellido'],
+      ['NOMBRE Y APELLIDO '],
+      ['Nombre y apellidos'],
+      ['Nombre apellido'],
+      ['Nombre completo'],
+      ['Full name'],
+      ['Cliente'],
+      ['Contacto'],
+    ])('%j -> nombreCompleto', (encabezado) => {
+      expect(sugerirMapeo([encabezado]).mapeo).toEqual({ nombreCompleto: 0 })
+    })
+
+    it.each([['Nombre'], ['Nombres'], ['First name'], ['Name']])('%j -> nombre', (encabezado) => {
+      expect(sugerirMapeo([encabezado]).mapeo).toEqual({ nombre: 0 })
+    })
+
+    it.each([['Apellido'], ['Apellidos'], ['Last name']])('%j -> apellido', (encabezado) => {
+      expect(sugerirMapeo([encabezado]).mapeo).toEqual({ apellido: 0 })
+    })
+
+    it('"Nombre" y "Apellido" como dos columnas: cada una a lo suyo', () => {
+      expect(sugerirMapeo(['Nombre', 'Apellido']).mapeo).toEqual({ nombre: 0, apellido: 1 })
+    })
+
+    it('"Apellido y nombre" queda sin mapear', () => {
+      const { mapeo, sinMapear } = sugerirMapeo(['Apellido y nombre'])
+      expect(mapeo).toEqual({})
+      expect(sinMapear).toEqual([0])
+    })
+
+    it('un encabezado con nombre y apellido nunca cae en nombre ni en apellido', () => {
+      for (const h of ['Nombre y apellido', 'Apellido y nombre', 'Nombre/Apellido', 'Nombre y apellidos']) {
+        const { mapeo } = sugerirMapeo([h])
+        expect(mapeo.nombre).toBeUndefined()
+        expect(mapeo.apellido).toBeUndefined()
+      }
+    })
+
+    it('"Nombre y apellido" junto a otras columnas no pisa a Teléfono ni a Email', () => {
+      expect(sugerirMapeo(['Nombre y apellido', 'Teléfono', 'Email']).mapeo).toEqual({
+        nombreCompleto: 0,
+        telefono: 1,
+        email: 2,
+      })
+    })
+  })
+
   it('encabezados vacíos no se mapean y cuentan como sin mapear', () => {
     const { mapeo, sinMapear } = sugerirMapeo(['', 'Nombre'])
     expect(mapeo).toEqual({ nombre: 1 })

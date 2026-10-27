@@ -53,9 +53,11 @@ const SINONIMOS: Record<CampoDestino, Sinonimos> = {
   nombreCompleto: {
     exactos: [
       'nombre y apellido',
+      'nombre y apellidos',
       'nombre completo',
       'nombres y apellidos',
       'nombre apellido',
+      'full name',
       'cliente',
       'contacto',
       'persona',
@@ -64,7 +66,7 @@ const SINONIMOS: Record<CampoDestino, Sinonimos> = {
     contiene: ['nombre completo', 'nombre y apellido'],
   },
   nombre: {
-    exactos: ['nombre', 'nombres', 'first name', 'primer nombre'],
+    exactos: ['nombre', 'nombres', 'first name', 'name', 'primer nombre'],
     contiene: [],
   },
   apellido: {
@@ -142,12 +144,23 @@ export function normalizarEncabezado(texto: string): string {
 const PUNTAJE_EXACTO = 2
 const PUNTAJE_CONTIENE = 1
 
+function nombraNombreYApellido(palabras: Set<string>): boolean {
+  const nombre = palabras.has('nombre') || palabras.has('nombres')
+  const apellido = palabras.has('apellido') || palabras.has('apellidos')
+  return nombre && apellido
+}
+
 function puntaje(normalizado: string, campo: CampoDestino): number {
   const { exactos, contiene, excluye } = SINONIMOS[campo]
   const palabras = new Set(normalizado.split(' '))
   const rodeado = ` ${normalizado} `
 
   if (excluye?.some((palabra) => palabras.has(palabra))) return 0
+
+  // Un encabezado con nombre Y apellido es de una sola persona entera: nunca
+  // puede ser solo el nombre ni solo el apellido ("Nombre y apellido" al revés,
+  // "Apellido y nombre", queda sin sugerencia a propósito).
+  if ((campo === 'nombre' || campo === 'apellido') && nombraNombreYApellido(palabras)) return 0
   if (exactos.includes(normalizado)) return PUNTAJE_EXACTO
 
   // La frase tiene que aparecer tal cual y completa: "apellido y nombre" no es

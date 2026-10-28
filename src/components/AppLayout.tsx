@@ -30,6 +30,10 @@ interface ItemNav {
   /** Roles que ven el link. Sin esto, lo ven todos. */
   roles?: RolAgente[]
   badge?: Badge
+  /** Activo sólo en `to` exacto, no en sus subrutas. */
+  exacto?: boolean
+  /** Subruta de `to` donde el ítem NO se marca activo, porque la tiene otro ítem. */
+  salvo?: string
 }
 
 interface GrupoNav {
@@ -139,10 +143,23 @@ const NAV: GrupoNav[] = [
       {
         to: '/operaciones',
         label: 'Operaciones',
+        // /operaciones/reservas tiene su propio ítem: sin esto quedarían los dos activos.
+        salvo: '/operaciones/reservas',
         icono: (
           <svg {...trazo}>
             <path d="M3 7h13l-3-3M21 17H8l3 3" />
             <path d="M3 7l3 3M21 17l-3-3" />
+          </svg>
+        ),
+      },
+      {
+        to: '/operaciones/reservas',
+        label: 'Reservas',
+        exacto: true,
+        icono: (
+          <svg {...trazo}>
+            <path d="M6 3h12v18l-6-4-6 4Z" />
+            <path d="m9.5 10 2 2 3-3.5" />
           </svg>
         ),
       },
@@ -300,16 +317,21 @@ export function AppLayout() {
               <ul className="m-0 list-none space-y-0.5 p-0">
                 {grupo.items.map((item) => {
                   const n = item.badge ? badges[item.badge] : 0
+                  const excluido = item.salvo === location.pathname
                   return (
                     <li key={item.to}>
                       <NavLink
                         to={item.to}
+                        end={item.exacto}
+                        // NavLink marca `aria-current="page"` por su cuenta: en la ruta
+                        // que cede a otro ítem hay que apagarlo también.
+                        aria-current={excluido ? 'false' : 'page'}
                         className={({ isActive }) =>
                           [
                             'flex h-9 items-center gap-3 rounded-lg px-3 text-[0.88rem]',
                             'transition-colors motion-reduce:transition-none',
                             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-                            isActive
+                            isActive && !excluido
                               ? 'bg-brand-soft font-semibold text-primary'
                               : 'font-medium text-ink-2 hover:bg-surface-muted hover:text-ink',
                           ].join(' ')

@@ -154,7 +154,7 @@ export default function NuevaOperacion() {
           busqueda_id: vinculaBusqueda ? busquedaId : null,
           monto: presupuesto ?? (muestraMonto ? aNumero(monto) : null),
           moneda,
-          notas,
+          notas: llevaCriterios ? '' : notas,
         })
         idOperacion = operacion.id
         operacionCreada.current = idOperacion
@@ -307,16 +307,20 @@ export default function NuevaOperacion() {
           </Campo>
           )}
 
-          <Campo label="Notas" full>
-            <textarea
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              rows={3}
-              maxLength={500}
-              placeholder="Contexto de la operación, condiciones acordadas..."
-              className={`${CLASES_CONTROL} min-h-20 resize-y leading-normal`}
-            />
-          </Campo>
+          {/* Las operaciones que buscan no llevan notas propias: el texto libre
+              va en "Observaciones" de la búsqueda. */}
+          {!llevaCriterios && (
+            <Campo label="Notas" full>
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Contexto de la operación, condiciones acordadas..."
+                className={`${CLASES_CONTROL} min-h-20 resize-y leading-normal`}
+              />
+            </Campo>
+          )}
         </div>
 
         {/* Criterios en COMPRA y BUSQUEDA_ALQUILER: en las dos el lead busca

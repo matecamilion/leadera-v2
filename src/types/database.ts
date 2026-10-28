@@ -1397,6 +1397,7 @@ export type Database = {
           operacion_id: string | null
           origen_importacion: string | null
           propiedad_id: string | null
+          reconfirmada_at: string | null
           titulo_externo: string | null
         }
         Insert: {
@@ -1415,6 +1416,7 @@ export type Database = {
           operacion_id?: string | null
           origen_importacion?: string | null
           propiedad_id?: string | null
+          reconfirmada_at?: string | null
           titulo_externo?: string | null
         }
         Update: {
@@ -1433,6 +1435,7 @@ export type Database = {
           operacion_id?: string | null
           origen_importacion?: string | null
           propiedad_id?: string | null
+          reconfirmada_at?: string | null
           titulo_externo?: string | null
         }
         Relationships: [
@@ -1930,6 +1933,10 @@ export type Database = {
       }
       postgres_fdw_handler: { Args: never; Returns: unknown }
       procesar_transiciones_suscripcion: { Args: never; Returns: undefined }
+      reconfirmar_visita: {
+        Args: { p_reconfirmada?: boolean; p_visita_id: string }
+        Returns: undefined
+      }
       registrar_interaccion: {
         Args: {
           p_categoria?: string

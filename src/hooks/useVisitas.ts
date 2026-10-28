@@ -3,14 +3,19 @@ import {
   cancelarVisita,
   contarVisitasDeLead,
   crearVisita,
+  diaSiguiente,
   eliminarVisita,
   listarVisitas,
+  listarVisitasPorReconfirmar,
   marcarRealizada,
   obtenerEstadisticasVisitasPropiedad,
+  reconfirmarVisita,
   type CrearVisitaInput,
   type EstadisticasVisitasPropiedad,
   type VisitaConContexto,
+  type VisitaPorReconfirmar,
 } from '../lib/api/visitas'
+import { hoyEnArgentina } from '../lib/ritmoSemanal'
 // El calendario unificado vive en `useTareas`: de ahí sale la forma del evento.
 // La dependencia va en un solo sentido —`useTareas` no importa nada de acá— así
 // que no hay ciclo.
@@ -28,6 +33,45 @@ export function useVisitas(desde: string, hasta: string) {
     queryFn: () => listarVisitas(desde, hasta),
     enabled: !!uid,
     placeholderData: anteriorDelMismoUsuario(uid),
+  })
+}
+
+/**
+ * Visitas de hoy y mañana que el usuario todavía no reconfirmó.
+ *
+ * "Hoy" es el de Argentina, no el del navegador: el día de la visita lo fija la
+ * base en esa zona. La clave lleva los dos días, así que pasada la medianoche la
+ * query se vuelve a pedir sola.
+ */
+export function useVisitasPorReconfirmar() {
+  const uid = useUid()
+  const hoy = hoyEnArgentina()
+  const manana = diaSiguiente(hoy)
+  return useQuery<VisitaPorReconfirmar[]>({
+    queryKey: claves.visitas.porReconfirmar(uid, hoy, manana),
+    queryFn: () => listarVisitasPorReconfirmar(hoy, manana, uid as string),
+    enabled: !!uid,
+  })
+}
+
+/**
+ * Marca una visita como reconfirmada.
+ *
+ * Sin sync con Google: la reconfirmación no cambia nada del evento, y por eso
+ * tampoco pasa por `useCambiarEstadoVisita`.
+ */
+export function useReconfirmarVisita() {
+  const queryClient = useQueryClient()
+  const uid = useUid()
+  const hoy = hoyEnArgentina()
+
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => reconfirmarVisita(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: claves.visitas.porReconfirmar(uid, hoy, diaSiguiente(hoy)),
+      })
+    },
   })
 }
 

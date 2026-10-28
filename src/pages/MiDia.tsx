@@ -17,6 +17,7 @@ import {
 import { SeccionConsultas } from '../components/dashboard/SeccionConsultas'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
 import { TarjetaSemanaGestion } from '../components/dashboard/TarjetaSemanaGestion'
+import { TarjetaVisitasPorReconfirmar } from '../components/dashboard/TarjetaVisitasPorReconfirmar'
 import { AvisoReporteSemanal } from '../components/reporte/AvisoReporteSemanal'
 import {
   IconoAlerta,
@@ -238,6 +239,11 @@ export default function MiDia() {
           />
         </div>
       )}
+
+      {/* Fuera del `sinLeads`: una cuenta con visitas pero sin leads cargados no
+          tiene por qué perder el aviso. Se monta sola solo si hay algo para
+          reconfirmar. */}
+      <TarjetaVisitasPorReconfirmar />
 
       {/* Leads que entran solos por el link de consultas: van antes que el
           resto porque son lo más nuevo. Se monta solo si hay algo para ver. */}

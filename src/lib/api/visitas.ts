@@ -3,6 +3,8 @@ import { supabase } from '../supabase'
 import { crearInteraccion } from './interacciones'
 import type { EstadoVisita, Visita, VisitaInsert } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { claveDia, desdeClaveDia } from '../calendario'
+import { esTelefonoConfiable } from '../telefono'
 
 /**
  * Perfil del usuario logueado: hace falta para el alta.
@@ -77,6 +79,144 @@ export async function listarVisitas(
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las visitas.'))
   return (data ?? []) as unknown as VisitaConContexto[]
+}
+
+// ---------------------------------------------------------------------------
+// Reconfirmación
+//
+// El día antes de una visita el agente le recuerda los datos al cliente. Abrir
+// WhatsApp y marcar la visita como reconfirmada son dos acciones separadas:
+// abrir wa.me no prueba que el mensaje se envió. Reconfirmar no deja ninguna
+// interacción en el lead.
+// ---------------------------------------------------------------------------
+
+/** Visita pendiente de reconfirmar, con lo necesario para escribirle al cliente. */
+export interface VisitaPorReconfirmar extends Visita {
+  propiedad: { id: string; direccion: string; zona: string | null } | null
+  lead: { id: string; nombre: string; apellido: string | null; telefono: string | null } | null
+}
+
+const SELECT_POR_RECONFIRMAR =
+  '*, propiedad:propiedades(id, direccion, zona), lead:leads(id, nombre, apellido, telefono)'
+
+/**
+ * Visitas agendadas de hoy y mañana que el usuario creó o tiene asignadas y
+ * todavía no reconfirmó.
+ *
+ * Consulta propia y no `listarVisitas`: esa comparte el select con el calendario
+ * de Tareas y no tiene por qué cargar el teléfono de cada lead. Acá sí se filtra
+ * por usuario, porque la RLS deja ver también las de los compañeros y el aviso
+ * es de quien tiene que hacer la reconfirmación.
+ */
+export async function listarVisitasPorReconfirmar(
+  hoy: string,
+  manana: string,
+  uid: string,
+): Promise<VisitaPorReconfirmar[]> {
+  const { data, error } = await supabase
+    .from('visitas')
+    .select(SELECT_POR_RECONFIRMAR)
+    .gte('fecha', hoy)
+    .lte('fecha', manana)
+    .eq('estado', 'AGENDADA')
+    .is('reconfirmada_at', null)
+    .or(`creado_por.eq.${uid},asignado_a.eq.${uid}`)
+    .order('fecha', { ascending: true })
+    .order('hora', { ascending: true, nullsFirst: true })
+
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las visitas por reconfirmar.'))
+  }
+  return (data ?? []) as unknown as VisitaPorReconfirmar[]
+}
+
+/**
+ * Marca (o desmarca) la visita como reconfirmada.
+ *
+ * Va por la RPC y no por un UPDATE: la policy de la tabla no deja que un
+ * asignado actualice la fila. La función valida el permiso adentro y sólo
+ * escribe `reconfirmada_at`.
+ */
+export async function reconfirmarVisita(id: string, reconfirmada = true): Promise<void> {
+  const { error } = await supabase.rpc('reconfirmar_visita', {
+    p_visita_id: id,
+    p_reconfirmada: reconfirmada,
+  })
+
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudo marcar la visita como reconfirmada.'))
+  }
+}
+
+const DIAS_DE_LA_SEMANA = [
+  'domingo',
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábado',
+]
+
+/** El día siguiente de una clave `YYYY-MM-DD`, con el cambio de mes y de año. */
+export function diaSiguiente(clave: string): string {
+  const [ano, mes, dia] = clave.split('-').map(Number)
+  return claveDia(new Date(ano, mes - 1, dia + 1))
+}
+
+/** `lunes`, `martes`… de una clave `YYYY-MM-DD`. */
+export function nombreDelDia(clave: string): string {
+  return DIAS_DE_LA_SEMANA[desdeClaveDia(clave).getDay()]
+}
+
+export interface DatosMensajeReconfirmacion {
+  /** Nombre de pila del cliente. */
+  nombre: string
+  /** `YYYY-MM-DD` de la visita. */
+  fecha: string
+  /** `HH:MM` o `HH:MM:SS`; null si la visita no tiene hora pactada. */
+  hora: string | null
+  /** `YYYY-MM-DD` de hoy: decide entre "hoy" y "mañana". */
+  hoy: string
+  direccion: string
+  /** Publicación de una visita externa, si la tiene. */
+  link?: string | null
+}
+
+/** El texto que queda escrito en el chat de WhatsApp, sin enviar. */
+export function construirMensajeReconfirmacion({
+  nombre,
+  fecha,
+  hora,
+  hoy,
+  direccion,
+  link,
+}: DatosMensajeReconfirmacion): string {
+  const dia = desdeClaveDia(fecha)
+  const diaMes = `${String(dia.getDate()).padStart(2, '0')}/${String(dia.getMonth() + 1).padStart(2, '0')}`
+  const cuando = fecha === hoy ? 'hoy' : 'mañana'
+  const aLas = hora ? `, a las ${hora.slice(0, 5)}` : ''
+
+  const lineas = [
+    `Hola ${nombre}! Te escribo para reconfirmar la visita de ${cuando}, ${nombreDelDia(fecha)} ${diaMes}${aLas}, en ${direccion}.`,
+  ]
+  if (link) lineas.push(`Publicación: ${link}`)
+  lineas.push('¿Seguimos en pie?')
+  return lineas.join('\n')
+}
+
+/** Qué se le puede ofrecer al agente para avisarle al cliente de una visita. */
+export type ContactoVisita = 'SIN_CLIENTE' | 'SIN_TELEFONO' | 'CON_WHATSAPP'
+
+/**
+ * Sin cliente: sólo se puede marcar. Con cliente pero sin un teléfono del que
+ * WhatsApp pueda armar un chat —vacío o no confiable— falta completarlo en la
+ * ficha. Con teléfono confiable, WhatsApp.
+ */
+export function contactoDeVisita(lead: { telefono: string | null } | null): ContactoVisita {
+  if (!lead) return 'SIN_CLIENTE'
+  if (!lead.telefono || !esTelefonoConfiable(lead.telefono)) return 'SIN_TELEFONO'
+  return 'CON_WHATSAPP'
 }
 
 // ---------------------------------------------------------------------------

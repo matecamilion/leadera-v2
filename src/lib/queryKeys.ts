@@ -365,6 +365,8 @@ export const claves = {
     estadisticasPropiedad: (uid: Uid, propiedadId: string) =>
       ['visitas', 'estadisticas-propiedad', uid, propiedadId] as const,
     porLead: (uid: Uid, leadId: string) => ['visitas', 'por-lead', uid, leadId] as const,
+    porReconfirmar: (uid: Uid, hoy: string, manana: string) =>
+      ['visitas', 'por-reconfirmar', uid, hoy, manana] as const,
   },
 }
 

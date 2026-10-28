@@ -4,6 +4,7 @@ import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 import { sincronizarTipoOperacionBusqueda } from './busquedas'
 import { agenteDeAtribucion } from '../atribucionLead'
+import { MINIMO_CANTIDAD } from '../validaciones'
 
 export type Operacion = Database['public']['Tables']['operaciones']['Row']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
@@ -417,12 +418,20 @@ export interface CrearReservaInput {
   titulo: string
   /** `yyyy-mm-dd`. */
   fecha: string
-  monto?: number | null
+  /** Obligatorio, de 1 para arriba. El formulario lo valida; acá se vuelve a exigir. */
+  monto: number
   moneda?: string
   lead_id?: string | null
 }
 
+export const MENSAJE_MONTO_RESERVA = 'El monto de la reserva es obligatorio y tiene que ser 1 o más.'
+
 export async function crearReserva(input: CrearReservaInput): Promise<Operacion> {
+  // Antes de cualquier lectura: un monto ausente no tiene que costar un viaje a la base.
+  if (typeof input.monto !== 'number' || !Number.isFinite(input.monto) || input.monto < MINIMO_CANTIDAD) {
+    throw new Error(MENSAJE_MONTO_RESERVA)
+  }
+
   const { data: userData, error: errorUser } = await supabase.auth.getUser()
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
@@ -444,7 +453,7 @@ export async function crearReserva(input: CrearReservaInput): Promise<Operacion>
       estado: 'RESERVADA',
       fecha_reserva: input.fecha,
       lead_id: input.lead_id || null,
-      monto: input.monto ?? null,
+      monto: input.monto,
       ...(input.moneda ? { moneda: input.moneda } : {}),
     })
     .select('*')

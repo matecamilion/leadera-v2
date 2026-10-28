@@ -1,10 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 
 // El módulo crea el cliente de Supabase al importarse y sin variables de entorno
-// lanza; acá sólo se prueban funciones puras.
-vi.mock('../supabase', () => ({ supabase: {} }))
+// lanza. Sin sesión, `crearReserva` corta en la primera lectura: alcanza para ver
+// si el monto la frenó antes.
+vi.mock('../supabase', () => ({
+  supabase: { auth: { getUser: async () => ({ data: { user: null }, error: null }) } },
+}))
 
-import { limitesDelMes, puntaDeTipo, tipoDeReserva } from './operaciones'
+import {
+  crearReserva,
+  limitesDelMes,
+  MENSAJE_MONTO_RESERVA,
+  puntaDeTipo,
+  tipoDeReserva,
+  type CrearReservaInput,
+} from './operaciones'
 
 describe('tipoDeReserva', () => {
   it('vendedora + venta es VENTA', () => {
@@ -71,5 +81,33 @@ describe('limitesDelMes', () => {
   it('el cambio de mes cambia el rango', () => {
     expect(limitesDelMes('2026-11-01').desde).toBe('2026-11-01')
     expect(limitesDelMes('2026-10-31').desde).toBe('2026-10-01')
+  })
+})
+
+describe('crearReserva: monto obligatorio', () => {
+  const base: CrearReservaInput = {
+    punta: 'vendedora',
+    operacion: 'venta',
+    titulo: 'Alvear 1890',
+    fecha: '2026-10-28',
+    monto: 100000,
+  }
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['0', 0],
+    ['negativo', -5],
+    ['menor a 1', 0.5],
+    ['NaN', Number.NaN],
+    ['un texto', '100'],
+  ])('rechaza un monto %s', async (_nombre, monto) => {
+    await expect(
+      crearReserva({ ...base, monto: monto as unknown as number }),
+    ).rejects.toThrow(MENSAJE_MONTO_RESERVA)
+  })
+
+  it('con monto 1 pasa la validación y sigue con la sesión', async () => {
+    await expect(crearReserva({ ...base, monto: 1 })).rejects.toThrow('Tu sesión expiró')
   })
 })

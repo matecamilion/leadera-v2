@@ -111,6 +111,9 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
   const hoy = hoyEnArgentina()
   const [fecha, setFecha] = useState(hoy)
   const [leadId, setLeadId] = useState<string | null>(null)
+  // Los errores de campo vacío se muestran recién al salir del campo o al enviar.
+  const [tituloTocado, setTituloTocado] = useState(false)
+  const [montoTocado, setMontoTocado] = useState(false)
 
   const crear = useCrearReserva()
 
@@ -136,14 +139,31 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
   const hayParecidas = tituloBuscado !== '' && (parecidas.data?.length ?? 0) > 0
 
   const tipo = tipoDeReserva(punta, clase)
+  const montoVacio = !monto.trim()
   const montoInvalido = cantidadInvalida(monto)
   const montoAlto = excedeTope(monto, TOPE_PRECIO)
+  const errorMonto = montoInvalido
+    ? 'El monto tiene que ser 1 o más.'
+    : montoAlto
+      ? MENSAJE_VALOR_ALTO
+      : montoTocado && montoVacio
+        ? 'Ingresá el monto de la reserva.'
+        : null
+  const errorTitulo = tituloTocado && !titulo.trim() ? 'Ingresá el título de la reserva.' : null
+  const etiquetaMonto = clase === 'venta' ? 'Precio de venta' : 'Alquiler mensual'
   const fechaFutura = !!fecha && fecha > hoy
-  const faltaAlgo = !titulo.trim() || !fecha || fechaFutura || montoInvalido || montoAlto
+  const faltaAlgo =
+    !titulo.trim() || !fecha || fechaFutura || montoVacio || montoInvalido || montoAlto
 
   function enviar(evento: React.FormEvent) {
     evento.preventDefault()
-    if (faltaAlgo) return
+    if (faltaAlgo) {
+      // El botón queda habilitado a propósito: si estuviera apagado, nadie se
+      // enteraría de qué campo falta.
+      setTituloTocado(true)
+      setMontoTocado(true)
+      return
+    }
     // El botón ya se deshabilita mientras guarda, pero un Enter repetido llega
     // por el submit del form sin pasar por él y crearía la reserva dos veces.
     if (crear.isPending) return
@@ -154,7 +174,7 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
         operacion: clase,
         titulo,
         fecha,
-        monto: monto.trim() ? Number(monto) : null,
+        monto: Number(monto),
         moneda,
         lead_id: leadId,
       },
@@ -211,11 +231,19 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
               type="text"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
+              onBlur={() => setTituloTocado(true)}
               maxLength={MAX_TITULO}
               autoFocus
               placeholder="Ej: Alvear 1890, 3 amb"
+              aria-invalid={errorTitulo !== null || undefined}
+              aria-describedby={errorTitulo ? 'reserva-titulo-error' : undefined}
               className={campo}
             />
+            {errorTitulo && (
+              <p id="reserva-titulo-error" className="mt-1 text-[0.78rem] text-peligro-ink">
+                {errorTitulo}
+              </p>
+            )}
             {hayParecidas && (
               <p
                 role="status"
@@ -235,7 +263,7 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
 
           <div>
             <label htmlFor="reserva-monto" className={etiquetaCampo}>
-              Monto <span className="normal-case">(opcional)</span>
+              {etiquetaMonto}
             </label>
             <div className="flex gap-2">
               <select
@@ -258,14 +286,15 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
                 value={monto}
                 onChange={(e) => setMonto(e.target.value)}
                 placeholder="120000"
-                aria-invalid={montoInvalido || montoAlto || undefined}
-                aria-describedby={montoInvalido || montoAlto ? 'reserva-monto-error' : undefined}
+                onBlur={() => setMontoTocado(true)}
+                aria-invalid={errorMonto !== null || undefined}
+                aria-describedby={errorMonto ? 'reserva-monto-error' : undefined}
                 className={`${campoSinAncho} min-w-0 flex-1`}
               />
             </div>
-            {(montoInvalido || montoAlto) && (
+            {errorMonto && (
               <p id="reserva-monto-error" className="mt-1 text-[0.78rem] text-peligro-ink">
-                {montoInvalido ? 'El monto tiene que ser 1 o más.' : MENSAJE_VALOR_ALTO}
+                {errorMonto}
               </p>
             )}
           </div>
@@ -319,7 +348,7 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
           </button>
           <button
             type="submit"
-            disabled={faltaAlgo || crear.isPending}
+            disabled={crear.isPending}
             className="min-h-10 rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
             {crear.isPending ? 'Cargando…' : 'Cargar reserva'}

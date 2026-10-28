@@ -5,10 +5,8 @@ import { ComboboxLead } from '../comunes/ComboboxLead'
 import { ComboboxPropiedad } from '../comunes/ComboboxPropiedad'
 import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../comunes/estilosFormulario'
 import { FormularioBusqueda } from './FormularioBusqueda'
-import { useBusquedasDeLead } from '../../hooks/useOperaciones'
 import { useCriteriosBusqueda } from '../../hooks/useBusqueda'
 import { usePropietarioSugerido } from '../../hooks/usePropietarioSugerido'
-import { etiquetaTipo } from '../../lib/api/propiedades'
 import {
   cantidadInvalida,
   excedeTope,
@@ -86,7 +84,6 @@ export function ModalEditarOperacion({
   const [titulo, setTitulo] = useState(operacion.titulo ?? '')
   const [leadId, setLeadId] = useState<string | null>(operacion.lead_id)
   const [propiedadId, setPropiedadId] = useState<string | null>(operacion.propiedad_id)
-  const [busquedaId, setBusquedaId] = useState<string | null>(operacion.busqueda_id)
   const [monto, setMonto] = useState(operacion.monto?.toString() ?? '')
   const [moneda, setMoneda] = useState(operacion.moneda)
   const [notas, setNotas] = useState(operacion.notas ?? '')
@@ -98,9 +95,10 @@ export function ModalEditarOperacion({
   const vinculaBusqueda = seVinculaConBusqueda(tipo)
   const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
 
-  const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
-    vinculaBusqueda ? leadId : null,
-  )
+  // La búsqueda es de la operación (1 a 1) y no se elige: el modal edita la que
+  // ya tiene. Sin búsqueda, el formulario arranca vacío y al guardar se crea y
+  // se vincula (`guardarBusqueda`).
+  const busquedaId = operacion.busqueda_id
 
   // Los criterios de la búsqueda vinculada. Se precargan una sola vez por
   // búsqueda: después manda lo que el usuario esté tipeando.
@@ -152,7 +150,6 @@ export function ModalEditarOperacion({
       setTitulo(operacion.titulo ?? '')
       setLeadId(operacion.lead_id)
       setPropiedadId(operacion.propiedad_id)
-      setBusquedaId(operacion.busqueda_id)
       setMonto(operacion.monto?.toString() ?? '')
       setMoneda(operacion.moneda)
       setNotas(operacion.notas ?? '')
@@ -183,8 +180,9 @@ export function ModalEditarOperacion({
     setTipo(nuevo)
     // El vínculo que deja de aplicar se limpia: guardar una propiedad en una
     // operación de COMPRA (o al revés) dejaría datos que la UI ya no muestra.
+    // La búsqueda se desvincula al guardar (`busqueda_id` sale null si el tipo
+    // ya no busca), así que volver al tipo anterior antes de guardar la conserva.
     if (nuevo === 'COMPRA') setPropiedadId(null)
-    else setBusquedaId(null)
   }
 
   function manejarSubmit(e: FormEvent) {
@@ -262,45 +260,11 @@ export function ModalEditarOperacion({
           </Campo>
 
           {/* Quien ofrece (VENTA, ALQUILER) se apoya en una propiedad; quien
-              busca (COMPRA, BUSQUEDA_ALQUILER), en una
-              búsqueda del lead. Ninguno es obligatorio. */}
-          {!vinculaBusqueda ? (
+              busca (COMPRA, BUSQUEDA_ALQUILER) lleva su búsqueda dentro de la
+              operación: se edita abajo, en los criterios. */}
+          {!vinculaBusqueda && (
             <Campo label="Propiedad (opcional)" full>
               <ComboboxPropiedad value={propiedadId} onChange={setPropiedadId} />
-            </Campo>
-          ) : (
-            <Campo
-              label="Búsqueda del lead (opcional)"
-              full
-              ayuda={
-                leadId
-                  ? 'Sólo se listan las búsquedas activas del lead elegido.'
-                  : 'Elegí primero un lead para ver sus búsquedas.'
-              }
-            >
-              <select
-                value={busquedaId ?? ''}
-                onChange={(e) => setBusquedaId(e.target.value || null)}
-                disabled={!leadId || buscandoBusquedas}
-                className={`${CLASES_CONTROL} disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                <option value="">
-                  {!leadId
-                    ? 'Sin lead seleccionado'
-                    : buscandoBusquedas
-                      ? 'Cargando…'
-                      : busquedas?.length
-                        ? 'Sin vincular'
-                        : 'Este lead no tiene búsquedas activas'}
-                </option>
-                {busquedas?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.tipo_propiedad ? etiquetaTipo(b.tipo_propiedad) : 'Cualquier tipo'}
-                    {b.zona ? ` en ${b.zona}` : ''}
-                    {b.precio_max != null ? ` · hasta ${b.precio_max}` : ''}
-                  </option>
-                ))}
-              </select>
             </Campo>
           )}
 

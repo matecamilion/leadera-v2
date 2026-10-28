@@ -257,6 +257,11 @@ export const claves = {
       ['operaciones', uid, tipo, estado, busqueda, page] as const,
     enCurso: (uid: Uid, limit: number) => ['operaciones', 'en-curso', uid, limit] as const,
     kanban: (uid: Uid) => ['operaciones', 'kanban', uid] as const,
+    /** `desde` es el primer día del mes: pasada la medianoche del 1° se pide el mes nuevo. */
+    reservasDelMes: (uid: Uid, desde: string, limite: number) =>
+      ['operaciones', 'reservas-del-mes', uid, desde, limite] as const,
+    /** Posibles duplicados al cargar una reserva. Bajo `operaciones`: cualquier alta los refresca. */
+    parecidas: (uid: Uid, titulo: string) => ['operaciones', 'parecidas', uid, titulo] as const,
   },
 
   /**

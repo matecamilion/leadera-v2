@@ -5,6 +5,8 @@ import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
+import { ListaReservasDelMes } from '../components/dashboard/ListaReservasDelMes'
+import { ModalCargarReserva } from '../components/dashboard/ModalCargarReserva'
 import { EstadoSinAsignados } from '../components/leads/EstadoSinAsignados'
 import { EstadoSinLeads } from '../components/leads/EstadoSinLeads'
 import { ListaPropiedadesRecientes } from '../components/dashboard/ListaPropiedadesRecientes'
@@ -70,6 +72,7 @@ export default function MiDia() {
   // Sobre qué lead se está registrando. Va antes de los returns tempranos de
   // acá abajo: los hooks no pueden quedar detrás de un `if`.
   const [leadARegistrar, setLeadARegistrar] = useState<LeadARegistrar | null>(null)
+  const [cargandoReserva, setCargandoReserva] = useState(false)
 
   // Lo que se muestra en el hero es lo que hay para hacer hoy. Se suman los
   // totales reales y no los recortes de cinco, si no el número mentiría en cuanto
@@ -165,14 +168,24 @@ export default function MiDia() {
             Compitiendo en peso con el título desviaría de lo que queda por
             hacer, que es de lo que habla el resto de la pantalla. Sin leads no
             hay a quién haber contactado. */}
-        {!sinLeads && (
-          <Link
-            to="/mi-dia/contactados"
-            className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline sm:ml-auto"
+        {/* La reserva no necesita leads: el botón queda fuera del `sinLeads`. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:ml-auto">
+          {!sinLeads && (
+            <Link
+              to="/mi-dia/contactados"
+              className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
+            >
+              Ver contactados hoy →
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => setCargandoReserva(true)}
+            className="min-h-10 rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
           >
-            Ver contactados hoy →
-          </Link>
-        )}
+            Cargar reserva
+          </button>
+        </div>
       </header>
 
       {/* Sin leads la invitación va pegada al título, a la vista sin scrollear:
@@ -312,14 +325,13 @@ export default function MiDia() {
         <ActividadReciente />
       </div>
 
-      {/* Par 4: las operaciones cierran la pantalla a ancho completo. Quedaron
-          sin compañera al entrar Actividad reciente, y estirarlas es preferible
-          a dejar media fila vacía al lado —mismo criterio que la agenda del Par
-          2—. Van últimas y no antes de la actividad
-          porque son el estado de la cartera, el horizonte más largo de la
-          pantalla: se lee después de lo que pasó hoy. */}
+      {/* Par 4: las reservas del mes y las operaciones en curso cierran la
+          pantalla. Van últimas y no antes de la actividad porque son el estado
+          de la cartera, el horizonte más largo de la pantalla: se lee después de
+          lo que pasó hoy. */}
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
-        <ListaOperacionesEnCurso className="lg:col-span-2" />
+        <ListaReservasDelMes onCargar={() => setCargandoReserva(true)} />
+        <ListaOperacionesEnCurso />
       </div>
 
       {/* Registrar desde acá no navega: `useCrearInteraccion` invalida
@@ -335,6 +347,8 @@ export default function MiDia() {
           onCreada={() => mostrarAviso('Interacción registrada.')}
         />
       )}
+
+      {cargandoReserva && <ModalCargarReserva onCerrar={() => setCargandoReserva(false)} />}
     </div>
   )
 }
@@ -371,7 +385,8 @@ function Skeleton() {
         <BloqueSeccion alto="h-[193px]" />
       </div>
       <div className="mb-4 grid items-start gap-4 lg:grid-cols-2 [&>*]:mb-0">
-        <BloqueSeccion alto="h-[193px]" className="lg:col-span-2" />
+        <BloqueSeccion alto="h-[193px]" />
+        <BloqueSeccion alto="h-[193px]" />
       </div>
     </div>
   )

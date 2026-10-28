@@ -1,16 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  buscarOperacionesAbiertasPorTitulo,
   crearOperacion,
+  crearReserva,
+  limitesDelMes,
   listarBusquedasDeLead,
   listarOperaciones,
   listarOperacionesEnCurso,
+  listarReservasDelMes,
   type CrearOperacionInput,
+  type CrearReservaInput,
   type EstadoOperacion,
   type ListarOperacionesResult,
+  type ListarReservasDelMesResult,
+  type OperacionParecida,
   type TipoOperacion,
 } from '../lib/api/operaciones'
 import { obtenerBusquedaLibreDeLead, type BusquedaLibre } from '../lib/api/busquedas'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { hoyEnArgentina } from '../lib/ritmoSemanal'
 import { useUid } from './useUid'
 
 /** Filas por página del listado de operaciones. */
@@ -54,6 +62,44 @@ export function useCrearOperacion() {
       // Una operación creada con una búsqueda del lead la deja en uso.
       queryClient.invalidateQueries({ queryKey: claves.busquedasDeLead.raiz })
     },
+  })
+}
+
+/**
+ * Cargar una reserva crea una operación en RESERVADA: refresca todo lo que cuelga
+ * de `operaciones` (listado, Kanban, en curso y reservas del mes) y la ficha del
+ * lead si la reserva lo trae.
+ */
+export function useCrearReserva() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CrearReservaInput) => crearReserva(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: claves.operaciones.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.operacionesPorLead.raiz })
+    },
+  })
+}
+
+/** Las reservas del mes en curso (hora argentina), para la tarjeta de Mi día. */
+export function useReservasDelMes(limite: number) {
+  const uid = useUid()
+  const mes = limitesDelMes(hoyEnArgentina())
+  return useQuery<ListarReservasDelMesResult>({
+    queryKey: claves.operaciones.reservasDelMes(uid, mes.desde, limite),
+    queryFn: () => listarReservasDelMes(limite, mes),
+    enabled: !!uid,
+  })
+}
+
+/** Operaciones abiertas con un título parecido al que se está tipeando. */
+export function useOperacionesParecidas(titulo: string) {
+  const uid = useUid()
+  return useQuery<OperacionParecida[]>({
+    queryKey: claves.operaciones.parecidas(uid, titulo),
+    queryFn: () => buscarOperacionesAbiertasPorTitulo(titulo),
+    enabled: !!uid && titulo.length > 0,
   })
 }
 

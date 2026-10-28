@@ -876,6 +876,7 @@ export type Database = {
           estado: Database["public"]["Enums"]["estado_operacion"]
           fecha_cierre: string | null
           fecha_proximo_seguimiento: string | null
+          fecha_reserva: string | null
           id: string
           inmobiliaria_id: string
           lead_id: string | null
@@ -894,6 +895,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_operacion"]
           fecha_cierre?: string | null
           fecha_proximo_seguimiento?: string | null
+          fecha_reserva?: string | null
           id?: string
           inmobiliaria_id: string
           lead_id?: string | null
@@ -912,6 +914,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_operacion"]
           fecha_cierre?: string | null
           fecha_proximo_seguimiento?: string | null
+          fecha_reserva?: string | null
           id?: string
           inmobiliaria_id?: string
           lead_id?: string | null

@@ -375,6 +375,147 @@ export async function crearOperacion(
 }
 
 // ---------------------------------------------------------------------------
+// Reservas
+//
+// Una reserva es una operación creada ya en RESERVADA, de un solo paso y con
+// título libre: puede ser una propiedad de otra inmobiliaria, así que no exige
+// lead, propiedad ni búsqueda.
+// ---------------------------------------------------------------------------
+
+/** De qué lado de la operación está el agente: ofrece la propiedad o trae al cliente. */
+export type PuntaReserva = 'vendedora' | 'compradora'
+
+export type ClaseOperacionReserva = 'venta' | 'alquiler'
+
+/** El `tipo` de la operación que corresponde a la punta y a la clase elegidas. */
+export function tipoDeReserva(
+  punta: PuntaReserva,
+  operacion: ClaseOperacionReserva,
+): TipoOperacion {
+  if (punta === 'vendedora') return operacion === 'venta' ? 'VENTA' : 'ALQUILER'
+  return operacion === 'venta' ? 'COMPRA' : 'BUSQUEDA_ALQUILER'
+}
+
+export interface CrearReservaInput {
+  punta: PuntaReserva
+  operacion: ClaseOperacionReserva
+  titulo: string
+  /** `yyyy-mm-dd`. */
+  fecha: string
+  monto?: number | null
+  moneda?: string
+  lead_id?: string | null
+}
+
+export async function crearReserva(input: CrearReservaInput): Promise<Operacion> {
+  const { data: userData, error: errorUser } = await supabase.auth.getUser()
+  if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
+
+  const { data: perfil, error: errorPerfil } = await supabase
+    .from('profiles')
+    .select('id, inmobiliaria_id, asiste_a')
+    .eq('id', userData.user.id)
+    .single()
+
+  if (errorPerfil || !perfil) throw new Error('No encontramos tu perfil de agente.')
+
+  const { data, error } = await supabase
+    .from('operaciones')
+    .insert({
+      inmobiliaria_id: perfil.inmobiliaria_id,
+      agente_id: agenteDeAtribucion(perfil),
+      tipo: tipoDeReserva(input.punta, input.operacion),
+      titulo: input.titulo.trim(),
+      estado: 'RESERVADA',
+      fecha_reserva: input.fecha,
+      lead_id: input.lead_id || null,
+      monto: input.monto ?? null,
+      ...(input.moneda ? { moneda: input.moneda } : {}),
+    })
+    .select('*')
+    .single()
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la reserva.'))
+  return data
+}
+
+/**
+ * El mes de una fecha como rango `[desde, hasta)`: el primer día del mes y el
+ * primero del siguiente. `fecha_reserva` es una columna `date`, así que alcanza
+ * con comparar contra esas dos claves.
+ */
+export function limitesDelMes(hoy: string): { desde: string; hasta: string } {
+  const [ano, mes] = hoy.split('-').map(Number)
+  const siguienteAno = mes === 12 ? ano + 1 : ano
+  const siguienteMes = mes === 12 ? 1 : mes + 1
+  const clave = (a: number, m: number) => `${a}-${String(m).padStart(2, '0')}-01`
+  return { desde: clave(ano, mes), hasta: clave(siguienteAno, siguienteMes) }
+}
+
+export interface ReservaDelMes {
+  id: string
+  titulo: string | null
+  tipo: TipoOperacion
+  estado: EstadoOperacion
+  monto: number | null
+  moneda: string
+  fecha_reserva: string | null
+}
+
+export interface ListarReservasDelMesResult {
+  data: ReservaDelMes[]
+  /** Cuántas hay en el mes, no cuántas trae `data`. */
+  count: number
+}
+
+/**
+ * Las reservas con `fecha_reserva` dentro del mes dado, sin las canceladas, las
+ * más recientes primero. No filtra por agente: de eso se ocupa la RLS.
+ */
+export async function listarReservasDelMes(
+  limite: number,
+  mes: { desde: string; hasta: string },
+): Promise<ListarReservasDelMesResult> {
+  const { data, error, count } = await supabase
+    .from('operaciones')
+    .select('id, titulo, tipo, estado, monto, moneda, fecha_reserva', { count: 'exact' })
+    .gte('fecha_reserva', mes.desde)
+    .lt('fecha_reserva', mes.hasta)
+    .neq('estado', 'CANCELADA')
+    .order('fecha_reserva', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limite)
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las reservas.'))
+  return { data: data ?? [], count: count ?? 0 }
+}
+
+export interface OperacionParecida {
+  id: string
+  titulo: string | null
+  tipo: TipoOperacion
+  estado: EstadoOperacion
+}
+
+/** Operaciones abiertas con un título que contiene el texto, para avisar de un posible duplicado. */
+export async function buscarOperacionesAbiertasPorTitulo(
+  titulo: string,
+): Promise<OperacionParecida[]> {
+  const texto = sanearBusqueda(titulo)
+  if (!texto) return []
+
+  const { data, error } = await supabase
+    .from('operaciones')
+    .select('id, titulo, tipo, estado')
+    .ilike('titulo', `%${texto}%`)
+    .in('estado', ESTADOS_ABIERTOS)
+    .limit(5)
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron buscar operaciones.'))
+  return data ?? []
+}
+
+// ---------------------------------------------------------------------------
 // Selectores del formulario
 // ---------------------------------------------------------------------------
 

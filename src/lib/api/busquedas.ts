@@ -26,7 +26,16 @@ export function tipoOperacionDeBusqueda(tipo: TipoOperacion): 'COMPRA' | 'ALQUIL
  * `inmobiliaria_id`, `agente_id` y `activa`, que salen del contexto y no del
  * formulario.
  */
+export type MonedaBusqueda = 'USD' | 'ARS'
+
+export const MONEDAS_BUSQUEDA: readonly MonedaBusqueda[] = ['USD', 'ARS']
+
 export interface CriteriosBusqueda {
+  /**
+   * La moneda de `precio_min` y `precio_max`. Siempre tiene valor (la columna es
+   * NOT NULL, default 'USD'), así que no cuenta como "algo cargado".
+   */
+  moneda: MonedaBusqueda
   tipo_propiedad: TipoPropiedad | null
   zona: string | null
   precio_min: number | null
@@ -40,6 +49,7 @@ export interface CriteriosBusqueda {
 }
 
 export const CRITERIOS_VACIOS: CriteriosBusqueda = {
+  moneda: 'USD',
   tipo_propiedad: null,
   zona: null,
   precio_min: null,
@@ -71,10 +81,11 @@ const CRITERIOS_PUNTUABLES = [
   'expensas_max',
 ] as const satisfies readonly (keyof CriteriosBusqueda)[]
 
-/** ¿Hay algo cargado? Habilita el guardado. */
+/** ¿Hay algo cargado? Habilita el guardado. La moneda sola no cuenta. */
 export function hayAlgunCriterio(criterios: CriteriosBusqueda): boolean {
-  return Object.values(criterios).some((valor) =>
-    typeof valor === 'string' ? valor.trim() !== '' : valor != null,
+  return Object.entries(criterios).some(
+    ([clave, valor]) =>
+      clave !== 'moneda' && (typeof valor === 'string' ? valor.trim() !== '' : valor != null),
   )
 }
 
@@ -99,13 +110,14 @@ export async function obtenerCriterios(
   const { data, error } = await supabase
     .from('busquedas')
     .select(
-      'tipo_propiedad, zona, precio_min, precio_max, ambientes_min, m2_min, banos_min, cocheras_min, expensas_max, notas',
+      'moneda, tipo_propiedad, zona, precio_min, precio_max, ambientes_min, m2_min, banos_min, cocheras_min, expensas_max, notas',
     )
     .eq('id', busquedaId)
     .maybeSingle()
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cargar la búsqueda.'))
-  return data
+  // El CHECK de la base sólo admite USD y ARS; el tipo de la columna es string.
+  return data ? { ...data, moneda: data.moneda === 'ARS' ? 'ARS' : 'USD' } : null
 }
 
 /**

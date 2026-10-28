@@ -2,7 +2,12 @@ import { Campo, ErrorCampo, Input } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
 import { TIPOS_PROPIEDAD, type TipoPropiedad } from '../../lib/api/propiedades'
 import { MINIMO_DESDE_CERO } from '../../lib/validaciones'
-import { hayCriterioPuntuable, type CriteriosBusqueda } from '../../lib/api/busquedas'
+import {
+  hayCriterioPuntuable,
+  MONEDAS_BUSQUEDA,
+  type CriteriosBusqueda,
+  type MonedaBusqueda,
+} from '../../lib/api/busquedas'
 
 /** '' → null; '12' → 12. Descarta lo que no sea un número válido. */
 function aNumero(valor: string): number | null {
@@ -105,7 +110,21 @@ export function FormularioBusqueda({
           />
         </Campo>
 
-        <Campo label="Precio mínimo (USD)">
+        <Campo label="Moneda">
+          <select
+            value={criterios.moneda}
+            onChange={(e) => actualizar('moneda', e.target.value as MonedaBusqueda)}
+            className={CLASES_CONTROL}
+          >
+            {MONEDAS_BUSQUEDA.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </Campo>
+
+        <Campo label={`Precio mínimo (${criterios.moneda})`}>
           <Input
             type="number"
             min={MINIMO_DESDE_CERO}
@@ -116,7 +135,7 @@ export function FormularioBusqueda({
           />
         </Campo>
 
-        <Campo label="Precio máximo (USD)">
+        <Campo label={`Precio máximo (${criterios.moneda})`}>
           <Input
             type="number"
             min={MINIMO_DESDE_CERO}

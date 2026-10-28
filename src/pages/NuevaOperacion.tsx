@@ -105,6 +105,9 @@ export default function NuevaOperacion() {
   // buscan, el presupuesto es el precio máximo de los criterios: una sola
   // fuente, el monto se deriva de ahí al guardar.
   const muestraMonto = !llevaCriterios
+  // En las que buscan la moneda es la de la búsqueda; el selector del Monto
+  // sólo existe en las que no.
+  const monedaOperacion = llevaCriterios ? criterios.moneda : moneda
   const presupuesto =
     llevaCriterios && criterios.precio_max != null && criterios.precio_max > 0
       ? criterios.precio_max
@@ -153,7 +156,7 @@ export default function NuevaOperacion() {
           propiedad_id: vinculaBusqueda ? null : propiedadId,
           busqueda_id: vinculaBusqueda ? busquedaId : null,
           monto: presupuesto ?? (muestraMonto ? aNumero(monto) : null),
-          moneda,
+          moneda: monedaOperacion,
           notas: llevaCriterios ? '' : notas,
         })
         idOperacion = operacion.id
@@ -274,7 +277,7 @@ export default function NuevaOperacion() {
             presupuesto != null && (
               <Campo label="Presupuesto">
                 <p className="m-0 text-[0.9rem] text-ink-2">
-                  Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
+                  Presupuesto: {monedaOperacion} {presupuesto} (se toma de la búsqueda)
                 </p>
               </Campo>
             )

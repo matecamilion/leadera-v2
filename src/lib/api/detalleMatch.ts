@@ -58,7 +58,7 @@ export async function obtenerDetalleMatch(
     supabase
       .from('busquedas')
       .select(
-        'id, tipo_propiedad, zona, precio_min, precio_max, ambientes_min, m2_min, ' +
+        'id, moneda, tipo_propiedad, zona, precio_min, precio_max, ambientes_min, m2_min, ' +
           'banos_min, cocheras_min, expensas_max, notas, ' +
           'lead:leads(id, nombre, apellido, telefono, email, estado)',
       )

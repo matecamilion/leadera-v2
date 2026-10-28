@@ -173,6 +173,8 @@ export function ModalEditarOperacion({
     llevaCriterios && esAbierta(operacion.estado) && criterios.precio_max != null && criterios.precio_max > 0
       ? criterios.precio_max
       : null
+  // Con presupuesto la moneda es la de la búsqueda; sin él, la del Monto.
+  const monedaOperacion = presupuesto != null ? criterios.moneda : moneda
   const montoInvalido = presupuesto == null && cantidadInvalida(monto)
   const montoAlto = presupuesto == null && excedeTope(monto, TOPE_PRECIO)
   const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
@@ -198,7 +200,7 @@ export function ModalEditarOperacion({
         propiedad_id: vinculaBusqueda ? null : propiedadId,
         busqueda_id: vinculaBusqueda ? busquedaId : null,
         monto: presupuesto ?? aNumero(monto),
-        moneda,
+        moneda: monedaOperacion,
         notas: notas.trim() || null,
       },
       // Sin lead no se puede guardar una búsqueda (`lead_id` es NOT NULL), y
@@ -305,7 +307,7 @@ export function ModalEditarOperacion({
           {presupuesto != null ? (
             <Campo label="Presupuesto">
               <p className="m-0 text-[0.9rem] text-ink-2">
-                Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
+                Presupuesto: {monedaOperacion} {presupuesto} (se toma de la búsqueda)
               </p>
             </Campo>
           ) : (

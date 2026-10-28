@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { atribucionDeAlta } from './atribucionLead'
+import { agenteDeAtribucion, atribucionDeAlta } from './atribucionLead'
+
+describe('agenteDeAtribucion', () => {
+  it('un perfil sin asiste_a es su propio agente', () => {
+    expect(agenteDeAtribucion({ id: 'agente', asiste_a: null })).toBe('agente')
+  })
+
+  it('un perfil con asiste_a atribuye al agente al que asiste', () => {
+    expect(agenteDeAtribucion({ id: 'asistente', asiste_a: 'agente' })).toBe('agente')
+  })
+})
 
 describe('atribucionDeAlta', () => {
   it('un asistente carga para su agente y queda como quien lo lleva', () => {

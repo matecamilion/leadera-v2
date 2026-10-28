@@ -3,6 +3,7 @@ import type { Database } from '../../types/database'
 import type { TipoPropiedad } from './propiedades'
 import type { TipoOperacion } from './operaciones'
 import { interpretarErrorSupabase } from '../errores'
+import { agenteDeAtribucion } from '../atribucionLead'
 
 export type Busqueda = Database['public']['Tables']['busquedas']['Row']
 
@@ -132,7 +133,7 @@ export async function guardarBusqueda(
 
   const { data: perfil, error: errorPerfil } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id')
+    .select('id, inmobiliaria_id, asiste_a')
     .eq('id', userData.user.id)
     .single()
 
@@ -175,7 +176,7 @@ export async function guardarBusqueda(
       tipo_operacion,
       lead_id: leadId,
       inmobiliaria_id: perfil.inmobiliaria_id,
-      agente_id: perfil.id,
+      agente_id: agenteDeAtribucion(perfil),
       // `activa` la pone la base en true por default.
     })
     .select('id')

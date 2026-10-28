@@ -1,6 +1,15 @@
 import type { RolAgente } from './api/auth'
 
 /**
+ * De quién es lo que carga este perfil: el agente al que asiste, o el propio
+ * perfil si no asiste a nadie. Es el `agente_id` de leads, búsquedas y
+ * operaciones nuevas.
+ */
+export function agenteDeAtribucion(perfil: { id: string; asiste_a: string | null }): string {
+  return perfil.asiste_a ?? perfil.id
+}
+
+/**
  * De quién es un lead nuevo y quién lo lleva, según quién lo carga.
  *
  * `agente_id` es de quién es el lead (la cartera); `asignado_a`, quién lo
@@ -24,7 +33,7 @@ export function atribucionDeAlta(
 } {
   const puedeAsignar = perfil.rol === 'DUENO' || perfil.rol === 'AGENTE'
   return {
-    agente_id: perfil.asiste_a ?? perfil.id,
+    agente_id: agenteDeAtribucion(perfil),
     asignado_a: puedeAsignar && asignadoA ? asignadoA : perfil.id,
   }
 }

@@ -3,6 +3,7 @@ import { sanearBusqueda } from './filtros'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 import { sincronizarTipoOperacionBusqueda } from './busquedas'
+import { agenteDeAtribucion } from '../atribucionLead'
 
 export type Operacion = Database['public']['Tables']['operaciones']['Row']
 export type TipoOperacion = Database['public']['Enums']['tipo_operacion']
@@ -334,7 +335,7 @@ export async function crearOperacion(
   // salen del profile, nunca del formulario.
   const { data: perfil, error: errorPerfil } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id')
+    .select('id, inmobiliaria_id, asiste_a')
     .eq('id', userData.user.id)
     .single()
 
@@ -344,7 +345,7 @@ export async function crearOperacion(
     .from('operaciones')
     .insert({
       inmobiliaria_id: perfil.inmobiliaria_id,
-      agente_id: perfil.id,
+      agente_id: agenteDeAtribucion(perfil),
       tipo: input.tipo,
       titulo: input.titulo.trim(),
       estado: 'PUBLICADA',

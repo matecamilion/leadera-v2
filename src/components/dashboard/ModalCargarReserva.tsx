@@ -47,8 +47,15 @@ const MINIMO_PARA_PARECIDAS = 3
 const DEBOUNCE_MS = 400
 
 const etiquetaCampo = 'mb-1.5 block text-xs font-semibold text-ink-3 uppercase'
-const campo =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-[0.9rem] text-ink focus:border-primary focus:outline-none focus:[box-shadow:var(--shadow-focus)]'
+const campoSinAncho =
+  'rounded-lg border border-border bg-surface px-3 py-2.5 text-[0.9rem] text-ink focus:border-primary focus:outline-none focus:[box-shadow:var(--shadow-focus)]'
+
+/**
+ * El ancho va aparte para el select de moneda: con `w-full` en la base, un `w-24`
+ * agregado después pierde por el orden de la hoja de estilos y el select ocupa todo
+ * el renglón (ver `CLASES_CONTROL_SIN_ANCHO`).
+ */
+const campo = `w-full ${campoSinAncho}`
 
 interface SegmentadoProps<T extends string> {
   etiqueta: string
@@ -235,7 +242,7 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
                 value={moneda}
                 onChange={(e) => setMoneda(e.target.value)}
                 aria-label="Moneda"
-                className={`${campo} w-24 shrink-0`}
+                className={`${campoSinAncho} w-24 shrink-0`}
               >
                 {MONEDAS.map((m) => (
                   <option key={m} value={m}>
@@ -253,7 +260,7 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
                 placeholder="120000"
                 aria-invalid={montoInvalido || montoAlto || undefined}
                 aria-describedby={montoInvalido || montoAlto ? 'reserva-monto-error' : undefined}
-                className={`${campo} min-w-0`}
+                className={`${campoSinAncho} min-w-0 flex-1`}
               />
             </div>
             {(montoInvalido || montoAlto) && (

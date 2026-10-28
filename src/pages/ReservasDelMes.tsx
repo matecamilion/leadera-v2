@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SelectorMes } from '../components/comunes/SelectorMes'
 import { ModalCargarReserva } from '../components/dashboard/ModalCargarReserva'
-import { AlternadorVista } from '../components/operaciones/AlternadorVista'
 import { ReservasCards } from '../components/operaciones/ReservasCards'
 import { ReservasTabla } from '../components/operaciones/ReservasTabla'
 import { useReservasDeMes } from '../hooks/useOperaciones'
@@ -76,12 +75,9 @@ export default function ReservasDelMes() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <AlternadorVista actual="reservas" />
-          <button type="button" onClick={() => setCargando(true)} className={BOTON_CARGAR}>
-            Cargar reserva
-          </button>
-        </div>
+        <button type="button" onClick={() => setCargando(true)} className={BOTON_CARGAR}>
+          Cargar reserva
+        </button>
       </header>
 
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

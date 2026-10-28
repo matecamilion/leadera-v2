@@ -13,6 +13,7 @@ import { AvisoFlash } from './AvisoFlash'
 import { BannerSuscripcion } from './BannerSuscripcion'
 import { BotonTema } from './BotonTema'
 import { MenuDesplegable, type ItemMenu } from './comunes/MenuDesplegable'
+import { ModalCargarReserva } from './dashboard/ModalCargarReserva'
 import { Marca } from './Marca'
 import { Spinner } from './Spinner'
 import { ModalNuevaTarea } from './tareas/ModalNuevaTarea'
@@ -192,6 +193,7 @@ export function AppLayout() {
   const { sidebarAbierto, cerrarSidebar, alternarSidebar } = useUiStore()
   const location = useLocation()
   const [creandoTarea, setCreandoTarea] = useState(false)
+  const [creandoReserva, setCreandoReserva] = useState(false)
 
   // En mobile el drawer queda abierto al navegar si no lo cerramos a mano.
   useEffect(() => {
@@ -249,7 +251,8 @@ export function AppLayout() {
     { label: 'Nuevo lead', to: '/leads/nuevo' },
     { label: 'Nueva propiedad', to: '/propiedades/nueva' },
     { label: 'Nueva operación', to: '/operaciones/nueva' },
-    // La tarea es un modal, no una página: se monta acá abajo.
+    // La reserva y la tarea son modales, no páginas: se montan acá abajo.
+    { label: 'Nueva reserva', onSelect: () => setCreandoReserva(true) },
     { label: 'Nueva tarea', onSelect: () => setCreandoTarea(true) },
   ]
 
@@ -441,6 +444,10 @@ export function AppLayout() {
       {creandoTarea && (
         <ModalNuevaTarea fechaInicial={claveDia(new Date())} onCerrar={() => setCreandoTarea(false)} />
       )}
+
+      {/* "Nueva reserva" desde el menú Crear: mismo modal que Mi día y que la vista
+          de Reservas, que son otros dos puntos de entrada. */}
+      {creandoReserva && <ModalCargarReserva onCerrar={() => setCreandoReserva(false)} />}
 
       {/* Va acá arriba de todo, fuera del <main>: tiene que poder sobrevivir a
           la navegación que lo disparó. */}

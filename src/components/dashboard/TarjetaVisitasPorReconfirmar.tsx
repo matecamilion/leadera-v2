@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SeccionCard } from './SeccionCard'
 import { TONOS } from '../comunes/tonos'
@@ -99,31 +99,34 @@ function FilaVisita({
   error: string | null
   onReconfirmar: () => void
 }) {
+  const [mensajeAbierto, setMensajeAbierto] = useState(false)
+  const idMensaje = useId()
   const esHoy = visita.fecha === hoy
   const direccion = visita.propiedad?.direccion ?? visita.titulo_externo ?? 'Propiedad'
   const link =
     !visita.propiedad_id && visita.link_externo && !urlInvalida(visita.link_externo)
       ? visita.link_externo
       : null
+  const zona = visita.propiedad?.zona
   const contacto = contactoDeVisita(visita.lead)
   const nombreCliente = visita.lead
     ? `${visita.lead.nombre} ${visita.lead.apellido ?? ''}`.trim()
     : null
 
-  const whatsapp =
-    contacto === 'CON_WHATSAPP' && visita.lead?.telefono
-      ? linkWhatsApp(
-          visita.lead.telefono,
-          construirMensajeReconfirmacion({
-            nombre: visita.lead.nombre,
-            fecha: visita.fecha,
-            hora: visita.hora,
-            hoy,
-            direccion,
-            link,
-          }),
-        )
-      : ''
+  // El mismo texto va al botón de WhatsApp y al recuadro de "Ver mensaje": no
+  // pueden diferir.
+  const mensaje =
+    contacto === 'CON_WHATSAPP' && visita.lead
+      ? construirMensajeReconfirmacion({
+          nombre: visita.lead.nombre,
+          fecha: visita.fecha,
+          hora: visita.hora,
+          hoy,
+          direccion,
+          link,
+        })
+      : null
+  const whatsapp = mensaje && visita.lead?.telefono ? linkWhatsApp(visita.lead.telefono, mensaje) : ''
 
   return (
     <li className="grid gap-x-4 gap-y-2 py-3 md:grid-cols-[7rem_minmax(0,1fr)_auto] md:items-center">
@@ -143,10 +146,24 @@ function FilaVisita({
       </div>
 
       <div className="min-w-0">
-        <span className="block truncate text-[0.9rem] font-semibold text-ink">{direccion}</span>
+        <span className="block truncate text-[0.9rem] font-semibold text-ink">
+          {direccion}
+          {zona && <span className="font-normal text-ink-3"> · {zona}</span>}
+        </span>
         <span className="mt-0.5 block truncate text-[0.78rem] text-ink-3">
           {nombreCliente ?? 'Sin cliente cargado'}
         </span>
+        {mensaje && (
+          <button
+            type="button"
+            onClick={() => setMensajeAbierto((v) => !v)}
+            aria-expanded={mensajeAbierto}
+            aria-controls={idMensaje}
+            className="mt-1 rounded text-[0.78rem] font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {mensajeAbierto ? 'Ocultar' : 'Ver mensaje'}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:flex md:justify-end">
@@ -181,6 +198,15 @@ function FilaVisita({
           {reconfirmando ? 'Guardando…' : 'Ya lo reconfirmé'}
         </button>
       </div>
+
+      {mensaje && mensajeAbierto && (
+        <p
+          id={idMensaje}
+          className="rounded-lg bg-surface-2 px-3 py-2 text-[0.82rem] break-words whitespace-pre-line text-ink-2 md:col-span-3"
+        >
+          {mensaje}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="text-[0.78rem] text-peligro-ink md:col-span-3">

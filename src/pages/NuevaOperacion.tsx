@@ -7,7 +7,7 @@ import { ComboboxPropiedad } from '../components/comunes/ComboboxPropiedad'
 import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../components/comunes/estilosFormulario'
 import { FormularioBusqueda } from '../components/operaciones/FormularioBusqueda'
 import { IconoCajas } from '../components/leads/Iconos'
-import { useBusquedasDeLead, useCrearOperacion } from '../hooks/useOperaciones'
+import { useBusquedaLibreDeLead, useCrearOperacion } from '../hooks/useOperaciones'
 import { useCriteriosBusqueda, useGuardarBusqueda } from '../hooks/useBusqueda'
 import { usePropietarioSugerido } from '../hooks/usePropietarioSugerido'
 import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
@@ -31,7 +31,7 @@ import {
   hayAlgunCriterio,
   type CriteriosBusqueda,
 } from '../lib/api/busquedas'
-import { etiquetaTipo } from '../lib/api/propiedades'
+import { formatearFecha } from '../lib/formatoFecha'
 
 const MONEDAS = ['USD', 'ARS']
 
@@ -57,7 +57,6 @@ export default function NuevaOperacion() {
   const [titulo, setTitulo] = useState('')
   const [leadId, setLeadId] = useState<string | null>(leadDeLaUrl)
   const [propiedadId, setPropiedadId] = useState<string | null>(null)
-  const [busquedaId, setBusquedaId] = useState<string | null>(null)
   const [monto, setMonto] = useState('')
   const [moneda, setMoneda] = useState('USD')
   const [notas, setNotas] = useState('')
@@ -70,63 +69,76 @@ export default function NuevaOperacion() {
   const vinculaBusqueda = seVinculaConBusqueda(tipo)
   const llevaCriterios = llevaCriteriosDeBusqueda(tipo)
 
-  const { data: busquedas, isFetching: buscandoBusquedas } = useBusquedasDeLead(
-    vinculaBusqueda ? leadId : null,
+  // La búsqueda vive dentro de la operación (1 a 1): si el lead tiene una
+  // activa que ninguna operación usa, es la de esta. No se elige: se precarga
+  // y se vincula sola.
+  const { data: busquedaLibre, isFetching: buscandoLibre } = useBusquedaLibreDeLead(
+    llevaCriterios ? leadId : null,
+    tipo,
   )
+  const busquedaId = llevaCriterios ? (busquedaLibre?.id ?? null) : null
   const guardarCriterios = useGuardarBusqueda()
   usePropietarioSugerido({ tipo, propiedadId, leadId, setLeadId })
 
-  // Si elige una búsqueda que ya existe, el formulario se precarga con sus
-  // criterios: guardar la actualiza en vez de crear una nueva, y sin precargar
-  // los campos vacíos le borrarían lo que el lead ya tenía cargado.
-  const { data: criteriosGuardados } = useCriteriosBusqueda(
-    llevaCriterios ? busquedaId : null,
-  )
+  // El formulario se precarga con los criterios de la búsqueda: guardar la
+  // actualiza en vez de crear una nueva, y sin precargar los campos vacíos le
+  // borrarían lo que el lead ya tenía cargado.
+  const { data: criteriosGuardados, isPending: cargandoCriterios } = useCriteriosBusqueda(busquedaId)
   const busquedaPrecargada = useRef<string | null>(null)
   /** Id de la operación ya creada, si el alta quedó a medias. Ver `manejarSubmit`. */
   const operacionCreada = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!busquedaId) {
-      // Volvió a "sin vincular": se limpia para que lo próximo sea un alta.
-      if (busquedaPrecargada.current !== null) {
-        busquedaPrecargada.current = null
-        setCriterios(CRITERIOS_VACIOS)
-      }
-      return
-    }
     // Sólo la primera vez por búsqueda: después manda lo que el usuario tipeó.
-    if (criteriosGuardados && busquedaPrecargada.current !== busquedaId) {
+    if (busquedaId && criteriosGuardados && busquedaPrecargada.current !== busquedaId) {
       busquedaPrecargada.current = busquedaId
       setCriterios(criteriosGuardados)
     }
   }, [busquedaId, criteriosGuardados])
 
+  // Hasta saber si hay búsqueda para precargar, guardar crearía una duplicada o
+  // pisaría lo tipeado.
+  const cargandoPrecarga = buscandoLibre || (Boolean(busquedaId) && cargandoCriterios)
+
   const errorTitulo = tocado && !titulo.trim() ? 'El título es obligatorio' : null
-  // Piso 1: un monto en 0 resta credibilidad a la métrica de cerrado del mes.
-  // En las operaciones que buscan, el presupuesto es el precio máximo de los
-  // criterios: una sola fuente, el monto se deriva de ahí al guardar.
+  // Sólo las operaciones que no buscan llevan el campo Monto. En las que
+  // buscan, el presupuesto es el precio máximo de los criterios: una sola
+  // fuente, el monto se deriva de ahí al guardar.
+  const muestraMonto = !llevaCriterios
   const presupuesto =
     llevaCriterios && criterios.precio_max != null && criterios.precio_max > 0
       ? criterios.precio_max
       : null
-  const montoInvalido = presupuesto == null && cantidadInvalida(monto)
+  // Piso 1: un monto en 0 resta credibilidad a la métrica de cerrado del mes.
+  const montoInvalido = muestraMonto && cantidadInvalida(monto)
   // Mismo techo que el precio de una propiedad: es la misma plata.
-  const montoAlto = presupuesto == null && excedeTope(monto, TOPE_PRECIO)
+  const montoAlto = muestraMonto && excedeTope(monto, TOPE_PRECIO)
   const valido = Boolean(titulo.trim()) && !montoInvalido && !montoAlto
 
+  /** Otro lead es otra búsqueda: se descarta la precarga y lo cargado. */
+  function cambiarLead(nuevo: string | null) {
+    if (nuevo !== leadId) {
+      busquedaPrecargada.current = null
+      setCriterios(CRITERIOS_VACIOS)
+    }
+    setLeadId(nuevo)
+  }
+
   function cambiarTipo(nuevo: TipoOperacion) {
+    if (nuevo !== tipo) {
+      busquedaPrecargada.current = null
+      setCriterios(CRITERIOS_VACIOS)
+    }
     setTipo(nuevo)
     // El vínculo que deja de aplicar se limpia: guardar una propiedad en una
     // operación de COMPRA (o al revés) dejaría datos que la UI ya no muestra.
     if (nuevo === 'COMPRA') setPropiedadId(null)
-    else setBusquedaId(null)
   }
 
   async function manejarSubmit(e: FormEvent) {
     e.preventDefault()
     setTocado(true)
-    if (!valido) return
+    if (!valido || cargandoPrecarga) return
 
     try {
       // El alta son dos escrituras sin transacción. Si la segunda falla, la
@@ -140,7 +152,7 @@ export default function NuevaOperacion() {
           lead_id: leadId,
           propiedad_id: vinculaBusqueda ? null : propiedadId,
           busqueda_id: vinculaBusqueda ? busquedaId : null,
-          monto: presupuesto ?? aNumero(monto),
+          monto: presupuesto ?? (muestraMonto ? aNumero(monto) : null),
           moneda,
           notas,
         })
@@ -242,13 +254,13 @@ export default function NuevaOperacion() {
                 : 'Si la propiedad tiene propietario cargado, se completa solo. Podés cambiarlo.'
             }
           >
-            <ComboboxLead value={leadId} onChange={setLeadId} />
+            <ComboboxLead value={leadId} onChange={cambiarLead} />
           </Campo>
 
-          {/* Quien ofrece (VENTA, ALQUILER) se apoya en una propiedad; quien
-              busca (COMPRA, BUSQUEDA_ALQUILER), en una
-              búsqueda del lead. Ninguno es obligatorio. */}
-          {!vinculaBusqueda ? (
+          {/* Quien ofrece (VENTA, ALQUILER) se apoya en una propiedad. Quien
+              busca (COMPRA, BUSQUEDA_ALQUILER) lleva su búsqueda dentro de la
+              operación: se carga abajo, en los criterios. */}
+          {!vinculaBusqueda && (
             <Campo
               label="Propiedad (opcional)"
               full
@@ -256,48 +268,16 @@ export default function NuevaOperacion() {
             >
               <ComboboxPropiedad value={propiedadId} onChange={setPropiedadId} />
             </Campo>
-          ) : (
-            <Campo
-              label="Búsqueda del lead (opcional)"
-              full
-              ayuda={
-                leadId
-                  ? 'Sólo se listan las búsquedas activas del lead elegido.'
-                  : 'Elegí primero un lead para ver sus búsquedas.'
-              }
-            >
-              <select
-                value={busquedaId ?? ''}
-                onChange={(e) => setBusquedaId(e.target.value || null)}
-                disabled={!leadId || buscandoBusquedas}
-                className={`${CLASES_CONTROL} disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                <option value="">
-                  {!leadId
-                    ? 'Sin lead seleccionado'
-                    : buscandoBusquedas
-                      ? 'Cargando…'
-                      : busquedas?.length
-                        ? 'Sin vincular'
-                        : 'Este lead no tiene búsquedas activas'}
-                </option>
-                {busquedas?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.tipo_propiedad ? etiquetaTipo(b.tipo_propiedad) : 'Cualquier tipo'}
-                    {b.zona ? ` en ${b.zona}` : ''}
-                    {b.precio_max != null ? ` · hasta ${b.precio_max}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Campo>
           )}
 
-          {presupuesto != null ? (
-            <Campo label="Presupuesto">
-              <p className="m-0 text-[0.9rem] text-ink-2">
-                Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
-              </p>
-            </Campo>
+          {llevaCriterios ? (
+            presupuesto != null && (
+              <Campo label="Presupuesto">
+                <p className="m-0 text-[0.9rem] text-ink-2">
+                  Presupuesto: {moneda} {presupuesto} (se toma de la búsqueda)
+                </p>
+              </Campo>
+            )
           ) : (
           <Campo label="Monto">
             <div className="flex gap-2">
@@ -344,11 +324,20 @@ export default function NuevaOperacion() {
             El RPC filtra los candidatos por finalidad según el tipo, así que
             una búsqueda de alquiler no propone propiedades sólo en venta. */}
         {llevaCriterios && (
-          <FormularioBusqueda
-            criterios={criterios}
-            onCambiar={setCriterios}
-            deshabilitado={!leadId}
-          />
+          <>
+            {busquedaLibre && criteriosGuardados && (
+              <p className="mt-6 mb-0 text-[0.85rem] text-ink-3">
+                Se precargó la búsqueda activa de este lead, creada el{' '}
+                {formatearFecha(busquedaLibre.created_at)}. Al crear la operación queda
+                vinculada y se actualiza con lo que cargues.
+              </p>
+            )}
+            <FormularioBusqueda
+              criterios={criterios}
+              onCambiar={setCriterios}
+              deshabilitado={!leadId}
+            />
+          </>
         )}
 
         {crear.isError && (
@@ -381,7 +370,7 @@ export default function NuevaOperacion() {
           </button>
           <button
             type="submit"
-            disabled={!valido || crear.isPending || guardarCriterios.isPending}
+            disabled={!valido || cargandoPrecarga || crear.isPending || guardarCriterios.isPending}
             className="rounded-md border-none bg-primary px-8 py-3 font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-ink-4 motion-reduce:transition-none"
           >
             {crear.isPending || guardarCriterios.isPending

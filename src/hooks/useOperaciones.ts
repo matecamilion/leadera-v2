@@ -9,6 +9,7 @@ import {
   type ListarOperacionesResult,
   type TipoOperacion,
 } from '../lib/api/operaciones'
+import { obtenerBusquedaLibreDeLead, type BusquedaLibre } from '../lib/api/busquedas'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
 
@@ -50,6 +51,8 @@ export function useCrearOperacion() {
       // no alcanza. Hace falta desde que el alta puede volver a esa ficha: sin
       // esto la operación recién creada no aparece hasta que el cache expira.
       queryClient.invalidateQueries({ queryKey: claves.operacionesPorLead.raiz })
+      // Una operación creada con una búsqueda del lead la deja en uso.
+      queryClient.invalidateQueries({ queryKey: claves.busquedasDeLead.raiz })
     },
   })
 }
@@ -61,6 +64,22 @@ export function useBusquedasDeLead(leadId: string | null) {
     queryKey: claves.busquedasDeLead.deLead(uid, leadId),
     queryFn: () => listarBusquedasDeLead(leadId as string),
     enabled: !!uid && Boolean(leadId),
+  })
+}
+
+/**
+ * La búsqueda activa del lead que ninguna operación usa, para precargar el alta.
+ *
+ * `staleTime` en 0: otra pantalla puede vincularla a una operación, y ofrecer
+ * una búsqueda ya en uso rompería el 1 a 1.
+ */
+export function useBusquedaLibreDeLead(leadId: string | null, tipo: TipoOperacion) {
+  const uid = useUid()
+  return useQuery<BusquedaLibre | null>({
+    queryKey: claves.busquedasDeLead.libre(uid, leadId, tipo),
+    queryFn: () => obtenerBusquedaLibreDeLead(leadId as string, tipo),
+    enabled: !!uid && Boolean(leadId),
+    staleTime: 0,
   })
 }
 

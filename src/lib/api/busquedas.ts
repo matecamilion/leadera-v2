@@ -232,6 +232,65 @@ export async function sincronizarTipoOperacionBusqueda(
   }
 }
 
+/** Una búsqueda activa que ninguna operación usa todavía. */
+export interface BusquedaLibre {
+  id: string
+  created_at: string
+}
+
+/**
+ * La búsqueda activa más reciente del lead que ninguna operación tiene en
+ * `busqueda_id`, o null si no hay.
+ *
+ * Es la que el alta de una operación que busca precarga: la búsqueda vive
+ * dentro de la operación (1 a 1), así que una que ya está en uso no se ofrece.
+ * Las que tienen otro `tipo_operacion` tampoco —una búsqueda de alquiler no es
+ * para una COMPRA—, pero las "sin definir" (null) sí.
+ *
+ * Son dos lecturas: PostgREST no filtra por "no está referenciada" sin conocer
+ * el nombre de la FK. Un lead tiene pocas búsquedas, así que alcanza con mirar
+ * las últimas `MAXIMO_BUSQUEDAS_A_REVISAR`.
+ */
+const MAXIMO_BUSQUEDAS_A_REVISAR = 50
+
+export async function obtenerBusquedaLibreDeLead(
+  leadId: string,
+  tipo: TipoOperacion,
+): Promise<BusquedaLibre | null> {
+  const tipoOperacion = tipoOperacionDeBusqueda(tipo)
+
+  let consulta = supabase
+    .from('busquedas')
+    .select('id, created_at')
+    .eq('lead_id', leadId)
+    .eq('activa', true)
+    .order('created_at', { ascending: false })
+    .limit(MAXIMO_BUSQUEDAS_A_REVISAR)
+
+  if (tipoOperacion) {
+    consulta = consulta.or(`tipo_operacion.is.null,tipo_operacion.eq.${tipoOperacion}`)
+  }
+
+  const { data: busquedas, error } = await consulta
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las búsquedas.'))
+  if (!busquedas || busquedas.length === 0) return null
+
+  const { data: usadas, error: errorUsadas } = await supabase
+    .from('operaciones')
+    .select('busqueda_id')
+    .in(
+      'busqueda_id',
+      busquedas.map((b) => b.id),
+    )
+
+  if (errorUsadas) {
+    throw new Error(interpretarErrorSupabase(errorUsadas, 'No se pudieron cargar las búsquedas.'))
+  }
+
+  const enUso = new Set((usadas ?? []).map((o) => o.busqueda_id))
+  return busquedas.find((b) => !enUso.has(b.id)) ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Coincidencias
 // ---------------------------------------------------------------------------

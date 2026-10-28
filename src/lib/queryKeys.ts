@@ -63,6 +63,9 @@ export const claves = {
   busquedasDeLead: {
     raiz: ['busquedas-de-lead'] as const,
     deLead: (uid: Uid, leadId: string | null) => ['busquedas-de-lead', uid, leadId] as const,
+    /** La búsqueda activa del lead que ninguna operación usa (alta de operación). */
+    libre: (uid: Uid, leadId: string | null, tipo: string) =>
+      ['busquedas-de-lead', 'libre', uid, leadId, tipo] as const,
   },
 
   coincidenciasBusqueda: {

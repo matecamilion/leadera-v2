@@ -396,6 +396,21 @@ export function tipoDeReserva(
   return operacion === 'venta' ? 'COMPRA' : 'BUSQUEDA_ALQUILER'
 }
 
+/** "Ana Pérez", o `null` si no hay quién. */
+export function nombreCompleto(
+  persona: { nombre: string; apellido: string | null } | null,
+): string | null {
+  if (!persona) return null
+  return `${persona.nombre} ${persona.apellido ?? ''}`.trim()
+}
+
+/** La punta del agente en una operación: la inversa de `tipoDeReserva`. */
+export function puntaDeTipo(tipo: TipoOperacion): PuntaReserva {
+  return (LADOS_TABLERO.ofertas.tipos as readonly TipoOperacion[]).includes(tipo)
+    ? 'vendedora'
+    : 'compradora'
+}
+
 export interface CrearReservaInput {
   punta: PuntaReserva
   operacion: ClaseOperacionReserva
@@ -488,6 +503,59 @@ export async function listarReservasDelMes(
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las reservas.'))
   return { data: data ?? [], count: count ?? 0 }
+}
+
+/** Tope de filas de la vista de reservas de un mes: se trae el mes entero hasta acá. */
+export const RESERVAS_MAX_POR_MES = 200
+
+export interface ReservaDeMes {
+  id: string
+  titulo: string | null
+  tipo: TipoOperacion
+  estado: EstadoOperacion
+  monto: number | null
+  moneda: string
+  fecha_reserva: string | null
+  lead_id: string | null
+  agente_id: string
+  lead: { id: string; nombre: string; apellido: string | null } | null
+  propiedad: { id: string; direccion: string } | null
+  agente: { nombre: string; apellido: string | null } | null
+}
+
+export interface ListarReservasDeMesResult {
+  data: ReservaDeMes[]
+  /** Cuántas hay en el mes, aunque `data` traiga como máximo `RESERVAS_MAX_POR_MES`. */
+  count: number
+}
+
+/**
+ * Las reservas de un mes (`YYYY-MM`) con sus vínculos, las más recientes primero.
+ *
+ * Lee de la tabla y no de `operaciones_ordenadas`: la vista no tiene
+ * `fecha_reserva`. No filtra por agente: de lo que ve cada rol se ocupa la RLS.
+ */
+export async function listarReservasDeMes(mes: string): Promise<ListarReservasDeMesResult> {
+  const { desde, hasta } = limitesDelMes(`${mes}-01`)
+
+  const { data, error, count } = await supabase
+    .from('operaciones')
+    .select(
+      'id, titulo, tipo, estado, monto, moneda, fecha_reserva, lead_id, agente_id, ' +
+        'lead:leads(id, nombre, apellido), ' +
+        'propiedad:propiedades(id, direccion), ' +
+        'agente:profiles!operaciones_agente_id_fkey(nombre, apellido)',
+      { count: 'exact' },
+    )
+    .gte('fecha_reserva', desde)
+    .lt('fecha_reserva', hasta)
+    .neq('estado', 'CANCELADA')
+    .order('fecha_reserva', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(RESERVAS_MAX_POR_MES)
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las reservas.'))
+  return { data: (data ?? []) as unknown as ReservaDeMes[], count: count ?? 0 }
 }
 
 export interface OperacionParecida {

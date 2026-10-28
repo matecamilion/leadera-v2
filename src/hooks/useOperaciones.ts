@@ -7,11 +7,13 @@ import {
   listarBusquedasDeLead,
   listarOperaciones,
   listarOperacionesEnCurso,
+  listarReservasDeMes,
   listarReservasDelMes,
   type CrearOperacionInput,
   type CrearReservaInput,
   type EstadoOperacion,
   type ListarOperacionesResult,
+  type ListarReservasDeMesResult,
   type ListarReservasDelMesResult,
   type OperacionParecida,
   type TipoOperacion,
@@ -89,6 +91,16 @@ export function useReservasDelMes(limite: number) {
   return useQuery<ListarReservasDelMesResult>({
     queryKey: claves.operaciones.reservasDelMes(uid, mes.desde, limite),
     queryFn: () => listarReservasDelMes(limite, mes),
+    enabled: !!uid,
+  })
+}
+
+/** Todas las reservas de un mes (`YYYY-MM`), para la vista de Operaciones. */
+export function useReservasDeMes(mes: string) {
+  const uid = useUid()
+  return useQuery<ListarReservasDeMesResult>({
+    queryKey: claves.operaciones.reservasDeMes(uid, mes),
+    queryFn: () => listarReservasDeMes(mes),
     enabled: !!uid,
   })
 }

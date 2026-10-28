@@ -260,6 +260,8 @@ export const claves = {
     /** `desde` es el primer día del mes: pasada la medianoche del 1° se pide el mes nuevo. */
     reservasDelMes: (uid: Uid, desde: string, limite: number) =>
       ['operaciones', 'reservas-del-mes', uid, desde, limite] as const,
+    /** La vista de reservas de un mes (`YYYY-MM`). */
+    reservasDeMes: (uid: Uid, mes: string) => ['operaciones', 'reservas-de-mes', uid, mes] as const,
     /** Posibles duplicados al cargar una reserva. Bajo `operaciones`: cualquier alta los refresca. */
     parecidas: (uid: Uid, titulo: string) => ['operaciones', 'parecidas', uid, titulo] as const,
   },

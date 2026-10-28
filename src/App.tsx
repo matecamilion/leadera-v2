@@ -36,6 +36,7 @@ const Equipo = lazy(() => import('./pages/Equipo'))
 const Tareas = lazy(() => import('./pages/Tareas'))
 const NuevaOperacion = lazy(() => import('./pages/NuevaOperacion'))
 const DetalleOperacion = lazy(() => import('./pages/DetalleOperacion'))
+const ReservasDelMes = lazy(() => import('./pages/ReservasDelMes'))
 const Estadisticas = lazy(() => import('./pages/Estadisticas'))
 const Perfil = lazy(() => import('./pages/Perfil'))
 const Suscripcion = lazy(() => import('./pages/Suscripcion'))
@@ -130,6 +131,7 @@ export default function App() {
                   <Route path="/operaciones" element={<Operaciones />} />
                   <Route path="/operaciones/tablero" element={<KanbanOperaciones />} />
                   <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
+                  <Route path="/operaciones/reservas" element={<ReservasDelMes />} />
                   <Route path="/operaciones/:id" element={<DetalleOperacion />} />
                   {/* Qué compradores encajan con algo que se ofrece. */}
                   <Route path="/coincidencias" element={<Coincidencias />} />

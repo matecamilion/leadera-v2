@@ -3,6 +3,8 @@ import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { IconoCheck } from '../leads/Iconos'
 import { useReservasDelMes } from '../../hooks/useOperaciones'
 import { desdeClaveDia } from '../../lib/calendario'
+import { mesDeFecha } from '../../lib/mes'
+import { hoyEnArgentina } from '../../lib/ritmoSemanal'
 import {
   etiquetaTipoOperacion,
   formatearMonto,
@@ -43,6 +45,14 @@ export function ListaReservasDelMes({ onCargar, className = '' }: ListaReservasD
       tono="tibio"
       titulo="Reservas del mes"
       subtitulo="Reservas con fecha de este mes, sin las canceladas"
+      verTodos={
+        count > 0
+          ? {
+              ruta: `/operaciones/reservas?mes=${mesDeFecha(hoyEnArgentina())}`,
+              texto: `Ver todas (${count}) →`,
+            }
+          : undefined
+      }
       className={className}
     >
       {count === 0 ? (

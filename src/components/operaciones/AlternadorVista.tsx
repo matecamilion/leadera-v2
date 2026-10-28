@@ -7,13 +7,14 @@ const ACTIVO = 'bg-primary text-primary-contrast'
 const INACTIVO = 'bg-surface text-ink-3 hover:text-ink'
 
 /**
- * Toggle Lista / Tablero.
+ * Toggle Lista / Tablero / Reservas.
  *
  * El tablero no reemplaza al listado: el listado es el que busca, filtra y
- * pagina, y el tablero es para mover cosas de estado. Cada uno sirve para algo
- * distinto, así que conviven.
+ * pagina, y el tablero es para mover cosas de estado. Reservas recorre mes a
+ * mes lo que pasó a Reservada. Cada uno sirve para algo distinto, así que
+ * conviven.
  */
-export function AlternadorVista({ actual }: { actual: 'lista' | 'tablero' }) {
+export function AlternadorVista({ actual }: { actual: 'lista' | 'tablero' | 'reservas' }) {
   return (
     <div className="inline-flex overflow-hidden rounded-lg border border-border">
       <Link
@@ -29,6 +30,13 @@ export function AlternadorVista({ actual }: { actual: 'lista' | 'tablero' }) {
         className={`${BASE} border-l border-border ${actual === 'tablero' ? ACTIVO : INACTIVO}`}
       >
         Tablero
+      </Link>
+      <Link
+        to="/operaciones/reservas"
+        aria-current={actual === 'reservas' ? 'page' : undefined}
+        className={`${BASE} border-l border-border ${actual === 'reservas' ? ACTIVO : INACTIVO}`}
+      >
+        Reservas
       </Link>
     </div>
   )

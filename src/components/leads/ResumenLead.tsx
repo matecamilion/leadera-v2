@@ -49,14 +49,6 @@ import type { PropiedadConPropietario } from '../../lib/api/propiedades'
 import type { Lead } from '../../lib/api/leads'
 import type { Tarea } from '../../types/database'
 
-/**
- * La tabla `busquedas` no tiene columna de moneda —a diferencia de
- * `propiedades` y `operaciones`, que sí la tienen—, así que el rango de precio
- * se muestra en dólares, que es el estándar de precios de LeadEra. Si algún día
- * se agrega la columna, este literal es el único lugar a tocar.
- */
-const MONEDA = 'USD'
-
 /** Cuántas filas entran en cada preview antes del "Ver todas". */
 const MAX_INTERACCIONES = 5
 const MAX_PROPIEDADES = 4
@@ -808,7 +800,7 @@ function Vacio({ children }: { children: ReactNode }) {
 
 /** Una búsqueda activa: qué tipo, dónde, de qué tamaño y a qué precio. */
 function Busqueda({ busqueda }: { busqueda: BusquedaResumida }) {
-  const rango = rangoDePrecio(busqueda.precio_min, busqueda.precio_max)
+  const rango = rangoDePrecio(busqueda.precio_min, busqueda.precio_max, busqueda.moneda ?? 'USD')
 
   return (
     <div className="py-3 first:pt-0 last:pb-0">
@@ -845,15 +837,20 @@ function Busqueda({ busqueda }: { busqueda: BusquedaResumida }) {
  * El número lo formatea `formatearPrecio`, la misma función que usa la ficha de
  * la propiedad. Para el extremo derecho del rango se la llama con la moneda
  * vacía: así el separador de miles sale de un solo lugar y no queda un
- * "USD 100.000 - USD 150.000" con la moneda repetida.
+ * "USD 100.000 - USD 150.000" con la moneda repetida. La moneda es la de la
+ * búsqueda (`busquedas.moneda`).
  */
-function rangoDePrecio(min: number | null, max: number | null): string | null {
+function rangoDePrecio(
+  min: number | null,
+  max: number | null,
+  moneda: string,
+): string | null {
   const soloNumero = (valor: number) => formatearPrecio(valor, '').trim()
 
   if (min != null && max != null) {
-    return `${formatearPrecio(min, MONEDA)} - ${soloNumero(max)}`
+    return `${formatearPrecio(min, moneda)} - ${soloNumero(max)}`
   }
-  if (min != null) return `Desde ${formatearPrecio(min, MONEDA)}`
-  if (max != null) return `Hasta ${formatearPrecio(max, MONEDA)}`
+  if (min != null) return `Desde ${formatearPrecio(min, moneda)}`
+  if (max != null) return `Hasta ${formatearPrecio(max, moneda)}`
   return null
 }

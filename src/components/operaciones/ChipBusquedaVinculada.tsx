@@ -6,15 +6,15 @@ type Busqueda = NonNullable<OperacionDetalle['busqueda']>
 
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
-function rango(min: number | null, max: number | null): string | null {
-  if (min != null && max != null) return `USD ${MONTOS.format(min)} – ${MONTOS.format(max)}`
-  if (max != null) return `hasta USD ${MONTOS.format(max)}`
-  if (min != null) return `desde USD ${MONTOS.format(min)}`
+function rango(min: number | null, max: number | null, moneda: string): string | null {
+  if (min != null && max != null) return `${moneda} ${MONTOS.format(min)} – ${MONTOS.format(max)}`
+  if (max != null) return `hasta ${moneda} ${MONTOS.format(max)}`
+  if (min != null) return `desde ${moneda} ${MONTOS.format(min)}`
   return null
 }
 
 export function ChipBusquedaVinculada({ busqueda }: { busqueda: Busqueda }) {
-  const presupuesto = rango(busqueda.precio_min, busqueda.precio_max)
+  const presupuesto = rango(busqueda.precio_min, busqueda.precio_max, busqueda.moneda ?? 'USD')
 
   return (
     <div className="rounded-[14px] border border-border bg-surface p-5">

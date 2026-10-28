@@ -415,6 +415,8 @@ export interface BusquedaResumida {
   tipo_propiedad: Database['public']['Enums']['tipo_propiedad'] | null
   precio_min: number | null
   precio_max: number | null
+  /** La moneda de `precio_min` y `precio_max`. */
+  moneda: string | null
   /** `ambientes_min` y `notas` los agrega el resumen de la ficha del lead. */
   ambientes_min: number | null
   notas: string | null
@@ -435,7 +437,7 @@ export async function listarBusquedasDeLead(
 ): Promise<BusquedaResumida[]> {
   const { data, error } = await supabase
     .from('busquedas')
-    .select('id, zona, tipo_propiedad, precio_min, precio_max, ambientes_min, notas')
+    .select('id, zona, tipo_propiedad, precio_min, precio_max, moneda, ambientes_min, notas')
     .eq('lead_id', leadId)
     .eq('activa', true)
     .order('created_at', { ascending: false })
@@ -505,6 +507,7 @@ export interface OperacionDetalle extends Operacion {
     ambientes_min: number | null
     precio_min: number | null
     precio_max: number | null
+    moneda: string | null
     notas: string | null
   } | null
 }
@@ -512,7 +515,7 @@ export interface OperacionDetalle extends Operacion {
 const SELECT_DETALLE =
   '*, lead:leads(id, nombre, apellido, telefono, estado), ' +
   'propiedad:propiedades(id, direccion, zona, tipo, estado, ambientes, metros_cuadrados, precio, moneda, link_portal), ' +
-  'busqueda:busquedas(id, zona, tipo_propiedad, ambientes_min, precio_min, precio_max, notas)'
+  'busqueda:busquedas(id, zona, tipo_propiedad, ambientes_min, precio_min, precio_max, moneda, notas)'
 
 /**
  * Una operación por id. Devuelve null si no existe o si RLS la tapa: para el

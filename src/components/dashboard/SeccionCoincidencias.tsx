@@ -7,10 +7,10 @@ import type { CoincidenciaDelDia } from '../../lib/api/dashboard'
 
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
-function rangoPrecio(min: number | null, max: number | null): string | null {
-  if (min != null && max != null) return `USD ${MONTOS.format(min)} – ${MONTOS.format(max)}`
-  if (max != null) return `hasta USD ${MONTOS.format(max)}`
-  if (min != null) return `desde USD ${MONTOS.format(min)}`
+function rangoPrecio(min: number | null, max: number | null, moneda: string): string | null {
+  if (min != null && max != null) return `${moneda} ${MONTOS.format(min)} – ${MONTOS.format(max)}`
+  if (max != null) return `hasta ${moneda} ${MONTOS.format(max)}`
+  if (min != null) return `desde ${moneda} ${MONTOS.format(min)}`
   return null
 }
 
@@ -63,7 +63,7 @@ export function SeccionCoincidencias({ coincidencias }: Props) {
       <ul className="divide-y divide-border">
         {coincidencias.map((coincidencia) =>
           coincidencia.compradores.map((comprador) => {
-            const rango = rangoPrecio(comprador.precioMin, comprador.precioMax)
+            const rango = rangoPrecio(comprador.precioMin, comprador.precioMax, comprador.moneda)
 
             return (
               <li key={`${coincidencia.propiedadId}-${comprador.busquedaId}`}>

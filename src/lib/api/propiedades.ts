@@ -3,6 +3,7 @@ import { supabase } from '../supabase'
 import { sanearBusqueda } from './filtros'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { MONEDA_POR_DEFECTO } from '../moneda'
 
 export type Propiedad = Database['public']['Tables']['propiedades']['Row']
 export type EstadoPropiedad = Database['public']['Enums']['estado_propiedad']
@@ -508,6 +509,8 @@ export interface CoincidenciaInterna {
   zona: string | null
   precioMin: number | null
   precioMax: number | null
+  /** La moneda de `precioMin` y `precioMax`. */
+  moneda: string
   ambientesMin: number | null
 }
 
@@ -524,13 +527,15 @@ export interface CoincidenciaInterna {
  *  - su tipo_propiedad coincide, o es null (= le sirve cualquier tipo)
  *  - el precio de la propiedad entra en [precio_min, precio_max]; los
  *    extremos vacíos se tratan como "sin límite"
+ *  - ese rango sólo cuenta si la búsqueda está en la moneda de la propiedad;
+ *    una búsqueda sin rango de precio sirve en cualquier moneda
  */
 export async function buscarCoincidenciasInternas(
   propiedadId: string,
 ): Promise<CoincidenciaInterna[]> {
   const { data: propiedad, error: errorProp } = await supabase
     .from('propiedades')
-    .select('inmobiliaria_id, tipo, precio')
+    .select('inmobiliaria_id, tipo, precio, moneda')
     .eq('id', propiedadId)
     .maybeSingle()
 
@@ -540,7 +545,7 @@ export async function buscarCoincidenciasInternas(
   let query = supabase
     .from('busquedas')
     .select(
-      'id, tipo_propiedad, zona, precio_min, precio_max, ambientes_min, lead:leads(id, nombre, apellido, estado)',
+      'id, tipo_propiedad, zona, precio_min, precio_max, moneda, ambientes_min, lead:leads(id, nombre, apellido, estado)',
     )
     // ↓ el filtro que no se negocia
     .eq('inmobiliaria_id', propiedad.inmobiliaria_id)
@@ -550,9 +555,13 @@ export async function buscarCoincidenciasInternas(
   if (propiedad.precio != null) {
     // Cada `.or()` es un parámetro aparte y PostgREST los combina con AND:
     // "(sin mínimo o mínimo <= precio) y (sin máximo o máximo >= precio)".
+    // La tercera condición es la moneda: una búsqueda sin rango sirve en
+    // cualquiera; con rango, sólo en la de la propiedad. `busquedas.moneda` es
+    // NOT NULL, así que no hace falta coalesce de ese lado.
     query = query
       .or(`precio_min.is.null,precio_min.lte.${propiedad.precio}`)
       .or(`precio_max.is.null,precio_max.gte.${propiedad.precio}`)
+      .or(`and(precio_min.is.null,precio_max.is.null),moneda.eq.${propiedad.moneda ?? MONEDA_POR_DEFECTO}`)
   }
 
   const { data, error } = await query
@@ -566,6 +575,7 @@ export async function buscarCoincidenciasInternas(
     zona: string | null
     precio_min: number | null
     precio_max: number | null
+    moneda: string | null
     ambientes_min: number | null
     lead: {
       id: string
@@ -587,6 +597,7 @@ export async function buscarCoincidenciasInternas(
       zona: fila.zona,
       precioMin: fila.precio_min,
       precioMax: fila.precio_max,
+      moneda: fila.moneda ?? MONEDA_POR_DEFECTO,
       ambientesMin: fila.ambientes_min,
     }))
 }

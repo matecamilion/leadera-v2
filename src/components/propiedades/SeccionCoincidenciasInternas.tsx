@@ -5,10 +5,10 @@ import { etiquetaTipo, type CoincidenciaInterna } from '../../lib/api/propiedade
 
 const MONTOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
 
-function rangoPrecio(min: number | null, max: number | null): string | null {
-  if (min != null && max != null) return `USD ${MONTOS.format(min)} – ${MONTOS.format(max)}`
-  if (max != null) return `hasta USD ${MONTOS.format(max)}`
-  if (min != null) return `desde USD ${MONTOS.format(min)}`
+function rangoPrecio(min: number | null, max: number | null, moneda: string): string | null {
+  if (min != null && max != null) return `${moneda} ${MONTOS.format(min)} – ${MONTOS.format(max)}`
+  if (max != null) return `hasta ${moneda} ${MONTOS.format(max)}`
+  if (min != null) return `desde ${moneda} ${MONTOS.format(min)}`
   return null
 }
 
@@ -57,7 +57,7 @@ export function SeccionCoincidenciasInternas({ coincidencias, cargando, error }:
   return (
     <ul className="space-y-3">
       {coincidencias.map((c) => {
-        const rango = rangoPrecio(c.precioMin, c.precioMax)
+        const rango = rangoPrecio(c.precioMin, c.precioMax, c.moneda)
         return (
           <li
             key={c.busquedaId}

@@ -3,6 +3,7 @@ import { obtenerPropiedadPorId, type PropiedadDetalle } from './propiedades'
 import type { CriteriosBusqueda } from './busquedas'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { MONEDA_POR_DEFECTO, mismaMoneda } from '../moneda'
 
 /**
  * El detalle de una coincidencia: la búsqueda y la propiedad, lado a lado.
@@ -155,8 +156,14 @@ export function compararCriterios(
       cumple:
         busqueda.precio_min == null && busqueda.precio_max == null
           ? null
-          : precioEntra(propiedad.precio, busqueda.precio_min, busqueda.precio_max),
-      detalleBusqueda: textoRango(busqueda.precio_min, busqueda.precio_max),
+          : precioEntra(
+              propiedad.precio,
+              busqueda.precio_min,
+              busqueda.precio_max,
+              propiedad.moneda,
+              busqueda.moneda,
+            ),
+      detalleBusqueda: textoRango(busqueda.precio_min, busqueda.precio_max, busqueda.moneda),
       detallePropiedad:
         propiedad.precio == null
           ? SIN_DATO
@@ -230,12 +237,19 @@ function zonaCoincide(deLaBusqueda: string, deLaPropiedad: string | null): boole
   return b.includes(a) || a.includes(b)
 }
 
-function precioEntra(
+/**
+ * El precio sólo entra si las dos monedas coinciden: 90.000 pesos no "entran"
+ * en un rango en dólares aunque el número caiga adentro.
+ */
+export function precioEntra(
   precio: number | null,
   min: number | null,
   max: number | null,
+  monedaPropiedad: string | null,
+  monedaBusqueda: string | null,
 ): boolean {
   if (precio == null) return false
+  if (!mismaMoneda(monedaPropiedad, monedaBusqueda)) return false
   return precio >= (min ?? 0) * PISO_PRECIO && precio <= (max ?? SIN_TOPE) * TECHO_PRECIO
 }
 
@@ -251,9 +265,14 @@ function alcanzaElMinimo(valor: number | null, minimo: number | null): boolean |
   return valor >= minimo
 }
 
-function textoRango(min: number | null, max: number | null): string {
-  if (min != null && max != null) return `${miles(min)} - ${miles(max)}`
-  if (min != null) return `Desde ${miles(min)}`
-  if (max != null) return `Hasta ${miles(max)}`
+export function textoRango(
+  min: number | null,
+  max: number | null,
+  moneda: string | null,
+): string {
+  const m = moneda ?? MONEDA_POR_DEFECTO
+  if (min != null && max != null) return `${m} ${miles(min)} - ${miles(max)}`
+  if (min != null) return `Desde ${m} ${miles(min)}`
+  if (max != null) return `Hasta ${m} ${miles(max)}`
   return SIN_PREFERENCIA
 }

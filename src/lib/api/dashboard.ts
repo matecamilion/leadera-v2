@@ -4,6 +4,7 @@ import type { Lead } from './leads'
 import type { EstadoPropiedad, TipoPropiedad } from './propiedades'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { MONEDA_POR_DEFECTO, mismaMoneda } from '../moneda'
 
 /** Cuántos leads se traen por categoría; el resto sale como "+N más". */
 export const LEADS_POR_SECCION = 5
@@ -391,6 +392,8 @@ export interface CompradorCompatible {
   zona: string | null
   precioMin: number | null
   precioMax: number | null
+  /** La moneda de `precioMin` y `precioMax`. */
+  moneda: string
   ambientesMin: number | null
 }
 
@@ -404,7 +407,7 @@ export interface CoincidenciaDelDia {
   compradores: CompradorCompatible[]
 }
 
-interface FilaPropiedad {
+export interface FilaPropiedad {
   id: string
   inmobiliaria_id: string
   direccion: string
@@ -415,13 +418,14 @@ interface FilaPropiedad {
   estado: EstadoPropiedad
 }
 
-interface FilaBusqueda {
+export interface FilaBusqueda {
   id: string
   inmobiliaria_id: string
   tipo_propiedad: TipoPropiedad | null
   zona: string | null
   precio_min: number | null
   precio_max: number | null
+  moneda: string | null
   ambientes_min: number | null
   lead: {
     id: string
@@ -441,14 +445,19 @@ interface FilaBusqueda {
  *  - `tipo_propiedad` null en la búsqueda = le sirve cualquier tipo
  *  - el precio de la propiedad entra en [precio_min, precio_max], con los
  *    extremos vacíos como "sin límite"
- *  - si la propiedad no tiene precio cargado, el rango no se evalúa
+ *  - ese rango sólo se compara si las dos monedas coinciden (null cuenta como
+ *    USD); una búsqueda en pesos no le sirve a una propiedad en dólares
+ *  - si la propiedad no tiene precio cargado, o la búsqueda no acotó el
+ *    precio, el rango no se evalúa
  */
-function leSirve(propiedad: FilaPropiedad, busqueda: FilaBusqueda): boolean {
+export function leSirve(propiedad: FilaPropiedad, busqueda: FilaBusqueda): boolean {
   if (busqueda.tipo_propiedad != null && busqueda.tipo_propiedad !== propiedad.tipo) {
     return false
   }
 
-  if (propiedad.precio != null) {
+  const acotaPrecio = busqueda.precio_min != null || busqueda.precio_max != null
+  if (propiedad.precio != null && acotaPrecio) {
+    if (!mismaMoneda(propiedad.moneda, busqueda.moneda)) return false
     if (busqueda.precio_min != null && busqueda.precio_min > propiedad.precio) return false
     if (busqueda.precio_max != null && busqueda.precio_max < propiedad.precio) return false
   }
@@ -477,7 +486,7 @@ export async function obtenerCoincidenciasDelDia(): Promise<CoincidenciaDelDia[]
     supabase
       .from('busquedas')
       .select(
-        'id, inmobiliaria_id, tipo_propiedad, zona, precio_min, precio_max, ambientes_min, lead:leads(id, nombre, apellido, estado)',
+        'id, inmobiliaria_id, tipo_propiedad, zona, precio_min, precio_max, moneda, ambientes_min, lead:leads(id, nombre, apellido, estado)',
       )
       .eq('activa', true),
   ])
@@ -507,6 +516,7 @@ export async function obtenerCoincidenciasDelDia(): Promise<CoincidenciaDelDia[]
         zona: b.zona,
         precioMin: b.precio_min,
         precioMax: b.precio_max,
+        moneda: b.moneda ?? MONEDA_POR_DEFECTO,
         ambientesMin: b.ambientes_min,
       }))
 

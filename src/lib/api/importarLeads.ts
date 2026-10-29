@@ -100,6 +100,13 @@ export interface FilaParaImportar {
   origen?: OrigenImportable
   /** ISO. Si el archivo no traía fecha se omite y la base usa la de hoy. */
   fecha_ingreso?: string
+  /**
+   * ISO, con la misma convención que `fecha_ingreso`. Contacto real cargado desde
+   * "Respondido el". Si solo una sirve la base toma esa para las dos; una que no
+   * sirve (futura, anterior a la fecha de ingreso) se descarta sin fallar la fila.
+   */
+  fecha_primer_contacto_real?: string
+  fecha_ultimo_contacto_real?: string
 }
 
 /**
@@ -119,6 +126,8 @@ export function armarPayload(filas: FilaNormalizada[]): FilaParaImportar[] {
     // La RPC rechaza los orígenes vedados fila por fila: acá ni se mandan.
     if (f.origen && esOrigenImportable(f.origen)) fila.origen = f.origen
     if (f.fechaIngreso) fila.fecha_ingreso = f.fechaIngreso.toISOString()
+    if (f.primerContacto) fila.fecha_primer_contacto_real = f.primerContacto.toISOString()
+    if (f.ultimoContacto) fila.fecha_ultimo_contacto_real = f.ultimoContacto.toISOString()
     return fila
   })
 }

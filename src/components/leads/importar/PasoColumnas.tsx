@@ -32,6 +32,11 @@ const CAMPOS: CampoUi[] = [
   { campo: 'email', label: 'Email' },
   { campo: 'estado', label: 'Estado', ayuda: 'Caliente, tibio, frío, ganado o inactivo.' },
   { campo: 'fechaIngreso', label: 'Fecha de ingreso', ayuda: 'Por ejemplo 05/03/2026.' },
+  {
+    campo: 'respondidoEl',
+    label: 'Respondido el',
+    ayuda: 'Cuándo respondiste a este contacto en otro sistema. El lead no entra como nuevo.',
+  },
   { campo: 'descripcion', label: 'Descripción' },
 ]
 

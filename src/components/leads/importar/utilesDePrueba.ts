@@ -19,6 +19,8 @@ export function normalizada(n: number, cambios: Partial<FilaNormalizada> = {}): 
     estado: null,
     origen: null,
     fechaIngreso: null,
+    primerContacto: null,
+    ultimoContacto: null,
     descripcion: null,
     consulta: null,
     avisosDescripcion: [],

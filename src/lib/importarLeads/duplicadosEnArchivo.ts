@@ -120,6 +120,12 @@ function estadoMasReciente(filas: FilaNormalizada[]): FilaNormalizada['estado'] 
   return mejor.estado
 }
 
+/** La fecha más antigua (`Math.min`) o más reciente (`Math.max`) de las que hay; null si no hay ninguna. */
+function extremo(fechas: (Date | null)[], elegir: typeof Math.min): Date | null {
+  const tiempos = fechas.filter((f): f is Date => f !== null).map((f) => f.getTime())
+  return tiempos.length > 0 ? new Date(elegir(...tiempos)) : null
+}
+
 /** La primera fila de una persona con los datos de las que se le fusionan. */
 function fusionar(
   primera: FilaNormalizada,
@@ -148,6 +154,10 @@ function fusionar(
     estado: estadoMasReciente(todas),
     origen: ordenarPorFecha(todas, (f) => f.fechaIngreso).find((f) => f.origen)?.origen ?? null,
     fechaIngreso: masAntigua,
+    // El primer contacto es la respuesta más antigua y el último la más reciente;
+    // sin ninguna respuesta no se manda nada.
+    primerContacto: extremo(todas.map((f) => f.primerContacto), Math.min),
+    ultimoContacto: extremo(todas.map((f) => f.ultimoContacto), Math.max),
     descripcion: compuesta.texto,
     avisosDescripcion,
     avisos,

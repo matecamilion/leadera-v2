@@ -19,6 +19,7 @@ export const CAMPOS_DESTINO = [
   'estado',
   'origen',
   'fechaIngreso',
+  'respondidoEl',
   'descripcion',
 ] as const
 
@@ -122,6 +123,12 @@ const SINONIMOS: Record<CampoDestino, Sinonimos> = {
     ],
     contiene: ['fecha de ingreso', 'fecha de alta', 'fecha de creacion', 'fecha de carga'],
     excluye: ['nacimiento', 'seguimiento', 'proximo', 'ultimo', 'vencimiento', 'baja'],
+  },
+  // Cuándo respondió el agente (otro sistema). "Tiempo de respuesta" es una
+  // duración y no una fecha: no está acá a propósito.
+  respondidoEl: {
+    exactos: ['respondido el', 'fecha de respuesta', 'respondido'],
+    contiene: ['respondido el', 'fecha de respuesta'],
   },
   descripcion: {
     exactos: [

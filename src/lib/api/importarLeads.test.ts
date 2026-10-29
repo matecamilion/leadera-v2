@@ -202,6 +202,8 @@ function normalizada(n: number, cambios: Partial<FilaNormalizada> = {}): FilaNor
     estado: null,
     origen: null,
     fechaIngreso: null,
+    primerContacto: null,
+    ultimoContacto: null,
     descripcion: null,
     consulta: null,
     avisosDescripcion: [],

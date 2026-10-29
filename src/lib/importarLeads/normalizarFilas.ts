@@ -63,6 +63,14 @@ export interface FilaNormalizada {
    */
   origen: OrigenImportable | null
   fechaIngreso: Date | null
+  /**
+   * Cuándo respondió el agente por primera y por última vez, según "Respondido
+   * el" (otro sistema). En una fila suelta valen lo mismo; al fusionar, la más
+   * antigua y la más reciente. null si no hay respuesta o no sirve: no se manda y
+   * el lead entra como nuevo.
+   */
+  primerContacto: Date | null
+  ultimoContacto: Date | null
   /** El detalle ya compuesto (consulta + datos extra), de hasta 2000 caracteres. */
   descripcion: string | null
   /** El bloque de esta fila, para recomponer el detalle si se fusiona con otras. */
@@ -345,6 +353,23 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas, encabezados: str
     avisos.push('La fecha de ingreso es futura: se usa la de hoy.')
   }
 
+  // Respondido el: el contacto real que el agente ya tuvo con este lead en otro
+  // sistema. Se parsea igual que la fecha de ingreso (misma hora local, mismo ISO
+  // al mandarlo). La RPC descarta lo que no sirve; acá se anticipa para avisar y
+  // no mandarlo: ilegible, futuro (más de un día) o anterior a la creación de esta
+  // misma fila. Sin fecha de creación válida no hay contra qué comparar y se manda.
+  const respondidoCrudo = celda('respondidoEl')
+  let respondidoEl = parsearFecha(respondidoCrudo)
+  if (respondidoCrudo && !respondidoEl) {
+    avisos.push(`No entendimos "Respondido el" ("${respondidoCrudo}"): se ignora.`)
+  } else if (respondidoEl && respondidoEl.getTime() > Date.now() + MS_TOLERANCIA_FUTURO) {
+    respondidoEl = null
+    avisos.push('Respondido el es una fecha futura: se ignora.')
+  } else if (respondidoEl && fechaIngreso && respondidoEl.getTime() < fechaIngreso.getTime()) {
+    respondidoEl = null
+    avisos.push('Respondido el anterior a la fecha de creación; se ignora.')
+  }
+
   // Origen: el del archivo, traducido al enum. Sin columna o con la celda vacía no
   // se manda nada y la RPC pone IMPORTACION. El nombre original queda en el detalle.
   const origenOriginal = celda('origen')
@@ -378,6 +403,8 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas, encabezados: str
     estado,
     origen,
     fechaIngreso,
+    primerContacto: respondidoEl,
+    ultimoContacto: respondidoEl,
     descripcion: compuesta.texto,
     consulta,
     avisosDescripcion,

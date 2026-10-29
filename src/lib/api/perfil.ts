@@ -173,12 +173,15 @@ export async function obtenerMetricasPerfil(): Promise<MetricasPerfil> {
     leadsDelAgente().eq('estado', 'GANADO'),
     leadsDelAgente().not('fecha_primer_contacto_real', 'is', null),
 
-    // Para el tiempo de respuesta hace falta el par de fechas, no un conteo.
+    // Para el tiempo de respuesta hace falta el par de fechas, no un conteo. Los
+    // importados quedan afuera: su primer contacto viene de otro sistema y mezclaría
+    // esos tiempos con los que se midieron en LeadEra.
     supabase
       .from('leads')
       .select('fecha_ingreso, fecha_primer_contacto_real')
       .eq(columnaLeads, agenteId)
-      .not('fecha_primer_contacto_real', 'is', null),
+      .not('fecha_primer_contacto_real', 'is', null)
+      .is('importacion_id', null),
 
     supabase.from('leads').select('origen').eq(columnaLeads, agenteId),
 

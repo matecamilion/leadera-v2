@@ -258,6 +258,8 @@ describe('fila completa', () => {
       estado: 'TIBIO',
       origen: null,
       fechaIngreso: new Date(2026, 2, 5),
+      primerContacto: null,
+      ultimoContacto: null,
       // Con fecha, el detalle lleva la línea de la consulta y rotula el mensaje.
       descripcion: 'Consulta del 05/03/2026\nMensaje: Busca 2 ambientes',
       consulta: {

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { EnlaceAPlanes } from '../../comunes/EnlaceAPlanes'
 import { entradaSegunCupo } from './cupoImportacion'
+import { leadsConFusiones, listarFilas } from './fusiones'
 import { ListaDetalle } from './ListaDetalle'
 import type { FilaDetalle } from './resumenResultado'
 import type { Revision } from './revisar'
@@ -46,11 +47,20 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
   const sinForma = c.aImportar.filter((f) => f.email === null && (f.telefono === null || f.telefonoDudoso)).length
   const dudosos = c.aImportar.filter((f) => f.telefonoDudoso).length
 
+  // Consultas repetidas del archivo: no se descartan, se juntan en un solo lead.
+  const conFusion = leadsConFusiones(revision.filas)
+
+  // De los leads que entran (el plan puede dejar afuera los últimos), cuántos ya
+  // vienen con contacto cargado. Sale de lo que ya calculó la normalización.
+  const conContacto = c.aImportar.slice(0, entrada.entran).filter((f) => f.primerContacto !== null).length
+  const comoNuevos = entrada.entran - conContacto
+
   const detalle = {
-    enArchivo: c.duplicadasEnArchivo.map<FilaDetalle>((f) => ({
-      fila: f.fila,
-      nombre: f.nombre,
-      motivo: `Repite ${f.duplicadoEnArchivo?.por === 'EMAIL' ? 'el email' : 'el teléfono'} de la fila ${f.duplicadoEnArchivo?.duplicaA}.`,
+    fusionados: conFusion.map<FilaDetalle>((l) => ({
+      fila: l.fila,
+      nombre: l.nombre,
+      motivo: `Se juntaron ${l.consultas} consultas (filas ${listarFilas(l.filas)}).`,
+      descripcion: l.descripcion,
     })),
     enCuenta: [
       ...c.duplicadasEnBase.porTelefono.map<FilaDetalle>((f) => ({
@@ -86,7 +96,13 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
             tono="brand"
             subtexto={entrada.quedanAfuera > 0 ? `${entrada.quedanAfuera} quedan afuera por el plan` : undefined}
           />
-          <TarjetaConteo valor={conteos.duplicadasEnArchivo} titulo="Repetidos dentro del archivo" />
+          <TarjetaConteo
+            valor={conteos.duplicadasEnArchivo}
+            titulo="Consultas fusionadas"
+            subtexto={
+              conFusion.length > 0 ? `en ${conFusion.length} ${plural(conFusion.length, 'lead', 'leads')}` : undefined
+            }
+          />
           <TarjetaConteo
             valor={duplicadasEnCuenta}
             titulo="Ya están en tu cuenta"
@@ -94,6 +110,22 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
           />
           <TarjetaConteo valor={conteos.conError} titulo="Con errores" tono="error" />
         </div>
+
+        {conteos.duplicadasEnArchivo > 0 && (
+          <p className="mt-3 mb-0 text-[0.85rem] text-ink-3">
+            Las consultas fusionadas no se pierden: son de una misma persona y se juntan en un solo lead, ordenadas por
+            fecha.
+          </p>
+        )}
+
+        {conContacto > 0 && (
+          <p className="mt-3 mb-0 text-[0.85rem] text-ink-2">
+            <strong className="font-semibold tabular-nums">{conContacto.toLocaleString('es-AR')}</strong>{' '}
+            {plural(conContacto, 'entra', 'entran')} con contacto cargado ·{' '}
+            <strong className="font-semibold tabular-nums">{comoNuevos.toLocaleString('es-AR')}</strong>{' '}
+            {plural(comoNuevos, 'entra', 'entran')} como {plural(comoNuevos, 'nuevo', 'nuevos')}
+          </p>
+        )}
 
         {entrada.quedanAfuera > 0 && (
           <div
@@ -127,12 +159,12 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
         )}
       </div>
 
-      {(detalle.enArchivo.length > 0 ||
+      {(detalle.fusionados.length > 0 ||
         detalle.enCuenta.length > 0 ||
         detalle.errores.length > 0 ||
         detalle.avisos.length > 0) && (
         <div className="mt-4 space-y-2">
-          <ListaDetalle titulo="Repetidos dentro del archivo" filas={detalle.enArchivo} />
+          <ListaDetalle titulo="Leads con varias consultas" filas={detalle.fusionados} />
           <ListaDetalle titulo="Ya están en tu cuenta" filas={detalle.enCuenta} />
           <ListaDetalle titulo="Con errores (no se importan)" filas={detalle.errores} tono="error" />
           <ListaDetalle titulo="Se importan, pero con avisos" filas={detalle.avisos} tono="aviso" />

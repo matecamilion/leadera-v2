@@ -5,6 +5,8 @@ export interface FilaDetalle {
   fila: number
   nombre: string
   motivo: string
+  /** Si viene, la fila ofrece "Ver descripción final" con este texto. */
+  descripcion?: string | null
 }
 
 export interface ResumenDeResultado {

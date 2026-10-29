@@ -1,13 +1,16 @@
 import { useId, useMemo } from 'react'
 import type { ArchivoLeido } from '../../../lib/importarLeads/leerArchivo'
 import {
+  alternarDetalle,
   asignarColumna,
+  CAMPOS_DESTINO,
+  columnasDetalle,
   mapeoTieneNombre,
   type CampoDestino,
   type MapeoColumnas,
 } from '../../../lib/importarLeads/mapeoColumnas'
 import { normalizarFilas } from '../../../lib/importarLeads/normalizarFilas'
-import { etiquetaEstado } from '../../../lib/etiquetasLead'
+import { etiquetaEstado, etiquetaOrigen } from '../../../lib/etiquetasLead'
 import { CLASES_CONTROL } from '../../comunes/estilosFormulario'
 
 /** Cuántas filas se muestran para comprobar el mapeo. */
@@ -19,7 +22,7 @@ interface CampoUi {
   ayuda?: string
 }
 
-/** Los campos a mapear, en el orden en que se muestran. `origen` no: es fijo. */
+/** Los campos a mapear, en el orden en que se muestran. */
 const CAMPOS: CampoUi[] = [
   { campo: 'nombre', label: 'Nombre' },
   { campo: 'apellido', label: 'Apellido' },
@@ -36,6 +39,11 @@ const CAMPOS: CampoUi[] = [
     campo: 'respondidoEl',
     label: 'Respondido el',
     ayuda: 'Cuándo respondiste a este contacto en otro sistema. El lead no entra como nuevo.',
+  },
+  {
+    campo: 'origen',
+    label: 'Origen',
+    ayuda: 'ZonaProp, Argenprop, WhatsApp… Si no lo importás, los leads entran como «Importación».',
   },
   { campo: 'descripcion', label: 'Descripción' },
 ]
@@ -73,6 +81,19 @@ function formatearFecha(fecha: Date | null): string {
   return fecha ? fecha.toLocaleDateString('es-AR') : '—'
 }
 
+/** dd/mm/aaaa hh:mm: para el contacto cargado, donde la hora importa. */
+function formatearFechaHora(fecha: Date | null): string {
+  if (!fecha) return '—'
+  return fecha.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 /** Paso 2: relacionar las columnas del archivo con los datos del lead. */
 export function PasoColumnas({
   archivo,
@@ -87,9 +108,20 @@ export function PasoColumnas({
   const hayNombre = mapeoTieneNombre(mapeo)
 
   const vistaPrevia = useMemo(
-    () => normalizarFilas(archivo.filas.slice(0, FILAS_DE_VISTA_PREVIA), mapeo),
-    [archivo.filas, mapeo],
+    () => normalizarFilas(archivo.filas.slice(0, FILAS_DE_VISTA_PREVIA), mapeo, archivo.encabezados),
+    [archivo.filas, archivo.encabezados, mapeo],
   )
+
+  // Una columna es un campo o va al detalle (o no se usa), no varias cosas a la vez.
+  const columnasDeCampo = new Set(
+    CAMPOS_DESTINO.map((campo) => mapeo[campo]).filter((columna): columna is number => columna !== undefined),
+  )
+  const enDetalle = new Set(columnasDetalle(mapeo))
+  const candidatas = archivo.encabezados.map((_, i) => i).filter((i) => !columnasDeCampo.has(i))
+  const sinUsar = candidatas.filter((i) => !enDetalle.has(i))
+
+  const nombreDeColumna = (i: number) => `${letraDeColumna(i)} · ${archivo.encabezados[i] || '(sin título)'}`
+  const incluirTodas = () => onMapeo(sinUsar.reduce((m, i) => alternarDetalle(m, i, true), mapeo))
 
   return (
     <section aria-label="Relacionar columnas" className="min-w-0">
@@ -143,6 +175,47 @@ export function PasoColumnas({
         </p>
       </div>
 
+      {candidatas.length > 0 && (
+        <div className="@container mt-4 rounded-[16px] border border-border bg-surface p-5">
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="p-0 text-[1.05rem] font-bold text-ink">Incluir en el detalle</legend>
+            <p className="mt-1 mb-0 text-[0.85rem] text-ink-3">
+              Las columnas que marques se suman al detalle del lead como «Columna: valor». Las que ya van a un campo
+              no aparecen acá.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-2 @[32rem]:grid-cols-2 @[56rem]:grid-cols-3">
+              {candidatas.map((i) => (
+                <label
+                  key={i}
+                  className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-border px-3 py-1.5 text-[0.85rem] text-ink hover:bg-background"
+                >
+                  <input
+                    type="checkbox"
+                    checked={enDetalle.has(i)}
+                    onChange={(e) => onMapeo(alternarDetalle(mapeo, i, e.target.checked))}
+                    className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  />
+                  <span className="min-w-0 break-words">{nombreDeColumna(i)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      )}
+
+      {sinUsar.length > 0 && (
+        <section
+          aria-label="Columnas sin usar"
+          className="mt-4 rounded-lg border border-tibio/40 bg-warm-soft px-4 py-3 text-[0.9rem] text-badge-tibio-ink"
+        >
+          <p className="m-0 font-semibold">Columnas sin usar ({sinUsar.length})</p>
+          <p className="mt-1 mb-0">Estas columnas no se van a importar: {sinUsar.map(nombreDeColumna).join(' · ')}.</p>
+          <button type="button" onClick={incluirTodas} className={`mt-3 ${BOTON_SECUNDARIO}`}>
+            Incluir todas en el detalle
+          </button>
+        </section>
+      )}
+
       <div className="mt-4 rounded-[16px] border border-border bg-surface p-5">
         <h2 className="m-0 text-[1.05rem] font-bold text-ink">Así quedarían las primeras filas</h2>
         <p className="mt-1 mb-0 text-[0.85rem] text-ink-3">
@@ -151,10 +224,10 @@ export function PasoColumnas({
 
         {/* El scroll es de este contenedor: la página nunca se ensancha. */}
         <div className="mt-3 max-w-full overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[56rem] border-collapse text-left text-[0.85rem]">
+          <table className="w-full min-w-[80rem] border-collapse text-left text-[0.85rem]">
             <thead>
               <tr className="bg-surface-2 text-ink-2">
-                {['Fila', 'Nombre', 'Apellido', 'Teléfono', 'Email', 'Estado', 'Fecha', 'Avisos'].map((h) => (
+                {['Fila', 'Nombre', 'Apellido', 'Teléfono', 'Email', 'Estado', 'Fecha', 'Origen', 'Contacto', 'Detalle', 'Avisos'].map((h) => (
                   <th key={h} scope="col" className="px-3 py-2 text-xs font-bold whitespace-nowrap">
                     {h}
                   </th>
@@ -171,6 +244,22 @@ export function PasoColumnas({
                   <td className="px-3 py-2">{f.email ?? '—'}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{f.estado ? etiquetaEstado(f.estado) : '—'}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{formatearFecha(f.fechaIngreso)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{f.origen ? etiquetaOrigen(f.origen) : '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{formatearFechaHora(f.primerContacto)}</td>
+                  <td className="min-w-[10rem] px-3 py-2">
+                    {f.descripcion ? (
+                      <details>
+                        <summary className="inline-flex min-h-8 cursor-pointer items-center rounded-md text-xs font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                          Ver detalle
+                        </summary>
+                        <pre className="mt-1.5 mb-0 max-h-48 w-[22rem] max-w-full overflow-auto rounded-md border border-border bg-surface-2 p-2.5 font-sans text-xs whitespace-pre-wrap text-ink-2">
+                          {f.descripcion}
+                        </pre>
+                      </details>
+                    ) : (
+                      <span className="text-ink-4">—</span>
+                    )}
+                  </td>
                   <td className="min-w-[16rem] px-3 py-2">
                     {f.errores.length === 0 && f.avisos.length === 0 ? (
                       <span className="text-ink-4">—</span>

@@ -70,7 +70,19 @@ export function ListaDetalle({ titulo, filas, tono = 'neutro' }: ListaDetallePro
               <tr key={`${f.fila}-${i}`} className="border-t border-border align-top text-ink">
                 <td className="px-3 py-2 text-ink-3 tabular-nums">{f.fila}</td>
                 <td className="px-3 py-2">{f.nombre || '—'}</td>
-                <td className={`min-w-[14rem] px-3 py-2 ${COLOR_MOTIVO[tono]}`}>{f.motivo}</td>
+                <td className={`min-w-[14rem] px-3 py-2 ${COLOR_MOTIVO[tono]}`}>
+                  {f.motivo}
+                  {f.descripcion && (
+                    <details className="mt-1.5">
+                      <summary className="inline-flex min-h-8 cursor-pointer items-center rounded-md text-xs font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                        Ver descripción final
+                      </summary>
+                      <pre className="mt-1.5 mb-0 max-h-48 max-w-[34rem] overflow-auto rounded-md border border-border bg-surface-2 p-2.5 font-sans text-xs whitespace-pre-wrap text-ink-2">
+                        {f.descripcion}
+                      </pre>
+                    </details>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

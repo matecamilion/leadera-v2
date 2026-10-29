@@ -222,3 +222,39 @@ describe('PasoResultado: errores', () => {
     expect(screen.queryByText('Filas con error', { selector: 'summary span' })).toBeNull()
   })
 })
+
+describe('PasoResultado: consultas fusionadas', () => {
+  const persona = (fila: number, telefono: string) =>
+    conTelefono(fila, { telefono, telefonoNorm: '549' + telefono.replace(/\D/g, '') })
+
+  it('muestra las consultas fusionadas y en cuántos leads, aparte de los duplicados', () => {
+    // La fila 3 se junta con la 2 y la 6 con la 5; la 4 está sola.
+    const revision = revisionDe({
+      filas: [
+        persona(2, '2235550001'),
+        persona(3, '2235550001'),
+        persona(4, '2235550002'),
+        persona(5, '2235550003'),
+        persona(6, '2235550003'),
+      ],
+    })
+    mostrar(revision, { insertados: 3, resultados: [ok(2), ok(4), ok(5)], corte: null })
+
+    const t = tarjeta('Consultas fusionadas')
+    expect(within(t).getByText('2')).toBeTruthy()
+    expect(within(t).getByText('en 2 leads')).toBeTruthy()
+    // Y "Omitidos por duplicado" no las incluye.
+    expect(within(tarjeta('Omitidos por duplicado')).getByText('0')).toBeTruthy()
+  })
+
+  it('no se muestra si no hubo repetidas en el archivo', () => {
+    mostrar(REVISION, { insertados: 3, resultados: [ok(2), ok(3), ok(4)], corte: null })
+    expect(screen.queryByText('Consultas fusionadas')).toBeNull()
+  })
+
+  it('con una sola fusión lo dice en singular', () => {
+    const revision = revisionDe({ filas: [persona(2, '2235550001'), persona(3, '2235550001')] })
+    mostrar(revision, { insertados: 1, resultados: [ok(2)], corte: null })
+    expect(within(tarjeta('Consultas fusionadas')).getByText('en 1 lead')).toBeTruthy()
+  })
+})

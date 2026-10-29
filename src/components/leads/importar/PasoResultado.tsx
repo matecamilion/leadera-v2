@@ -1,6 +1,7 @@
 import { EnlaceAPlanes } from '../../comunes/EnlaceAPlanes'
 import type { ResultadoDeImportacion } from '../../../lib/api/importarLeads'
 import { ListaDetalle } from './ListaDetalle'
+import { leadsConFusiones } from './fusiones'
 import { resumirResultado } from './resumenResultado'
 import type { Revision } from './revisar'
 import { TarjetaConteo } from './TarjetaConteo'
@@ -59,6 +60,7 @@ export function PasoResultado({ revision, importando, progreso, resultado, onVer
 
   const r = resumirResultado(revision, resultado)
   const { corte } = resultado
+  const leadsConVarias = leadsConFusiones(revision.filas).length
 
   return (
     <section aria-label="Resultado de la importación" className="min-w-0">
@@ -75,8 +77,17 @@ export function PasoResultado({ revision, importando, progreso, resultado, onVer
 
         {r.motivoPrincipal && <p className="mt-1.5 mb-0 text-[0.9rem] text-ink-3">{r.motivoPrincipal}</p>}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-4">
+        <div
+          className={`mt-4 grid grid-cols-1 gap-3 @[28rem]:grid-cols-2 ${r.consultasFusionadas > 0 ? '@[48rem]:grid-cols-5' : '@[48rem]:grid-cols-4'}`}
+        >
           <TarjetaConteo valor={r.importados} titulo="Importados" tono="brand" />
+          {r.consultasFusionadas > 0 && (
+            <TarjetaConteo
+              valor={r.consultasFusionadas}
+              titulo="Consultas fusionadas"
+              subtexto={`en ${leadsConVarias} ${plural(leadsConVarias, 'lead', 'leads')}`}
+            />
+          )}
           <TarjetaConteo valor={r.omitidosPorDuplicado} titulo="Omitidos por duplicado" />
           <TarjetaConteo valor={r.conError} titulo="Con error" tono="error" />
           <TarjetaConteo valor={r.fueraPorLimite} titulo="Fuera por el límite del plan" tono="aviso" />

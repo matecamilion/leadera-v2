@@ -52,7 +52,7 @@ describe('PasoRevision: conteos', () => {
     mostrar(revisionMixta())
 
     expect(within(tarjeta('Se importan')).getByText('2')).toBeTruthy()
-    expect(within(tarjeta('Repetidos dentro del archivo')).getByText('1')).toBeTruthy()
+    expect(within(tarjeta('Consultas fusionadas')).getByText('1')).toBeTruthy()
     const enCuenta = tarjeta('Ya están en tu cuenta')
     expect(within(enCuenta).getByText('2')).toBeTruthy()
     expect(within(enCuenta).getByText('por teléfono 1 · por email 1')).toBeTruthy()
@@ -63,7 +63,7 @@ describe('PasoRevision: conteos', () => {
     mostrar(revisionDe({ filas: [conTelefono(2), conTelefono(3)] }))
 
     expect(tarjeta('Se importan').className).not.toContain('opacity-60')
-    expect(tarjeta('Repetidos dentro del archivo').className).toContain('opacity-60')
+    expect(tarjeta('Consultas fusionadas').className).toContain('opacity-60')
     expect(tarjeta('Ya están en tu cuenta').className).toContain('opacity-60')
     expect(tarjeta('Con errores').className).toContain('opacity-60')
   })
@@ -143,7 +143,7 @@ describe('PasoRevision: detalle', () => {
   it('lista fila, nombre y motivo de cada categoría', () => {
     mostrar(revisionMixta())
 
-    expect(screen.getByText('Repite el teléfono de la fila 2.')).toBeTruthy()
+    expect(screen.getByText('Se juntaron 2 consultas (filas 2 y 4).')).toBeTruthy()
     expect(screen.getByText('Ya existe un lead con este teléfono en tu cuenta.')).toBeTruthy()
     expect(screen.getByText('Ya existe un lead con este email en tu cuenta.')).toBeTruthy()
     expect(screen.getByText('Falta el nombre.')).toBeTruthy()
@@ -200,5 +200,132 @@ describe('PasoRevision: botones', () => {
     expect(onImportar).toHaveBeenCalledOnce()
     expect(boton.disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Volver' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Consultas fusionadas y contacto cargado
+// ---------------------------------------------------------------------------
+
+/** Un teléfono distinto por persona; las filas de la misma persona lo comparten. */
+function dePersona(persona: number, fila: number, cambios: Partial<Parameters<typeof conTelefono>[1]> = {}) {
+  const numero = String(1000 + persona).padStart(4, '0')
+  return conTelefono(fila, { telefono: `223 555-${numero}`, telefonoNorm: `549223555${numero}`, ...cambios })
+}
+
+const consulta = (dia: number, texto: string) => ({ fecha: new Date(2026, 3, dia), texto, propiedad: [] })
+
+/** Persona 1 con 3 consultas (filas 2, 3 y 4), persona 2 con 2 (filas 5 y 6) y la 7 sola. */
+function revisionConFusiones() {
+  return revisionDe({
+    filas: [
+      dePersona(1, 2, { consulta: consulta(3, 'Consulta del 03/04/2026\nMensaje: tercera') }),
+      dePersona(1, 3, { consulta: consulta(1, 'Consulta del 01/04/2026\nMensaje: primera') }),
+      dePersona(1, 4, { consulta: consulta(2, 'Consulta del 02/04/2026\nMensaje: segunda') }),
+      dePersona(2, 5, { consulta: consulta(5, 'Consulta del 05/04/2026\nMensaje: unica') }),
+      dePersona(2, 6, { consulta: consulta(6, 'Consulta del 06/04/2026\nMensaje: otra') }),
+      dePersona(3, 7),
+    ],
+  })
+}
+
+describe('PasoRevision: consultas fusionadas', () => {
+  it('la tarjeta cuenta las consultas fusionadas y dice en cuántos leads', () => {
+    mostrar(revisionConFusiones())
+
+    const t = tarjeta('Consultas fusionadas')
+    // Filas 3, 4 y 6 se juntaron en las filas 2 y 5.
+    expect(within(t).getByText('3')).toBeTruthy()
+    expect(within(t).getByText('en 2 leads')).toBeTruthy()
+  })
+
+  it('con un solo lead lo dice en singular', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(1, 3)] }))
+    expect(within(tarjeta('Consultas fusionadas')).getByText('en 1 lead')).toBeTruthy()
+  })
+
+  it('aclara que no se pierden: se juntan en un solo lead', () => {
+    mostrar(revisionConFusiones())
+    expect(screen.getByText(/no se pierden: son de una misma persona y se juntan en un solo lead/)).toBeTruthy()
+  })
+
+  it('sin consultas repetidas no hay subtítulo ni aclaración', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(2, 3)] }))
+    expect(within(tarjeta('Consultas fusionadas')).queryByText(/^en \d/)).toBeNull()
+    expect(screen.queryByText(/no se pierden/)).toBeNull()
+  })
+
+  it('ya no se llama "Repetidos dentro del archivo"', () => {
+    mostrar(revisionConFusiones())
+    expect(screen.queryByText('Repetidos dentro del archivo')).toBeNull()
+  })
+
+  it('el desplegable lista un lead por fila con cuántas consultas juntó', () => {
+    mostrar(revisionConFusiones())
+
+    const lista = screen.getByText('Leads con varias consultas', { selector: 'summary span' }).closest('details') as HTMLElement
+    expect(within(lista).getByText('(2)')).toBeTruthy()
+    expect(within(lista).getByText('Se juntaron 3 consultas (filas 2, 3 y 4).')).toBeTruthy()
+    expect(within(lista).getByText('Se juntaron 2 consultas (filas 5 y 6).')).toBeTruthy()
+    expect(lista.querySelectorAll('tbody tr')).toHaveLength(2)
+  })
+
+  it('cada lead tiene "Ver descripción final" con el texto ya fusionado, en una caja con scroll', () => {
+    mostrar(revisionConFusiones())
+
+    const botones = screen.getAllByText('Ver descripción final')
+    expect(botones).toHaveLength(2)
+
+    // La de la persona 1: sus tres consultas por fecha ascendente, separadas por ---.
+    const caja = botones[0].closest('details')!.querySelector('pre') as HTMLElement
+    expect(caja.textContent).toBe(
+      'Consulta del 01/04/2026\nMensaje: primera\n---\nConsulta del 02/04/2026\nMensaje: segunda\n---\nConsulta del 03/04/2026\nMensaje: tercera',
+    )
+    expect(caja.className).toContain('max-h-48')
+    expect(caja.className).toContain('overflow-auto')
+    // Es un <details>: no se ve hasta que se abre.
+    expect(botones[0].closest('details')!.hasAttribute('open')).toBe(false)
+  })
+
+  it('un lead fusionado sin descripción no ofrece "Ver descripción final"', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(1, 3)] }))
+    expect(screen.queryByText('Ver descripción final')).toBeNull()
+  })
+})
+
+describe('PasoRevision: resumen de contacto', () => {
+  const contacto = (dia: number) => ({ primerContacto: new Date(2026, 3, dia), ultimoContacto: new Date(2026, 3, dia) })
+  const resumen = () =>
+    screen.queryByText((_, el) => el?.tagName === 'P' && /con contacto cargado/.test(el.textContent ?? ''))
+
+  it('cuenta los que entran con contacto cargado y los que entran como nuevos', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2, contacto(5)), dePersona(2, 3, contacto(6)), dePersona(3, 4)] }))
+    expect(resumen()?.textContent).toBe('2 entran con contacto cargado · 1 entra como nuevo')
+  })
+
+  it('en singular', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2, contacto(5)), dePersona(2, 3), dePersona(3, 4)] }))
+    expect(resumen()?.textContent).toBe('1 entra con contacto cargado · 2 entran como nuevos')
+  })
+
+  it('sin ninguno con contacto no se muestra', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(2, 3)] }))
+    expect(resumen()).toBeNull()
+  })
+
+  it('cuenta solo los que el plan deja entrar', () => {
+    // Entran 2 de 3: el tercero, que es el único con contacto, queda afuera.
+    mostrar(
+      revisionDe({
+        filas: [dePersona(1, 2), dePersona(2, 3), dePersona(3, 4, contacto(5))],
+        cupo: { limite: 2, usados: 0 },
+      }),
+    )
+    expect(resumen()).toBeNull()
+  })
+
+  it('un lead fusionado cuenta como uno, con el contacto que juntó', () => {
+    mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(1, 3, contacto(5)), dePersona(2, 4)] }))
+    expect(resumen()?.textContent).toBe('1 entra con contacto cargado · 1 entra como nuevo')
   })
 })

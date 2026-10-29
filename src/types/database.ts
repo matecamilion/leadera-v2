@@ -707,6 +707,7 @@ export type Database = {
           fecha_proximo_seguimiento: string | null
           fecha_ultimo_contacto_real: string | null
           id: string
+          importacion_id: string | null
           inmobiliaria_id: string
           nombre: string
           origen: Database["public"]["Enums"]["origen_lead"]
@@ -726,6 +727,7 @@ export type Database = {
           fecha_proximo_seguimiento?: string | null
           fecha_ultimo_contacto_real?: string | null
           id?: string
+          importacion_id?: string | null
           inmobiliaria_id: string
           nombre: string
           origen?: Database["public"]["Enums"]["origen_lead"]
@@ -745,6 +747,7 @@ export type Database = {
           fecha_proximo_seguimiento?: string | null
           fecha_ultimo_contacto_real?: string | null
           id?: string
+          importacion_id?: string | null
           inmobiliaria_id?: string
           nombre?: string
           origen?: Database["public"]["Enums"]["origen_lead"]
@@ -1842,7 +1845,10 @@ export type Database = {
           tipo: string
         }[]
       }
-      importar_leads: { Args: { p_filas: Json }; Returns: Json }
+      importar_leads: {
+        Args: { p_filas: Json; p_importacion_id?: string }
+        Returns: Json
+      }
       metricas_lead: {
         Args: { p_lead_id: string }
         Returns: {
@@ -2095,6 +2101,9 @@ export type Database = {
         | "FACEBOOK"
         | "LINK_CONSULTA"
         | "IMPORTACION"
+        | "ZONAPROP"
+        | "ARGENPROP"
+        | "MERCADO_LIBRE"
       plan_leadera: "SOLO" | "AGENCIA_CHICA" | "AGENCIA_GRANDE"
       rol_agente: "DUENO" | "AGENTE" | "ASISTENTE"
       tipo_interaccion:
@@ -2280,6 +2289,9 @@ export const Constants = {
         "FACEBOOK",
         "LINK_CONSULTA",
         "IMPORTACION",
+        "ZONAPROP",
+        "ARGENPROP",
+        "MERCADO_LIBRE",
       ],
       plan_leadera: ["SOLO", "AGENCIA_CHICA", "AGENCIA_GRANDE"],
       rol_agente: ["DUENO", "AGENTE", "ASISTENTE"],

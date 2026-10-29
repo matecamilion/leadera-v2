@@ -24,7 +24,11 @@ interface CampoUi {
 
 /** Los campos a mapear, en el orden en que se muestran. */
 const CAMPOS: CampoUi[] = [
-  { campo: 'nombre', label: 'Nombre' },
+  {
+    campo: 'nombre',
+    label: 'Nombre',
+    ayuda: 'Si tu planilla trae «Apellido y nombre» en una sola columna, mapeala a Apellido o a Nombre según corresponda.',
+  },
   { campo: 'apellido', label: 'Apellido' },
   {
     campo: 'nombreCompleto',
@@ -38,7 +42,7 @@ const CAMPOS: CampoUi[] = [
   {
     campo: 'respondidoEl',
     label: 'Respondido el',
-    ayuda: 'Cuándo respondiste a este contacto en otro sistema. El lead no entra como nuevo.',
+    ayuda: 'Cuando respondiste a este contacto en otro sistema. El lead no entra como nuevo.',
   },
   {
     campo: 'origen',
@@ -168,11 +172,6 @@ export function PasoColumnas({
             Elegí la columna de Nombre o la de Nombre completo para poder continuar.
           </p>
         )}
-
-        <p className="mt-4 mb-0 text-xs text-ink-3">
-          Si tu planilla trae «Apellido y nombre» en una sola columna, mapeala a Apellido o a Nombre
-          según corresponda.
-        </p>
       </div>
 
       {candidatas.length > 0 && (

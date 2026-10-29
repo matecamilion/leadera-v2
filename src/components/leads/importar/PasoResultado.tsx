@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { EnlaceAPlanes } from '../../comunes/EnlaceAPlanes'
 import type { ResultadoDeImportacion } from '../../../lib/api/importarLeads'
+import type { ResultadoDeReversion } from '../../../lib/api/revertirImportacion'
+import { DeshacerImportacion } from './DeshacerImportacion'
 import { ListaDetalle } from './ListaDetalle'
 import { leadsConFusiones } from './fusiones'
 import { resumirResultado } from './resumenResultado'
@@ -26,9 +29,14 @@ const plural = (n: number, uno: string, varios: string) => (n === 1 ? uno : vari
 /**
  * Paso 4: la importación en curso y, al terminar, el resumen.
  *
- * No hay botón para volver: reimportar lo mismo duplicaría los leads.
+ * No hay botón para volver: reimportar lo mismo duplicaría los leads. Sí se puede
+ * deshacer la importación desde acá (ver `DeshacerImportacion`); al hacerlo, la
+ * pantalla pasa a mostrar qué se eliminó y qué se conservó.
  */
 export function PasoResultado({ revision, importando, progreso, resultado, onVerLeads, onOtroArchivo }: PasoResultadoProps) {
+  // Antes de cualquier return: los hooks no pueden ir después de uno.
+  const [deshecha, setDeshecha] = useState<ResultadoDeReversion | null>(null)
+
   if (importando || !resultado) {
     const procesadas = progreso?.procesadas ?? 0
     const total = progreso?.total ?? 0
@@ -61,6 +69,40 @@ export function PasoResultado({ revision, importando, progreso, resultado, onVer
   const r = resumirResultado(revision, resultado)
   const { corte } = resultado
   const leadsConVarias = leadsConFusiones(revision.filas).length
+
+  // Ya se deshizo: los números de arriba (importados, etc.) dejaron de ser ciertos.
+  if (deshecha) {
+    const { borrados, protegidos } = deshecha
+    return (
+      <section aria-label="Importación deshecha" className="min-w-0">
+        <div className="rounded-[16px] border border-border bg-surface p-5">
+          <h2 className="m-0 text-[1.05rem] font-bold text-ink">Se deshizo la importación</h2>
+          <p role="status" className="mt-1.5 mb-0 text-[0.9rem] text-ink-2">
+            {plural(borrados, 'Se eliminó', 'Se eliminaron')} {borrados.toLocaleString('es-AR')}{' '}
+            {plural(borrados, 'lead', 'leads')}.
+            {protegidos > 0 && (
+              <>
+                {' '}
+                {protegidos.toLocaleString('es-AR')} {plural(protegidos, 'se conservó', 'se conservaron')} porque ya{' '}
+                {plural(protegidos, 'tenía', 'tenían')} actividad.
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="@container mt-5">
+          <div className="flex flex-col-reverse gap-3 @[28rem]:flex-row @[28rem]:justify-between">
+            <button type="button" onClick={onOtroArchivo} className={BOTON_SECUNDARIO}>
+              Volver a importar
+            </button>
+            <button type="button" onClick={onVerLeads} className={BOTON_PRIMARIO}>
+              Ir a leads
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section aria-label="Resultado de la importación" className="min-w-0">
@@ -123,6 +165,14 @@ export function PasoResultado({ revision, importando, progreso, resultado, onVer
               {r.sinProcesar.toLocaleString('es-AR')} {plural(r.sinProcesar, 'fila', 'filas')} sin procesar.
             </p>
           </div>
+        )}
+
+        {resultado.importacionId && (
+          <DeshacerImportacion
+            importacionId={resultado.importacionId}
+            importados={r.importados}
+            onDeshecha={setDeshecha}
+          />
         )}
       </div>
 

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { IconoAlerta } from '../leads/Iconos'
 
 interface ModalConfirmarEliminarProps {
   abierto: boolean
   titulo: string
-  descripcion: string
+  /** Texto bajo el título. Opcional: el contenido puede venir todo en `children`. */
+  descripcion?: string
   /** Nombre de lo que se borra, sólo para el aria-label. */
   nombre?: string
   eliminando: boolean
@@ -24,6 +25,14 @@ interface ModalConfirmarEliminarProps {
   textoConfirmando?: string
   /** Texto del botón que cierra sin hacer nada. Por defecto "Cancelar". */
   textoCancelar?: string
+  /** Contenido propio bajo la descripción (varias líneas, estados que cambian). */
+  children?: ReactNode
+  /**
+   * false = no se dibuja el botón que confirma y el de cerrar ocupa todo el
+   * ancho. Para un diálogo que a veces solo informa por qué no se puede seguir.
+   * Por defecto true.
+   */
+  puedeConfirmar?: boolean
 }
 
 /**
@@ -46,6 +55,8 @@ export function ModalConfirmarEliminar({
   textoConfirmar = 'Sí, eliminar',
   textoConfirmando = 'Eliminando…',
   textoCancelar = 'Cancelar',
+  children,
+  puedeConfirmar = true,
 }: ModalConfirmarEliminarProps) {
   const ref = useRef<HTMLDialogElement>(null)
 
@@ -74,7 +85,9 @@ export function ModalConfirmarEliminar({
         <IconoAlerta className="mx-auto size-10 text-peligro" />
 
         <h3 className="mt-3 text-lg font-bold text-ink">{titulo}</h3>
-        <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-3">{descripcion}</p>
+        {descripcion && <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-3">{descripcion}</p>}
+
+        {children}
 
         {error && (
           <p
@@ -94,14 +107,16 @@ export function ModalConfirmarEliminar({
           >
             {textoCancelar}
           </button>
-          <button
-            type="button"
-            onClick={onConfirmar}
-            disabled={eliminando}
-            className="flex-1 rounded-lg border-none bg-peligro px-4 py-2.5 text-[0.92rem] font-bold text-white transition-colors hover:bg-peligro-hover disabled:opacity-60 motion-reduce:transition-none"
-          >
-            {eliminando ? textoConfirmando : textoConfirmar}
-          </button>
+          {puedeConfirmar && (
+            <button
+              type="button"
+              onClick={onConfirmar}
+              disabled={eliminando}
+              className="flex-1 rounded-lg border-none bg-peligro px-4 py-2.5 text-[0.92rem] font-bold text-white transition-colors hover:bg-peligro-hover disabled:opacity-60 motion-reduce:transition-none"
+            >
+              {eliminando ? textoConfirmando : textoConfirmar}
+            </button>
+          )}
         </div>
       </div>
     </dialog>

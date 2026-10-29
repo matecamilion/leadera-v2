@@ -2032,6 +2032,10 @@ export type Database = {
           verdes: number
         }[]
       }
+      revertir_importacion: {
+        Args: { p_confirmar?: boolean; p_importacion_id: string }
+        Returns: Json
+      }
       suma_montos_por_estado: {
         Args: never
         Returns: {

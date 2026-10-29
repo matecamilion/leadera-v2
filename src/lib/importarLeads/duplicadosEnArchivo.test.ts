@@ -104,7 +104,8 @@ describe('marcarDuplicadosEnArchivo', () => {
     expect(r.map((f) => f.duplicadoEnArchivo)).toEqual([null, null])
   })
 
-  it('una duplicada no registra sus datos para las siguientes', () => {
+  it('una duplicada registra sus datos a nombre de la primera para las siguientes', () => {
+    // Antes la C quedaba como otro lead con un email que la A ya había ganado.
     const r = marcarDuplicadosEnArchivo(
       armar([
         ['A', '2235550101', null],
@@ -112,7 +113,9 @@ describe('marcarDuplicadosEnArchivo', () => {
         ['C', null, 'b@x.com'],
       ]),
     )
-    expect(r[2].duplicadoEnArchivo).toBeNull()
+    expect(r[2].duplicadoEnArchivo).toEqual({ duplicaA: 2, por: 'EMAIL' })
+    expect(r[0].email).toBe('b@x.com')
+    expect(r[0].consultasFusionadas).toBe(2)
   })
 
   it('no muta las filas de entrada', () => {

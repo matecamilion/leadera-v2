@@ -32,7 +32,7 @@ export interface Revision {
  * Lanza si la verificación falla: no se avanza sin respuesta.
  */
 export async function prepararRevision(archivo: ArchivoLeido, mapeo: MapeoColumnas): Promise<Revision> {
-  const filas = marcarDuplicadosEnArchivo(normalizarFilas(archivo.filas, mapeo))
+  const filas = marcarDuplicadosEnArchivo(normalizarFilas(archivo.filas, mapeo, archivo.encabezados))
   const aComparar = filas.filter((f) => f.errores.length === 0 && !f.duplicadoEnArchivo)
 
   const { duplicados, cupo } = await verificarDuplicados(armarPedidoDeVerificacion(aComparar))

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  alternarDetalle,
   asignarColumna,
+  columnasDetalle,
   mapeoTieneNombre,
   normalizarEncabezado,
   sugerirMapeo,
+  type MapeoColumnas,
 } from './mapeoColumnas'
 
 describe('normalizarEncabezado', () => {
@@ -35,8 +38,9 @@ describe('sugerirMapeo', () => {
       estado: 4,
       fechaIngreso: 5,
       descripcion: 6,
+      detalle: [7], // "Barrio" va al detalle de la consulta
     })
-    expect(sinMapear).toEqual([7])
+    expect(sinMapear).toEqual([])
   })
 
   it('"Nombre y apellido" y "Cliente" son nombre completo', () => {
@@ -156,5 +160,55 @@ describe('asignarColumna', () => {
     const original = { nombre: 0, telefono: 1 }
     asignarColumna(original, 'email', 1)
     expect(original).toEqual({ nombre: 0, telefono: 1 })
+  })
+})
+
+describe('columnas del detalle', () => {
+  it('asignar una columna a un campo la saca del detalle', () => {
+    const mapeo = asignarColumna({ nombre: 0, detalle: [3, 4] }, 'descripcion', 3)
+    expect(mapeo).toEqual({ nombre: 0, descripcion: 3, detalle: [4] })
+  })
+
+  it('asignar un campo no toca el detalle', () => {
+    expect(asignarColumna({ nombre: 0, detalle: [3, 4] }, 'telefono', 1)).toEqual({
+      nombre: 0,
+      telefono: 1,
+      detalle: [3, 4],
+    })
+  })
+
+  it('"Incluir en el detalle" acepta cualquier cantidad de columnas', () => {
+    let mapeo: MapeoColumnas = { nombre: 0 }
+    for (const columna of [5, 2, 9]) mapeo = alternarDetalle(mapeo, columna, true)
+    expect(mapeo.detalle).toEqual([2, 5, 9])
+    expect(columnasDetalle(mapeo)).toEqual([2, 5, 9])
+  })
+
+  it('sumar al detalle una columna que era un campo se la saca del campo', () => {
+    const mapeo = alternarDetalle({ nombre: 0, telefono: 1 }, 1, true)
+    expect(mapeo).toEqual({ nombre: 0, detalle: [1] })
+  })
+
+  it('sacar una columna del detalle la deja sin usar, y vaciarlo quita la clave', () => {
+    const mapeo = alternarDetalle({ nombre: 0, detalle: [2] }, 2, false)
+    expect(mapeo).toEqual({ nombre: 0 })
+    expect('detalle' in mapeo).toBe(false)
+  })
+
+  it('no repite columnas', () => {
+    const mapeo = alternarDetalle({ detalle: [2] }, 2, true)
+    expect(mapeo.detalle).toEqual([2])
+  })
+
+  it('las columnas del detalle no figuran como sin mapear', () => {
+    const { mapeo, sinMapear } = sugerirMapeo(['Nombre', 'Dirección', 'Precio', 'Asesor'])
+    expect(mapeo.detalle).toEqual([1, 2])
+    expect(sinMapear).toEqual([3])
+  })
+
+  it('un campo nunca le quita al detalle una columna que ya reclamó', () => {
+    // "Precio" es del detalle; "Notas" es la descripción y no se pisan.
+    const { mapeo } = sugerirMapeo(['Nombre', 'Notas', 'Precio'])
+    expect(mapeo).toEqual({ nombre: 0, descripcion: 1, detalle: [2] })
   })
 })

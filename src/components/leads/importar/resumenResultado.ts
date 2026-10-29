@@ -9,8 +9,13 @@ export interface FilaDetalle {
 
 export interface ResumenDeResultado {
   importados: number
-  /** Duplicadas en el archivo + ya en la cuenta + las que la base rechazó por email. */
+  /** Ya en la cuenta (por teléfono o email) + las que la base rechazó por email. */
   omitidosPorDuplicado: number
+  /**
+   * Filas repetidas dentro del archivo (la misma persona consultando varias
+   * veces): no se pierden, sus consultas se fusionaron en un solo lead.
+   */
+  consultasFusionadas: number
   /** Errores de validación del front + ERROR de la base. */
   conError: number
   fueraPorLimite: number
@@ -35,7 +40,6 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
   const fueraPorLimite = cuenta('LIMITE_ALCANZADO').length
 
   const omitidosPorDuplicado =
-    clasificacion.conteos.duplicadasEnArchivo +
     clasificacion.conteos.duplicadasEnBasePorTelefono +
     clasificacion.conteos.duplicadasEnBasePorEmail +
     duplicadasPorCarrera
@@ -52,6 +56,7 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
   const resumen: ResumenDeResultado = {
     importados: resultado.insertados,
     omitidosPorDuplicado,
+    consultasFusionadas: clasificacion.conteos.duplicadasEnArchivo,
     conError: detalleDeErrores.length,
     fueraPorLimite,
     sinProcesar: resultado.corte?.filasSinProcesar.length ?? 0,
@@ -68,7 +73,7 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
 function motivoDeCeroImportados(r: ResumenDeResultado): string {
   const causas: [number, string][] = [
     [r.fueraPorLimite, 'tu plan no tiene lugar para más leads'],
-    [r.omitidosPorDuplicado, 'todas las filas ya estaban en tu cuenta o se repetían en el archivo'],
+    [r.omitidosPorDuplicado + r.consultasFusionadas, 'todas las filas ya estaban en tu cuenta o se repetían en el archivo'],
     [r.conError, 'las filas tenían errores'],
   ]
   const [mayor] = [...causas].sort((a, b) => b[0] - a[0])

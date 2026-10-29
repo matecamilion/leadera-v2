@@ -69,7 +69,7 @@ describe('importarLeads: lotes', () => {
   it('sin filas no llama a la base', async () => {
     const r = await importarLeads([])
     expect(rpc).not.toHaveBeenCalled()
-    expect(r).toEqual({ insertados: 0, resultados: [], corte: null })
+    expect(r).toEqual({ insertados: 0, resultados: [], corte: null, importacionId: expect.any(String) })
   })
 
   it('los resultados por fila se conservan (duplicados y errores incluidos)', async () => {
@@ -200,9 +200,11 @@ function normalizada(n: number, cambios: Partial<FilaNormalizada> = {}): FilaNor
     telefonoDudoso: false,
     email: null,
     estado: null,
-    origen: 'IMPORTACION',
+    origen: null,
     fechaIngreso: null,
     descripcion: null,
+    consulta: null,
+    avisosDescripcion: [],
     errores: [],
     avisos: [],
     ...cambios,
@@ -383,6 +385,7 @@ describe('clasificarFilas', () => {
   const conDup = (n: number, cambios: Partial<FilaConDuplicado> = {}): FilaConDuplicado => ({
     ...normalizada(n),
     duplicadoEnArchivo: sinDuplicado,
+    consultasFusionadas: 0,
     ...cambios,
   })
 
@@ -455,5 +458,98 @@ describe('clasificarFilas', () => {
     const c = clasificarFilas([], new Map())
     expect(c.conteos.total).toBe(0)
     expect(c.aImportar).toEqual([])
+  })
+})
+
+describe('importarLeads: importacion_id', () => {
+  const ID = '11111111-1111-4111-8111-111111111111'
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('genera un solo id y lo manda idéntico en todos los lotes', async () => {
+    const generar = vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ID)
+    rpc.mockImplementation((_nombre: string, { p_filas }: { p_filas: FilaParaImportar[] }) =>
+      Promise.resolve(respuestaDeLote(p_filas)),
+    )
+
+    const r = await importarLeads(filasParaImportar(450))
+
+    expect(generar).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledTimes(3)
+    expect(rpc.mock.calls.map(([, args]) => args.p_importacion_id)).toEqual([ID, ID, ID])
+    expect(r.importacionId).toBe(ID)
+  })
+
+  it('manda el id por nombre junto a p_filas, sin otras claves', async () => {
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ID)
+    rpc.mockImplementation((_nombre: string, { p_filas }: { p_filas: FilaParaImportar[] }) =>
+      Promise.resolve(respuestaDeLote(p_filas)),
+    )
+
+    await importarLeads(filasParaImportar(2))
+
+    expect(rpc.mock.calls[0][0]).toBe('importar_leads')
+    expect(Object.keys(rpc.mock.calls[0][1]).sort()).toEqual(['p_filas', 'p_importacion_id'])
+  })
+
+  it('usa el id que le pasen en vez de generar uno', async () => {
+    const generar = vi.spyOn(globalThis.crypto, 'randomUUID')
+    rpc.mockImplementation((_nombre: string, { p_filas }: { p_filas: FilaParaImportar[] }) =>
+      Promise.resolve(respuestaDeLote(p_filas)),
+    )
+
+    const r = await importarLeads(filasParaImportar(2), { importacionId: 'id-propio' })
+
+    expect(generar).not.toHaveBeenCalled()
+    expect(rpc.mock.calls[0][1].p_importacion_id).toBe('id-propio')
+    expect(r.importacionId).toBe('id-propio')
+  })
+
+  it('reintentar una importación cortada es otra importación, con otro id', async () => {
+    vi.spyOn(globalThis.crypto, 'randomUUID')
+      .mockReturnValueOnce(ID)
+      .mockReturnValueOnce('22222222-2222-4222-8222-222222222222')
+    rpc.mockImplementation((_nombre: string, { p_filas }: { p_filas: FilaParaImportar[] }) =>
+      Promise.resolve(respuestaDeLote(p_filas)),
+    )
+
+    await importarLeads(filasParaImportar(3))
+    await importarLeads(filasParaImportar(3))
+
+    expect(rpc.mock.calls.map(([, args]) => args.p_importacion_id)).toEqual([
+      ID,
+      '22222222-2222-4222-8222-222222222222',
+    ])
+  })
+
+  it('un corte también informa el id con el que entró lo que entró', async () => {
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ID)
+    rpc.mockResolvedValueOnce(respuestaDeLote(filasParaImportar(200))).mockRejectedValueOnce(new Error('red'))
+
+    const r = await importarLeads(filasParaImportar(450))
+
+    expect(r.corte).not.toBeNull()
+    expect(r.importacionId).toBe(ID)
+  })
+})
+
+describe('armarPayload: origen', () => {
+  it('manda el origen de la fila cuando lo hay', () => {
+    const [p] = armarPayload([normalizada(2, { origen: 'ZONAPROP' })])
+    expect(p.origen).toBe('ZONAPROP')
+  })
+
+  it('sin origen no manda la clave: la base usa IMPORTACION', () => {
+    const [p] = armarPayload([normalizada(2, { origen: null })])
+    expect('origen' in p).toBe(false)
+  })
+
+  it('jamás manda MANUAL, REFERIDO ni LINK_CONSULTA', () => {
+    for (const vedado of ['MANUAL', 'REFERIDO', 'LINK_CONSULTA'] as const) {
+      const [p] = armarPayload([normalizada(2, { origen: vedado as never })])
+      expect('origen' in p).toBe(false)
+    }
   })
 })

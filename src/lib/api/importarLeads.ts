@@ -3,6 +3,7 @@ import { interpretarErrorSupabase } from '../errores'
 import type { Json } from '../../types/database'
 import type { FilaConDuplicado } from '../importarLeads/duplicadosEnArchivo'
 import type { EstadoImportado, FilaNormalizada } from '../importarLeads/normalizarFilas'
+import { esOrigenImportable, type OrigenImportable } from '../importarLeads/origenes'
 import { mensajeDeFuncion } from './equipo'
 
 /**
@@ -82,7 +83,10 @@ export async function verificarDuplicados(filas: FilaAVerificar[]): Promise<Veri
 // Armar el payload de la RPC
 // ---------------------------------------------------------------------------
 
-/** Un elemento de `p_filas`. Sin `agente_id`, `asignado_a` ni `inmobiliaria_id`. */
+/**
+ * Un elemento de `p_filas`. Sin `agente_id`, `asignado_a` ni `inmobiliaria_id`, y
+ * sin el id de la importación: ese viaja una vez por llamada (`p_importacion_id`).
+ */
 export interface FilaParaImportar {
   fila: number
   nombre: string
@@ -92,6 +96,8 @@ export interface FilaParaImportar {
   email?: string
   descripcion_inicial?: string
   estado?: EstadoImportado
+  /** Solo si el archivo traía origen. Sin él la base usa IMPORTACION. Nunca MANUAL, REFERIDO ni LINK_CONSULTA. */
+  origen?: OrigenImportable
   /** ISO. Si el archivo no traía fecha se omite y la base usa la de hoy. */
   fecha_ingreso?: string
 }
@@ -110,6 +116,8 @@ export function armarPayload(filas: FilaNormalizada[]): FilaParaImportar[] {
     if (f.email) fila.email = f.email
     if (f.descripcion) fila.descripcion_inicial = f.descripcion
     if (f.estado) fila.estado = f.estado
+    // La RPC rechaza los orígenes vedados fila por fila: acá ni se mandan.
+    if (f.origen && esOrigenImportable(f.origen)) fila.origen = f.origen
     if (f.fechaIngreso) fila.fecha_ingreso = f.fechaIngreso.toISOString()
     return fila
   })
@@ -210,11 +218,19 @@ export interface ResultadoDeImportacion {
   resultados: ResultadoImportacionDeFila[]
   /** null si se procesó todo. Un corte no lanza: lo que entró se informa igual. */
   corte: CorteDeImportacion | null
+  /** El id con el que quedaron marcados los leads de esta importación (`leads.importacion_id`). */
+  importacionId?: string
 }
 
 export interface OpcionesDeImportacion {
   /** Se llama después de cada lote, con las filas ya resueltas y el total. */
   onProgreso?: (procesadas: number, total: number) => void
+  /**
+   * El id de la importación. Si no viene se genera uno acá: una sola vez por
+   * llamada a `importarLeads`, el mismo para todos los lotes. Reintentar una
+   * importación cortada es otra importación, con otro id.
+   */
+  importacionId?: string
 }
 
 const RESULTADOS_VALIDOS: ResultadoDeFila[] = ['OK', 'EMAIL_DUPLICADO', 'LIMITE_ALCANZADO', 'ERROR']
@@ -240,10 +256,14 @@ function leerRespuestaDeLote(data: Json | null): ResultadoImportacionDeFila[] | 
   return salida
 }
 
-async function importarLote(lote: FilaParaImportar[]): Promise<ResultadoImportacionDeFila[]> {
+async function importarLote(
+  lote: FilaParaImportar[],
+  importacionId: string,
+): Promise<ResultadoImportacionDeFila[]> {
   // `FilaParaImportar` es una interfaz sin firma de índice: no encaja en `Json`.
   const { data, error } = await supabase.rpc('importar_leads', {
     p_filas: lote as unknown as Json,
+    p_importacion_id: importacionId,
   })
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo importar el lote.'))
@@ -264,7 +284,7 @@ async function importarLote(lote: FilaParaImportar[]): Promise<ResultadoImportac
  */
 export async function importarLeads(
   filas: FilaParaImportar[],
-  { onProgreso }: OpcionesDeImportacion = {},
+  { onProgreso, importacionId = globalThis.crypto.randomUUID() }: OpcionesDeImportacion = {},
 ): Promise<ResultadoDeImportacion> {
   const total = filas.length
   const resultados: ResultadoImportacionDeFila[] = []
@@ -276,7 +296,7 @@ export async function importarLeads(
 
     let delLote: ResultadoImportacionDeFila[]
     try {
-      delLote = await importarLote(lote)
+      delLote = await importarLote(lote, importacionId)
     } catch (e) {
       const motivo = e instanceof Error ? e.message : 'No se pudo importar el lote.'
       return {
@@ -286,6 +306,7 @@ export async function importarLeads(
           mensaje: `${motivo} Se interrumpió la importación.`,
           filasSinProcesar: filas.slice(desde).map((f) => f.fila),
         },
+        importacionId,
       }
     }
 
@@ -310,5 +331,5 @@ export async function importarLeads(
     }
   }
 
-  return { insertados, resultados, corte: null }
+  return { insertados, resultados, corte: null, importacionId }
 }

@@ -149,8 +149,10 @@ describe('/leads/importar: importar', () => {
     const payload = importarLeads.mock.calls[0][0]
     expect(payload.map((f: { fila: number }) => f.fila)).toEqual([2, 4])
     expect(JSON.stringify(payload)).not.toMatch(/agente_id|asignado_a|inmobiliaria_id/)
-    // Una repetida en el archivo; la sin nombre cuenta como error.
-    expect(screen.getByText('Omitidos por duplicado').closest('div')?.textContent).toContain('1')
+    // Una repetida en el archivo: ya no es un duplicado omitido, se fusiona en su
+    // primera fila (el resumen la cuenta aparte, tarjeta que llega con el Paso 3).
+    // La sin nombre cuenta como error.
+    expect(screen.getByText('Omitidos por duplicado').closest('div')?.textContent).toContain('0')
     expect(screen.getByText('Con error').closest('div')?.textContent).toContain('1')
     // Desde el resultado no se puede volver a revisar.
     expect(screen.queryByRole('button', { name: 'Volver' })).toBeNull()

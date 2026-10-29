@@ -92,7 +92,7 @@ describe('PasoResultado: éxito total', () => {
 })
 
 describe('PasoResultado: omitidos', () => {
-  it('suma lo repetido en el archivo, lo que ya estaba en la cuenta y los EMAIL_DUPLICADO de la base', () => {
+  it('suma lo que ya estaba en la cuenta y los EMAIL_DUPLICADO de la base (lo repetido en el archivo se fusiona y se cuenta aparte)', () => {
     const revision = revisionDe({
       filas: [
         conTelefono(2),
@@ -108,8 +108,9 @@ describe('PasoResultado: omitidos', () => {
       corte: null,
     })
 
-    // 1 en el archivo + 1 en la cuenta + 1 por carrera.
-    expect(within(tarjeta('Omitidos por duplicado')).getByText('3')).toBeTruthy()
+    // 1 en la cuenta + 1 por carrera. La repetida del archivo (fila 3) no es un
+    // duplicado omitido: se fusiona en la fila 2 (`resumirResultado.consultasFusionadas`).
+    expect(within(tarjeta('Omitidos por duplicado')).getByText('2')).toBeTruthy()
     expect(within(tarjeta('Importados')).getByText('1')).toBeTruthy()
   })
 })

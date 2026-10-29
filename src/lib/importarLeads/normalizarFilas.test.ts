@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FilaCruda } from './leerArchivo'
 import type { MapeoColumnas } from './mapeoColumnas'
 import {
-  ORIGEN_IMPORTACION,
   normalizarFilas,
   parsearEstado,
   parsearFecha,
@@ -238,7 +237,7 @@ describe('fechaIngreso', () => {
 })
 
 describe('fila completa', () => {
-  it('arma todos los campos y fija el origen', () => {
+  it('arma todos los campos (sin columna de origen no se manda origen)', () => {
     const f = unaFila([
       'Ana',
       'Gómez',
@@ -257,9 +256,16 @@ describe('fila completa', () => {
       telefonoDudoso: false,
       email: 'ana@ejemplo.com',
       estado: 'TIBIO',
-      origen: ORIGEN_IMPORTACION,
+      origen: null,
       fechaIngreso: new Date(2026, 2, 5),
-      descripcion: 'Busca 2 ambientes',
+      // Con fecha, el detalle lleva la línea de la consulta y rotula el mensaje.
+      descripcion: 'Consulta del 05/03/2026\nMensaje: Busca 2 ambientes',
+      consulta: {
+        fecha: new Date(2026, 2, 5),
+        texto: 'Consulta del 05/03/2026\nMensaje: Busca 2 ambientes',
+        propiedad: [],
+      },
+      avisosDescripcion: [],
       errores: [],
       avisos: [],
     })

@@ -3,6 +3,11 @@
  *
  * Adivina por el texto del encabezado; el usuario corrige a mano en la UI. Una
  * columna nunca se asigna a dos campos, y un campo nunca toma dos columnas.
+ *
+ * Aparte del mapeo uno a uno hay `detalle`: las columnas que se anexan al texto
+ * de la consulta ("Dirección: Colón 1234"). Ahí sí entran todas las columnas
+ * que se quiera, pero una columna que ya es un campo no puede estar también en
+ * el detalle.
  */
 
 export const CAMPOS_DESTINO = [
@@ -19,8 +24,11 @@ export const CAMPOS_DESTINO = [
 
 export type CampoDestino = (typeof CAMPOS_DESTINO)[number]
 
-/** Campo -> índice de columna. Un campo sin columna no aparece. */
-export type MapeoColumnas = Partial<Record<CampoDestino, number>>
+/**
+ * Campo -> índice de columna (un campo sin columna no aparece), más las
+ * columnas que van al detalle. `detalle` ausente es lo mismo que vacío.
+ */
+export type MapeoColumnas = Partial<Record<CampoDestino, number>> & { detalle?: number[] }
 
 export interface SugerenciaMapeo {
   mapeo: MapeoColumnas
@@ -107,11 +115,12 @@ const SINONIMOS: Record<CampoDestino, Sinonimos> = {
       'fecha de ingreso',
       'fecha ingreso',
       'fecha de alta',
+      'fecha de creacion',
       'alta',
       'fecha de carga',
       'ingreso',
     ],
-    contiene: ['fecha de ingreso', 'fecha de alta', 'fecha de carga'],
+    contiene: ['fecha de ingreso', 'fecha de alta', 'fecha de creacion', 'fecha de carga'],
     excluye: ['nacimiento', 'seguimiento', 'proximo', 'ultimo', 'vencimiento', 'baja'],
   },
   descripcion: {
@@ -130,6 +139,23 @@ const SINONIMOS: Record<CampoDestino, Sinonimos> = {
     contiene: ['notas', 'comentarios', 'observaciones', 'descripcion'],
   },
 }
+
+/**
+ * Encabezados (normalizados, exactos) que se preseleccionan para el detalle.
+ * Lista corta y cerrada a propósito: nunca UTM, "cliente vinculado", "tiempo de
+ * respuesta" ni "id lead", que son ruido de la exportación y no de la consulta.
+ */
+const DETALLE_EXACTOS = new Set([
+  'id propiedad',
+  'propiedad',
+  'direccion',
+  'barrio',
+  'zona',
+  'barrio zona',
+  'tipo de propiedad',
+  'moneda',
+  'precio',
+])
 
 /** Minúsculas, sin tildes ni signos, con los espacios colapsados. */
 export function normalizarEncabezado(texto: string): string {
@@ -204,8 +230,23 @@ export function sugerirMapeo(encabezados: string[]): SugerenciaMapeo {
     columnasUsadas.add(columna)
   }
 
+  // Lo que ningún campo reclamó y es de la propiedad va al detalle.
+  const detalle = encabezados
+    .map((encabezado, columna) => ({ columna, normalizado: normalizarEncabezado(encabezado) }))
+    .filter(({ columna, normalizado }) => !columnasUsadas.has(columna) && DETALLE_EXACTOS.has(normalizado))
+    .map(({ columna }) => columna)
+  if (detalle.length > 0) {
+    mapeo.detalle = detalle
+    for (const columna of detalle) columnasUsadas.add(columna)
+  }
+
   const sinMapear = encabezados.map((_, i) => i).filter((i) => !columnasUsadas.has(i))
   return { mapeo, sinMapear }
+}
+
+/** Las columnas del detalle, sin repetidas y en el orden del archivo. */
+export function columnasDetalle(mapeo: MapeoColumnas): number[] {
+  return [...new Set(mapeo.detalle ?? [])].sort((a, b) => a - b)
 }
 
 /** Hace falta al menos una columna de la que sacar el nombre. */
@@ -229,5 +270,28 @@ export function asignarColumna(
     if (actual !== columna) nuevo[otro] = actual
   }
   if (columna !== undefined) nuevo[campo] = columna
+
+  // Una columna que pasa a ser un campo deja de ser detalle.
+  const detalle = columnasDetalle(mapeo).filter((c) => c !== columna)
+  if (detalle.length > 0) nuevo.detalle = detalle
+  return nuevo
+}
+
+/**
+ * Suma o saca una columna del detalle. Al sumarla se la saca de cualquier campo
+ * que la tuviera: una columna es un dato del lead o va al detalle, no las dos.
+ */
+export function alternarDetalle(mapeo: MapeoColumnas, columna: number, incluir: boolean): MapeoColumnas {
+  const nuevo: MapeoColumnas = {}
+  for (const campo of CAMPOS_DESTINO) {
+    const actual = mapeo[campo]
+    if (actual === undefined || (incluir && actual === columna)) continue
+    nuevo[campo] = actual
+  }
+
+  const detalle = columnasDetalle(mapeo).filter((c) => c !== columna)
+  if (incluir) detalle.push(columna)
+  detalle.sort((a, b) => a - b)
+  if (detalle.length > 0) nuevo.detalle = detalle
   return nuevo
 }

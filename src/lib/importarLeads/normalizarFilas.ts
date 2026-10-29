@@ -6,18 +6,22 @@
  * (informan: la fila entra igual, pero con algo que el usuario debería saber).
  */
 import { esTelefonoConfiable, normalizarTelefonoAR } from '../telefono'
+import {
+  armarConsulta,
+  avisosDeDescripcion,
+  componerDescripcion,
+  largo,
+  MAX_DESCRIPCION,
+  type Consulta,
+  type DatoExtra,
+} from './descripcionConsultas'
 import type { FilaCruda } from './leerArchivo'
-import type { CampoDestino, MapeoColumnas } from './mapeoColumnas'
+import { columnasDetalle, type CampoDestino, type MapeoColumnas } from './mapeoColumnas'
+import { traducirOrigen, type OrigenImportable } from './origenes'
+import { limpiarMensaje } from './textosFijos'
 
 /** Mismo criterio que el alta manual (`NuevoLead.tsx`). */
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-/**
- * Origen de todo lo importado. Es un string suelto y no el enum `origen_lead`
- * porque el valor todavía no existe en la base; se tipa aparte para que el
- * cambio al enum, cuando llegue, sea tocar un solo lugar.
- */
-export const ORIGEN_IMPORTACION = 'IMPORTACION'
 
 /**
  * Los topes que valida la RPC `importar_leads` (en caracteres). Pasados, la base
@@ -28,21 +32,11 @@ export const LIMITES_DE_CAMPO = {
   apellido: 100,
   telefono: 50,
   email: 254,
-  descripcion: 2000,
+  descripcion: MAX_DESCRIPCION,
 } as const
 
 /** Cuánto en el futuro puede estar la fecha de ingreso: el mismo margen que la RPC. */
 const MS_TOLERANCIA_FUTURO = 86_400_000
-
-/** Largo en caracteres, como `char_length` de Postgres (un emoji cuenta 1, no 2). */
-function largo(texto: string): number {
-  return Array.from(texto).length
-}
-
-function recortar(texto: string, maximo: number): string {
-  return Array.from(texto).slice(0, maximo).join('').trimEnd()
-}
-export type OrigenImportacion = string
 
 export type EstadoImportado = 'CALIENTE' | 'TIBIO' | 'FRIO' | 'GANADO' | 'INACTIVO'
 
@@ -63,9 +57,18 @@ export interface FilaNormalizada {
   /** En minúsculas y con formato válido, o null. Nunca ''. */
   email: string | null
   estado: EstadoImportado | null
-  origen: OrigenImportacion
+  /**
+   * El origen del archivo traducido al enum. null si no hay columna de origen o
+   * la celda está vacía: no se manda y la RPC usa IMPORTACION.
+   */
+  origen: OrigenImportable | null
   fechaIngreso: Date | null
+  /** El detalle ya compuesto (consulta + datos extra), de hasta 2000 caracteres. */
   descripcion: string | null
+  /** El bloque de esta fila, para recomponer el detalle si se fusiona con otras. */
+  consulta: Consulta | null
+  /** Los avisos de `avisos` que vienen de componer el detalle (para recalcularlos al fusionar). */
+  avisosDescripcion: string[]
   /** Bloqueantes. Con alguno, la fila no se importa. */
   errores: string[]
   /** No bloquean. */
@@ -221,11 +224,28 @@ export function partirNombreCompleto(completo: string): { nombre: string; apelli
 // Fila
 // ---------------------------------------------------------------------------
 
-export function normalizarFilas(filas: FilaCruda[], mapeo: MapeoColumnas): FilaNormalizada[] {
-  return filas.map((cruda) => normalizarFila(cruda, mapeo))
+/**
+ * `encabezados` rotula las columnas del detalle ("Dirección: …"); sin ellos
+ * (la vista previa no los necesita) esas columnas salen como "Columna N".
+ */
+export function normalizarFilas(
+  filas: FilaCruda[],
+  mapeo: MapeoColumnas,
+  encabezados: string[] = [],
+): FilaNormalizada[] {
+  return filas.map((cruda) => normalizarFila(cruda, mapeo, encabezados))
 }
 
-function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada {
+/** "juan.perez_lopez" -> "Juan Perez Lopez". */
+function nombreDesdeEmail(local: string): string {
+  return colapsar(local.replace(/[._-]+/g, ' '))
+    .split(' ')
+    .filter(Boolean)
+    .map((palabra) => palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas, encabezados: string[]): FilaNormalizada {
   const errores: string[] = []
   const avisos: string[] = []
 
@@ -240,13 +260,31 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
   const completo = celda('nombreCompleto')
   const partido = completo ? partirNombreCompleto(completo) : null
   const nombreSuelto = celda('nombre')
-  const nombre = nombreSuelto ? colapsar(nombreSuelto) : (partido?.nombre ?? '')
+  let nombre = nombreSuelto ? colapsar(nombreSuelto) : (partido?.nombre ?? '')
   const apellidoSuelto = celda('apellido')
   const apellido = apellidoSuelto
     ? colapsar(apellidoSuelto)
     : nombreSuelto
       ? null
       : (partido?.apellido ?? null)
+
+  // Un email en la columna Nombre (los CRM lo usan cuando no tienen el nombre) no
+  // es un nombre: se usa lo de antes de la @ y, si el email no vino aparte, se
+  // guarda como email. Un email que ya vino en su columna manda.
+  const emailColumna = celda('email')?.replace(/^mailto:/i, '').trim().toLowerCase() ?? null
+  const emailColumnaValido = emailColumna !== null && EMAIL_VALIDO.test(emailColumna)
+  let emailDeNombre: string | null = null
+  if (nombre.includes('@')) {
+    const candidato = nombre.replace(/^mailto:/i, '').trim().toLowerCase()
+    const nombreDelEmail = nombreDesdeEmail(nombre.replace(/^mailto:/i, '').split('@')[0])
+    if (!emailColumnaValido && EMAIL_VALIDO.test(candidato)) {
+      emailDeNombre = candidato
+      avisos.push(`El nombre era un email: se usó "${nombreDelEmail}" como nombre y el email se guardó en su campo.`)
+    } else {
+      avisos.push(`El nombre era un email: se usó "${nombreDelEmail}" como nombre.`)
+    }
+    nombre = nombreDelEmail
+  }
 
   if (!nombre) errores.push('Falta el nombre.')
   // Nombre y apellido no se recortan: quedarían mal. La fila no se importa.
@@ -279,12 +317,13 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
     const candidato = emailCrudo.replace(/^mailto:/i, '').trim().toLowerCase()
     if (EMAIL_VALIDO.test(candidato)) {
       email = candidato
-      if (largo(candidato) > LIMITES_DE_CAMPO.email) {
-        errores.push(`El email supera los ${LIMITES_DE_CAMPO.email} caracteres.`)
-      }
     } else {
       avisos.push('El email no tiene un formato válido: se ignora.')
     }
+  }
+  if (!email && emailDeNombre) email = emailDeNombre
+  if (email && largo(email) > LIMITES_DE_CAMPO.email) {
+    errores.push(`El email supera los ${LIMITES_DE_CAMPO.email} caracteres.`)
   }
 
   // Estado
@@ -306,12 +345,23 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
     avisos.push('La fecha de ingreso es futura: se usa la de hoy.')
   }
 
-  // La descripción sí se recorta: lo que sobra es texto de más, no un dato mal.
-  let descripcion = celda('descripcion')
-  if (descripcion && largo(descripcion) > LIMITES_DE_CAMPO.descripcion) {
-    descripcion = recortar(descripcion, LIMITES_DE_CAMPO.descripcion)
-    avisos.push(`La descripción es muy larga: se guardan los primeros ${LIMITES_DE_CAMPO.descripcion} caracteres.`)
+  // Origen: el del archivo, traducido al enum. Sin columna o con la celda vacía no
+  // se manda nada y la RPC pone IMPORTACION. El nombre original queda en el detalle.
+  const origenOriginal = celda('origen')
+  const origen = origenOriginal ? traducirOrigen(origenOriginal) : null
+
+  // Detalle: la consulta de esta fila (fecha y origen, mensaje, columnas extra).
+  // Lo que sobra del tope se recorta: es texto de más, no un dato mal.
+  const extras: DatoExtra[] = []
+  for (const columna of columnasDetalle(mapeo)) {
+    const valor = cruda.celdas[columna]?.trim()
+    if (!valor) continue
+    extras.push({ encabezado: encabezados[columna]?.trim() || `Columna ${columna + 1}`, valor })
   }
+  const consulta = armarConsulta({ fecha: fechaIngreso, origenOriginal, mensaje: limpiarMensaje(celda('descripcion')), extras })
+  const compuesta = componerDescripcion(consulta ? [consulta] : [])
+  const avisosDescripcion = avisosDeDescripcion(compuesta)
+  avisos.push(...avisosDescripcion)
 
   if (!email && (!tel.telefono || tel.dudoso)) {
     avisos.push('Sin teléfono ni email válidos: no hay forma de detectar duplicados.')
@@ -326,9 +376,11 @@ function normalizarFila(cruda: FilaCruda, mapeo: MapeoColumnas): FilaNormalizada
     telefonoDudoso: tel.dudoso,
     email,
     estado,
-    origen: ORIGEN_IMPORTACION,
+    origen,
     fechaIngreso,
-    descripcion,
+    descripcion: compuesta.texto,
+    consulta,
+    avisosDescripcion,
     errores,
     avisos,
   }

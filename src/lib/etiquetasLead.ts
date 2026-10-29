@@ -31,6 +31,9 @@ export const ORIGENES_LEAD: { valor: OrigenLead; label: string }[] = [
 const ORIGENES_DE_SISTEMA: Partial<Record<OrigenLead, string>> = {
   LINK_CONSULTA: 'Link de consultas',
   IMPORTACION: 'Importación',
+  ZONAPROP: 'ZonaProp',
+  ARGENPROP: 'Argenprop',
+  MERCADO_LIBRE: 'Mercado Libre',
 }
 
 export function etiquetaOrigen(origen: OrigenLead | null): string {

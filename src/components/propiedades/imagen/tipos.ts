@@ -26,6 +26,7 @@ export type ClavePaleta =
   | 'bosque'
   | 'noche'
   | 'bordo'
+  | 'personalizada'
 
 export interface PaletaImagen {
   clave: ClavePaleta

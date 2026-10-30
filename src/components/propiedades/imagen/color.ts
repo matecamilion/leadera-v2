@@ -94,7 +94,7 @@ export function avisosDeContraste(paleta: PaletaImagen): AvisoContraste[] {
     avisos.push({
       par: 'sobreAcento',
       ratio: texto,
-      mensaje: `El texto sobre el color principal se lee mal (contraste ${texto.toFixed(1)}).`,
+      mensaje: 'Sugerencia: el texto sobre el color principal puede costar leer.',
     })
   }
   const bloque = contraste(paleta.acento, paleta.fondo)
@@ -102,7 +102,7 @@ export function avisosDeContraste(paleta: PaletaImagen): AvisoContraste[] {
     avisos.push({
       par: 'acento',
       ratio: bloque,
-      mensaje: `El color principal casi no se distingue del fondo (contraste ${bloque.toFixed(1)}).`,
+      mensaje: 'Sugerencia: el color principal y el fondo se parecen bastante, y el flyer puede costar leer.',
     })
   }
   return avisos

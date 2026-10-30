@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avisosDeContraste, derivarPaleta } from './color'
+import { ajustarParaContraste, avisosDeContraste, derivarPaleta } from './color'
 import {
   cambiarColor,
   elegirAtajo,
@@ -55,6 +55,12 @@ describe('aviso de contraste según la elección', () => {
   it('amarillo sobre blanco avisa', () => {
     const e = cambiarColor(elegirAtajo('negro'), 'primario', '#ffeb00')
     expect(avisosDeContraste(paletaDeEleccion(e)).map((a) => a.par)).toContain('acento')
+  })
+
+  it('ajustar el color principal a 3 contra el fondo hace desaparecer el aviso de ese par', () => {
+    const amarillo = cambiarColor(elegirAtajo('negro'), 'primario', '#ffeb00')
+    const ajustado = cambiarColor(amarillo, 'primario', ajustarParaContraste('#ffeb00', amarillo.secundario, 3))
+    expect(avisosDeContraste(paletaDeEleccion(ajustado)).map((a) => a.par)).not.toContain('acento')
   })
 
   it('un par que se lee bien no avisa', () => {

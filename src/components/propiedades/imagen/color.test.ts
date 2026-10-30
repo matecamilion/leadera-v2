@@ -103,6 +103,11 @@ describe('avisosDeContraste', () => {
     })
     expect(avisos.map((a) => a.par)).toEqual(['sobreAcento', 'acento'])
     expect(avisos[0].ratio).toBeLessThan(4.5)
-    expect(avisos[0].mensaje).toMatch(/se lee mal/)
+    expect(avisos[0].mensaje).toBe('Sugerencia: el texto sobre el color principal puede costar leer.')
+    expect(avisos[1].mensaje).toBe(
+      'Sugerencia: el color principal y el fondo se parecen bastante, y el flyer puede costar leer.',
+    )
+    // El número no se muestra en el texto: queda en `ratio` para un tooltip.
+    expect(avisos.every((a) => !/\d/.test(a.mensaje))).toBe(true)
   })
 })

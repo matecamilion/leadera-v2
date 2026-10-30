@@ -1,8 +1,11 @@
 import { useId, useState, type ReactNode } from 'react'
-import { avisosDeContraste } from './imagen/color'
+import { ajustarParaContraste, avisosDeContraste } from './imagen/color'
 import { normalizarHex, type EleccionColor } from './imagen/eleccionColor'
 import { PALETAS } from './imagen/paletas'
 import type { ClavePaleta, PaletaImagen } from './imagen/tipos'
+
+/** El mismo umbral con el que `avisosDeContraste` compara el color principal con el fondo. */
+const CONTRASTE_MIN_BLOQUE = 3
 
 interface Props {
   eleccion: EleccionColor
@@ -73,14 +76,37 @@ export function SeccionEstilo({ eleccion, paleta, onAtajo, onColor, children }: 
         />
       </div>
 
-      {/* Avisa, no bloquea: la descarga sigue disponible. */}
+      {/* Una sugerencia, no un error: no bloquea y la descarga sigue disponible.
+          El número de contraste queda en el tooltip. */}
       {avisos.length > 0 && (
         <ul
           role="status"
-          className="m-0 mt-3 flex list-none flex-col gap-1.5 rounded-lg bg-peligro-soft px-3.5 py-2.5 text-[0.82rem] text-peligro-ink"
+          className="m-0 mt-3 flex list-none flex-col gap-1.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-ink-3"
         >
           {avisos.map((a) => (
-            <li key={a.par}>{a.mensaje}</li>
+            <li key={a.par} title={`Contraste ${a.ratio.toFixed(1)}:1`} className="flex items-start gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mt-px shrink-0">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+              <span>
+                {a.mensaje}
+                {a.par === 'acento' && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onColor('primario', ajustarParaContraste(eleccion.primario, eleccion.secundario, CONTRASTE_MIN_BLOQUE))
+                      }
+                      className="cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-primary underline hover:text-primary-dark"
+                    >
+                      Ajustar
+                    </button>
+                  </>
+                )}
+              </span>
+            </li>
           ))}
         </ul>
       )}

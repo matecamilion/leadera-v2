@@ -11,6 +11,7 @@ import {
   type LeadsDelDia,
 } from '../lib/api/dashboard'
 import { useAuth } from '../contexts/AuthContext'
+import { obtenerLeadsPorEnfriarse, type PorEnfriarse } from '../lib/api/leadsPorEnfriarse'
 import { asignadoAPorDefecto } from '../lib/alcanceLeads'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
@@ -92,6 +93,21 @@ export function useContactadosHoy() {
   return useQuery<LeadContactado[]>({
     queryKey: claves.leads.contactadosHoy(uid, asignadoA ? 'mios' : 'todos'),
     queryFn: () => obtenerContactadosHoy(asignadoA),
+    enabled: !!uid && !!profile,
+  })
+}
+
+/**
+ * Los leads que llevan 21 días o más sin contacto real. Mismo alcance que el resto
+ * de Mi día: el asistente ve los que tiene asignados, el resto todo lo visible.
+ */
+export function useLeadsPorEnfriarse() {
+  const uid = useUid()
+  const { profile } = useAuth()
+  const asignadoA = asignadoAPorDefecto(profile?.rol, uid)
+  return useQuery<PorEnfriarse>({
+    queryKey: claves.leads.porEnfriarse(uid, asignadoA ? 'mios' : 'todos'),
+    queryFn: () => obtenerLeadsPorEnfriarse(asignadoA),
     enabled: !!uid && !!profile,
   })
 }

@@ -1,6 +1,8 @@
 export const CLAVE_ENCABEZADO = 'leadera-imagen-encabezado'
 export const CLAVE_AGENTE = 'leadera-imagen-agente'
 export const CLAVE_FIRMA = 'leadera-imagen-firma'
+/** Los estilos guardados (JSON con versión, ver `estilos.ts`). Lo de arriba queda como "último usado". */
+export const CLAVE_ESTILOS = 'leadera-imagen-estilos'
 /** '1' cuando ya se tocó el botón "Crear flyer" de la ficha: deja de mostrar "Nuevo". */
 export const CLAVE_FLYER_VISTO = 'leadera-flyer-visto'
 

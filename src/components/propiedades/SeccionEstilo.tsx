@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { avisosDeContraste } from './imagen/color'
 import { normalizarHex, type EleccionColor } from './imagen/eleccionColor'
 import { PALETAS } from './imagen/paletas'
@@ -10,16 +10,20 @@ interface Props {
   paleta: PaletaImagen
   onAtajo: (clave: ClavePaleta) => void
   onColor: (cual: 'primario' | 'secundario', hex: string) => void
+  /** Va arriba de los colores: los estilos guardados. */
+  children?: ReactNode
 }
 
-/** Los colores del flyer: ocho atajos y dos colores libres, con aviso si se leen mal. */
-export function SeccionEstilo({ eleccion, paleta, onAtajo, onColor }: Props) {
+/** El estilo del flyer: ocho atajos y dos colores libres, con aviso si se leen mal. */
+export function SeccionEstilo({ eleccion, paleta, onAtajo, onColor, children }: Props) {
   const avisos = avisosDeContraste(paleta)
   const personalizada = eleccion.clave === 'personalizada'
 
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
       <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Estilo</legend>
+
+      {children}
 
       <div className="grid w-fit grid-cols-4 gap-3">
         {PALETAS.map((p) => {

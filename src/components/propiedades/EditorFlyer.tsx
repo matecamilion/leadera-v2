@@ -17,6 +17,14 @@ import { LienzoMiniatura } from './imagen/LienzoMiniatura'
 import { cambiarColor, elegirAtajo, paletaDeAtajo, paletaDeEleccion } from './imagen/eleccionColor'
 import { PLANTILLAS } from './imagen/registro'
 import { SelectorFotos } from './imagen/SelectorFotos'
+import {
+  eleccionDeEstilo,
+  estiloPredeterminado,
+  plantillaParaEstilo,
+  type EstiloGuardado,
+} from './imagen/estilos'
+import { useEstilosGuardados } from './imagen/useEstilosGuardados'
+import { EstilosGuardados } from './EstilosGuardados'
 import { SeccionEstilo } from './SeccionEstilo'
 import type { ClaveIcono, DatoImagen, DatosImagen } from './imagen/tipos'
 import {
@@ -92,9 +100,19 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   const cantidadFotos = propiedad.fotos_urls.length
   const alcanzan = (fotos: number) => cantidadFotos >= fotos
 
-  // La primera plantilla que alcanza con las fotos que hay; si ninguna, la primera.
+  const guardados = useEstilosGuardados()
+  // El estilo predeterminado se aplica al abrir el editor, una sola vez.
+  const [inicial] = useState(() => {
+    const estilo = estiloPredeterminado(guardados.estilos)
+    return estilo ? { estilo, ...plantillaParaEstilo(estilo, PLANTILLAS, cantidadFotos) } : null
+  })
+  const [avisoEstilo, setAvisoEstilo] = useState<string | null>(inicial?.aviso ?? null)
+
+  // La del estilo predeterminado; si no hay, la primera que alcanza con las fotos
+  // que hay; si ninguna, la primera.
   const [plantillaId, setPlantillaId] = useState(
-    () => (PLANTILLAS.find((p) => alcanzan(p.fotos)) ?? PLANTILLAS[0]).id,
+    () =>
+      inicial?.plantillaId ?? (PLANTILLAS.find((p) => alcanzan(p.fotos)) ?? PLANTILLAS[0]).id,
   )
   const plantilla = PLANTILLAS.find((p) => p.id === plantillaId) ?? PLANTILLAS[0]
 
@@ -111,19 +129,25 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   )
   const [datos, setDatos] = useState(() => datosIniciales(propiedad))
   const [nota, setNota] = useState('')
-  const [color, setColor] = useState(() => elegirAtajo(plantilla.paletaInicial))
-  // Una paleta elegida a mano se mantiene al cambiar de plantilla.
-  const [paletaManual, setPaletaManual] = useState(false)
-  const [conDireccion, setConDireccion] = useState(false)
+  const [color, setColor] = useState(() =>
+    inicial ? eleccionDeEstilo(inicial.estilo) : elegirAtajo(plantilla.paletaInicial),
+  )
+  // Una paleta elegida a mano (o la de un estilo) se mantiene al cambiar de plantilla.
+  const [paletaManual, setPaletaManual] = useState(inicial !== null)
+  const [conDireccion, setConDireccion] = useState(inicial?.estilo.conDireccion ?? false)
   // Hasta que se edita, el encabezado es el nombre de la inmobiliaria, que puede
-  // llegar después de abrir el panel.
-  const [encabezadoEditado, setEncabezadoEditado] = useState<string | null>(() =>
-    leerGuardado(CLAVE_ENCABEZADO),
+  // llegar después de abrir el panel. Encabezado, agente y firma recuerdan lo
+  // último usado; un estilo se aplica por encima.
+  const [encabezadoEditado, setEncabezadoEditado] = useState<string | null>(
+    () => inicial?.estilo.encabezado ?? leerGuardado(CLAVE_ENCABEZADO),
   )
   const [agente, setAgente] = useState(
-    () => leerGuardado(CLAVE_AGENTE) ?? (profile ? `${profile.nombre} ${profile.apellido}` : ''),
+    () =>
+      inicial?.estilo.agente ??
+      leerGuardado(CLAVE_AGENTE) ??
+      (profile ? `${profile.nombre} ${profile.apellido}` : ''),
   )
-  const [firma, setFirma] = useState(() => leerGuardado(CLAVE_FIRMA) ?? '')
+  const [firma, setFirma] = useState(() => inicial?.estilo.firma ?? leerGuardado(CLAVE_FIRMA) ?? '')
   const [elegidas, setElegidas] = useState<string[]>(() =>
     propiedad.fotos_urls.slice(0, plantilla.fotos),
   )
@@ -206,6 +230,35 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
     setPlantillaId(nuevaId)
     if (!paletaManual) setColor(elegirAtajo(nueva.paletaInicial))
     setElegidas((actuales) => fotosParaPlantilla(actuales, propiedad.fotos_urls, nueva.fotos))
+  }
+
+  /** Aplica por encima de lo que hay: plantilla (si alcanzan las fotos), colores, encabezado, agente, firma y dirección. */
+  function aplicarEstilo(estilo: EstiloGuardado) {
+    const { plantillaId: nuevaId, aviso } = plantillaParaEstilo(estilo, PLANTILLAS, cantidadFotos)
+    if (nuevaId) cambiarPlantilla(nuevaId)
+    setColor(eleccionDeEstilo(estilo))
+    setPaletaManual(true)
+    setEncabezadoEditado(estilo.encabezado)
+    guardar(CLAVE_ENCABEZADO, estilo.encabezado)
+    setAgente(estilo.agente)
+    guardar(CLAVE_AGENTE, estilo.agente)
+    setFirma(estilo.firma)
+    guardar(CLAVE_FIRMA, estilo.firma)
+    setConDireccion(estilo.conDireccion)
+    setAvisoEstilo(aviso)
+  }
+
+  function guardarEstiloActual(nombre: string): boolean {
+    const personalizada = color.clave === 'personalizada'
+    return guardados.guardarNuevo(nombre, {
+      plantilla: plantillaId,
+      paleta: color.clave,
+      ...(personalizada && { primario: color.primario, secundario: color.secundario }),
+      encabezado,
+      agente,
+      firma,
+      conDireccion,
+    })
   }
 
   function cambiarDato(i: number, cambios: Partial<DatoImagen>) {
@@ -392,7 +445,17 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
               setColor((actual) => cambiarColor(actual, cual, hex))
               setPaletaManual(true)
             }}
-          />
+          >
+            <EstilosGuardados
+              estilos={guardados.estilos}
+              aviso={avisoEstilo}
+              onAplicar={aplicarEstilo}
+              onGuardar={guardarEstiloActual}
+              onRenombrar={guardados.renombrar}
+              onBorrar={guardados.borrar}
+              onPredeterminado={guardados.alternarPredeterminado}
+            />
+          </SeccionEstilo>
 
           <label className="flex cursor-pointer items-center gap-2.5 text-[0.88rem] font-semibold text-ink">
             <input

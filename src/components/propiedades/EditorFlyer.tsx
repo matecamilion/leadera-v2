@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../../hooks/useSuscripcion'
 import { etiquetaTipo, formatearPrecio, type PropiedadDetalle } from '../../lib/api/propiedades'
@@ -11,11 +11,13 @@ import {
 } from './imagen/almacenamiento'
 import { ALTO, ANCHO, OPCIONES_ICONO } from './imagen/constantes'
 import { descargarPng, ErrorFotos } from './imagen/exportar'
+import { fotosParaPlantilla } from './imagen/fotos'
 import { IconoDato } from './imagen/iconos'
+import { LienzoMiniatura } from './imagen/LienzoMiniatura'
 import { PALETAS } from './imagen/paletas'
 import { PLANTILLAS } from './imagen/registro'
 import { SelectorFotos } from './imagen/SelectorFotos'
-import type { ClaveIcono, ClavePaleta, DatoImagen } from './imagen/tipos'
+import type { ClaveIcono, ClavePaleta, DatoImagen, DatosImagen } from './imagen/tipos'
 import {
   MAX_SUBTITULO,
   MAX_TITULO,
@@ -23,6 +25,7 @@ import {
   tituloEfectivo,
   tituloInicial,
 } from './imagen/titulos'
+import { useDiferido } from './imagen/useDiferido'
 import './imagen/fonts-imagen.css'
 
 export type DatosPropiedad = Pick<
@@ -133,6 +136,47 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   const precio =
     propiedad.precio == null ? 'Consultar' : formatearPrecio(propiedad.precio, propiedad.moneda)
 
+  // Todo lo que se escribe, ya resuelto. Se memoiza para que el objeto sólo
+  // cambie cuando cambia algún texto.
+  const textos = useMemo<Omit<DatosImagen, 'fotos' | 'paleta'>>(
+    () => ({
+      titulo: tituloEfectivo(titulo, propiedad.zona, propiedad.direccion),
+      subtitulo: subtitulo.trim(),
+      datos: datos
+        .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
+        .filter((d) => d.texto),
+      nota: nota.trim(),
+      encabezado: encabezado.trim(),
+      etiqueta,
+      direccion: conDireccion ? propiedad.direccion.trim() : '',
+      precio,
+      agente: agente.trim(),
+      firma: firma.trim(),
+    }),
+    [titulo, subtitulo, datos, nota, encabezado, etiqueta, conDireccion, propiedad.zona, propiedad.direccion, precio, agente, firma],
+  )
+
+  // --- Miniaturas de las plantillas ------------------------------------------
+  // Las tres plantillas reales, con los textos de la pantalla pero recién cuando
+  // se deja de escribir: redibujar tres lienzos de 1080×1350 en cada tecla
+  // trabaría los campos. Las fotos y la paleta se aplican en el acto.
+  const textosDiferidos = useDiferido(textos, 300)
+  const datosMiniaturas = useMemo(
+    () =>
+      PLANTILLAS.map((p) => ({
+        plantilla: p,
+        d: {
+          ...textosDiferidos,
+          fotos: fotosParaPlantilla(elegidas, propiedad.fotos_urls, p.fotos),
+          // La paleta que quedaría al elegirla: la de la plantilla, salvo una elegida a mano.
+          paleta: paletaManual
+            ? paleta
+            : (PALETAS.find((q) => q.clave === p.paletaInicial) ?? PALETAS[0]),
+        } satisfies DatosImagen,
+      })),
+    [textosDiferidos, elegidas, propiedad.fotos_urls, paletaManual, paleta],
+  )
+
   // --- Vista previa: el nodo mide 1080×1350 y se achica con transform --------
   // `area` es el lugar disponible; el flyer escalado se centra adentro. Desde lg
   // el área tiene alto propio y la escala respeta ancho y alto; debajo de lg el
@@ -160,12 +204,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
     if (!nueva) return
     setPlantillaId(nuevaId)
     if (!paletaManual) setClaveDePaleta(nueva.paletaInicial)
-    // Se conservan las ya elegidas y se completa con las primeras que falten.
-    setElegidas((actuales) => {
-      const conservadas = actuales.slice(0, nueva.fotos)
-      const faltan = propiedad.fotos_urls.filter((u) => !conservadas.includes(u))
-      return [...conservadas, ...faltan].slice(0, nueva.fotos)
-    })
+    setElegidas((actuales) => fotosParaPlantilla(actuales, propiedad.fotos_urls, nueva.fotos))
   }
 
   function cambiarDato(i: number, cambios: Partial<DatoImagen>) {
@@ -211,8 +250,8 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
         <div className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-2 lg:pl-1">
           <fieldset className="m-0 min-w-0 border-0 p-0">
             <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Plantilla</legend>
-            <div className="flex flex-wrap gap-2">
-              {PLANTILLAS.map((p) => {
+            <div className="flex flex-wrap gap-3">
+              {datosMiniaturas.map(({ plantilla: p, d }) => {
                 const deshabilitada = !alcanzan(p.fotos)
                 return (
                   <button
@@ -221,13 +260,19 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
                     onClick={() => cambiarPlantilla(p.id)}
                     disabled={deshabilitada}
                     aria-pressed={plantillaId === p.id}
-                    className={`inline-flex flex-col items-start rounded-lg border bg-surface px-3 py-1.5 text-left text-[0.82rem] font-semibold text-ink disabled:opacity-60 ${
-                      plantillaId === p.id ? 'border-primary ring-1 ring-primary' : 'border-border'
-                    }`}
+                    aria-label={deshabilitada ? `${p.nombre}, necesita ${p.fotos} fotos` : p.nombre}
+                    className="flex flex-col items-center gap-1.5 rounded-lg border-0 bg-transparent p-0 text-[0.82rem] font-semibold text-ink disabled:cursor-not-allowed"
                   >
+                    <span
+                      className={`block overflow-hidden rounded-md border ${
+                        plantillaId === p.id ? 'border-primary ring-2 ring-primary' : 'border-border'
+                      } ${deshabilitada ? 'opacity-50' : ''}`}
+                    >
+                      <LienzoMiniatura Componente={p.Componente} d={d} />
+                    </span>
                     {p.nombre}
                     {deshabilitada && (
-                      <span className="text-[0.72rem] font-normal text-ink-3">
+                      <span className="-mt-1 text-[0.72rem] font-normal text-ink-3">
                         Necesita {p.fotos} fotos
                       </span>
                     )}
@@ -429,24 +474,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
                 ref={nodo}
                 style={{ width: ANCHO, height: ALTO, transform: `scale(${escala})`, transformOrigin: 'top left' }}
               >
-                <Componente
-                  d={{
-                    fotos: elegidas,
-                    titulo: tituloEfectivo(titulo, propiedad.zona, propiedad.direccion),
-                    subtitulo: subtitulo.trim(),
-                    datos: datos
-                      .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
-                      .filter((d) => d.texto),
-                    nota: nota.trim(),
-                    encabezado: encabezado.trim(),
-                    etiqueta,
-                    direccion: conDireccion ? propiedad.direccion.trim() : '',
-                    precio,
-                    agente: agente.trim(),
-                    firma: firma.trim(),
-                    paleta,
-                  }}
-                />
+                <Componente d={{ ...textos, fotos: elegidas, paleta }} />
               </div>
             </div>
           </div>

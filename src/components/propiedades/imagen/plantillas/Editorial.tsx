@@ -1,20 +1,29 @@
 import type { CSSProperties } from 'react'
 import { ALTO, ANCHO, FAMILIA_SANS, FAMILIA_SERIF } from '../constantes'
+import {
+  ALTO_DATOS,
+  ALTO_DIRECCION,
+  ALTO_ENCABEZADO,
+  ALTO_MINIATURAS,
+  ALTO_NOTA,
+  ALTO_PIE,
+  ALTO_PRECIO,
+  ALTO_SUBTITULO,
+  MARGEN_INFERIOR,
+  repartirAlto,
+} from '../alturasEditorial'
 import { Foto } from '../Foto'
 import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
 import { bordeDeFoto } from '../paletas'
+import { subtituloSinZona } from '../subtitulo'
 import type { DatosImagen } from '../tipos'
 
 const MARGEN_TEXTO = 56
 const MARGEN_FOTOS = 20
 
-/**
- * Alto fijo de la foto principal: no cambia con lo que se escriba. Los demás
- * bloques también son de alto fijo, así que los 20 px que sobran de los 1350
- * (ver la suma en `Editorial`) quedan como aire entre ellos.
- */
-const ALTO_FOTO_PRINCIPAL = 500
+const INTERLINEADO_TITULAR = 1.15
+const TAMANO_TITULAR_MAX = 160
 
 /** Una sola línea que se corta con elipsis en vez de pisar lo de al lado. */
 const unaLinea: CSSProperties = {
@@ -33,16 +42,23 @@ const bloque: CSSProperties = {
 }
 
 /**
- * Editorial: crema y un acento fino, título serif centrado.
- *
- * Presupuesto vertical (px): encabezado 86 + bloque superior 216 (zona 50,
- * título 110, dirección 56) + foto 500 + datos 92 + miniaturas 200 + precio 100
- * + bloque inferior 112 (nota 62, pie 50) + margen 24 = 1330.
+ * Editorial: crema y un acento fino. La zona es el titular, serif y grande; el
+ * título que escribe el agente va debajo, en la sans, sin repetir la zona. Sin
+ * zona, el titular es el título. El presupuesto vertical está en `repartirAlto`
+ * (`alturasEditorial.ts`).
  */
 export function Editorial({ d }: { d: DatosImagen }) {
   const { fondo, tinta, acento, acentoTexto } = d.paleta
   const [principal, ...chicas] = d.fotos
   const borde = bordeDeFoto(d.paleta)
+  const titular = d.zona || d.titulo
+  const subtitulo = d.zona ? subtituloSinZona(d.titulo, d.zona) : ''
+  const { alturaInferior, altoTitular, altoFoto } = repartirAlto({
+    subtitulo: subtitulo !== '',
+    direccion: d.direccion !== '',
+    nota: d.nota !== '',
+    pie: d.agente !== '' || d.firma !== '',
+  })
 
   const linea = <div style={{ flex: 1, height: 4, background: acento }} />
 
@@ -56,7 +72,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        paddingBottom: 24,
+        paddingBottom: MARGEN_INFERIOR,
         background: fondo,
         color: tinta,
         fontFamily: FAMILIA_SANS,
@@ -72,7 +88,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       <div
         style={{
           ...bloque,
-          height: 86,
+          height: ALTO_ENCABEZADO,
           padding: `30px ${MARGEN_TEXTO}px 0`,
           flexDirection: 'row',
           alignItems: 'center',
@@ -99,35 +115,39 @@ export function Editorial({ d }: { d: DatosImagen }) {
         </div>
       </div>
 
-      <div style={{ ...bloque, height: 216, padding: `0 ${MARGEN_TEXTO}px` }}>
-        {d.zona && (
-          <div
-            style={{
-              ...unaLinea,
-              height: 50,
-              lineHeight: '50px',
-              textAlign: 'center',
-              textTransform: 'uppercase',
-              fontSize: 26,
-              fontWeight: 500,
-              letterSpacing: 1,
-              color: acentoTexto,
-            }}
-          >
-            {d.zona}
-          </div>
-        )}
-
+      <div
+        style={{
+          ...bloque,
+          height: altoTitular + (subtitulo ? ALTO_SUBTITULO : 0) + (d.direccion ? ALTO_DIRECCION : 0),
+          padding: `0 ${MARGEN_TEXTO}px`,
+        }}
+      >
         <TextoAjustado
-          texto={d.titulo}
-          tamanoMax={100}
-          tamanoMin={36}
-          altoMax={110}
+          texto={titular}
+          tamanoMax={Math.min(TAMANO_TITULAR_MAX, Math.floor(altoTitular / INTERLINEADO_TITULAR))}
+          tamanoMin={48}
+          altoMax={altoTitular}
+          interlineado={INTERLINEADO_TITULAR}
           style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700, letterSpacing: '-0.02em' }}
         />
 
+        {subtitulo && (
+          <div
+            style={{
+              ...unaLinea,
+              height: ALTO_SUBTITULO,
+              lineHeight: `${ALTO_SUBTITULO}px`,
+              textAlign: 'center',
+              fontSize: 44,
+              fontWeight: 600,
+            }}
+          >
+            {subtitulo}
+          </div>
+        )}
+
         {d.direccion && (
-          <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 28 }}>
+          <div style={{ height: ALTO_DIRECCION, display: 'flex', alignItems: 'center', gap: 28 }}>
             {linea}
             <div
               style={{
@@ -136,7 +156,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
                 maxWidth: 700,
                 fontSize: 26,
                 fontWeight: 600,
-                letterSpacing: 2,
+                letterSpacing: 1,
               }}
             >
               {d.direccion}
@@ -149,7 +169,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       <div
         style={{
           flexShrink: 0,
-          height: ALTO_FOTO_PRINCIPAL,
+          height: altoFoto,
           margin: `0 ${MARGEN_FOTOS}px`,
           overflow: 'hidden',
         }}
@@ -160,7 +180,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       <div
         style={{
           ...bloque,
-          height: 92,
+          height: ALTO_DATOS,
           padding: `0 ${MARGEN_TEXTO}px`,
           flexDirection: 'row',
           alignItems: 'center',
@@ -210,7 +230,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       <div
         style={{
           flexShrink: 0,
-          height: 200,
+          height: ALTO_MINIATURAS,
           margin: `0 ${MARGEN_FOTOS}px`,
           display: 'grid',
           gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
@@ -228,7 +248,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
       <div
         style={{
           ...bloque,
-          height: 100,
+          height: ALTO_PRECIO,
           padding: `0 ${MARGEN_TEXTO}px`,
           flexDirection: 'row',
           alignItems: 'center',
@@ -252,43 +272,45 @@ export function Editorial({ d }: { d: DatosImagen }) {
         {linea}
       </div>
 
-      <div style={{ ...bloque, height: 112, padding: `0 ${MARGEN_TEXTO}px` }}>
-        {d.nota && (
-          <div style={{ height: 62, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      {alturaInferior > 0 && (
+        <div style={{ ...bloque, height: alturaInferior, padding: `0 ${MARGEN_TEXTO}px` }}>
+          {d.nota && (
+            <div style={{ height: ALTO_NOTA, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <div
+                style={{
+                  ...unaLinea,
+                  boxSizing: 'border-box',
+                  maxWidth: '100%',
+                  padding: '8px 36px',
+                  border: `3px solid ${acento}`,
+                  color: acentoTexto,
+                  fontSize: 24,
+                  fontWeight: 600,
+                  letterSpacing: 1,
+                }}
+              >
+                {d.nota}
+              </div>
+            </div>
+          )}
+
+          {(d.agente || d.firma) && (
             <div
               style={{
                 ...unaLinea,
-                boxSizing: 'border-box',
-                maxWidth: '100%',
-                padding: '8px 36px',
-                border: `3px solid ${acento}`,
-                color: acentoTexto,
-                fontSize: 24,
+                height: ALTO_PIE,
+                lineHeight: `${ALTO_PIE}px`,
+                textAlign: 'center',
+                fontSize: 22,
                 fontWeight: 600,
                 letterSpacing: 1,
               }}
             >
-              {d.nota}
+              {[d.agente, d.firma].filter(Boolean).join(' · ')}
             </div>
-          </div>
-        )}
-
-        {(d.agente || d.firma) && (
-          <div
-            style={{
-              ...unaLinea,
-              height: 50,
-              lineHeight: '50px',
-              textAlign: 'center',
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: 1,
-            }}
-          >
-            {[d.agente, d.firma].filter(Boolean).join(' · ')}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

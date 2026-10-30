@@ -151,6 +151,16 @@ export function seVinculaConBusqueda(tipo: TipoOperacion): boolean {
 }
 
 /**
+ * ¿Esta operación termina en escritura?
+ *
+ * Solo la compraventa: VENTA y COMPRA son las dos puntas del mismo trato, y de
+ * ahí cuelga el trámite posterior al acuerdo. El alquiler no pasa por escribanía.
+ */
+export function llevaEscritura(tipo: TipoOperacion): boolean {
+  return tipo === 'VENTA' || tipo === 'COMPRA'
+}
+
+/**
  * Cómo se llama el lead de la operación según el tipo.
  *
  * El campo decía "Lead" a secas en los cuatro tipos, y en una VENTA no había

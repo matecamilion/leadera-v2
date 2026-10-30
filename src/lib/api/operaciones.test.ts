@@ -10,6 +10,7 @@ vi.mock('../supabase', () => ({
 import {
   crearReserva,
   limitesDelMes,
+  llevaEscritura,
   MENSAJE_MONTO_RESERVA,
   puntaDeTipo,
   tipoDeReserva,
@@ -51,6 +52,18 @@ describe('puntaDeTipo', () => {
         expect(puntaDeTipo(tipoDeReserva(punta, clase))).toBe(punta)
       }
     }
+  })
+})
+
+describe('llevaEscritura', () => {
+  it('la compraventa pasa por escribanía, en las dos puntas', () => {
+    expect(llevaEscritura('VENTA')).toBe(true)
+    expect(llevaEscritura('COMPRA')).toBe(true)
+  })
+
+  it('el alquiler no', () => {
+    expect(llevaEscritura('ALQUILER')).toBe(false)
+    expect(llevaEscritura('BUSQUEDA_ALQUILER')).toBe(false)
   })
 })
 

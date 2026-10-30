@@ -9,7 +9,10 @@ import {
   cambiosDeFechaPrevista,
   cambiosDeMarcar,
   cambiosDeNoAplica,
+  mensajeDeErrorPostventa,
   mensajeDeErrorTramite,
+  MENSAJE_POSTVENTA_FALLIDA,
+  MENSAJE_POSTVENTA_SIN_PERMISO,
   MENSAJE_SIN_PERMISO_TRAMITE,
 } from './tramite'
 
@@ -70,5 +73,20 @@ describe('mensajeDeErrorTramite', () => {
     const mensaje = mensajeDeErrorTramite({ code: 'XX000', message: 'relation foo is broken' })
     expect(mensaje).not.toContain('foo')
     expect(mensaje.length).toBeGreaterThan(0)
+  })
+})
+
+describe('mensajeDeErrorPostventa', () => {
+  it('un rechazo de la RLS dice que no hay permiso, sin negar que la escritura quedó marcada', () => {
+    const mensaje = mensajeDeErrorPostventa({ code: '42501', message: 'x' })
+    expect(mensaje).toBe(MENSAJE_POSTVENTA_SIN_PERMISO)
+    expect(mensaje).toContain('La escritura quedó marcada')
+  })
+
+  it('cualquier otro error explica cómo reintentar y no muestra el texto crudo', () => {
+    const mensaje = mensajeDeErrorPostventa({ code: '23503', message: 'violates foreign key tareas_x' })
+    expect(mensaje).toBe(MENSAJE_POSTVENTA_FALLIDA)
+    expect(mensaje).not.toContain('tareas_x')
+    expect(mensaje).toContain('reintentar')
   })
 })

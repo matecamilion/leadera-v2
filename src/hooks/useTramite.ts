@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   desmarcarPaso,
   fijarFechaPrevistaEscritura,
+  generarPostventaSiCorresponde,
   marcarNoAplica,
   marcarPaso,
   obtenerPasosTramite,
@@ -24,26 +25,45 @@ export function useTramiteOperacion(operacionId: string | undefined) {
   })
 }
 
-/** Una escritura sobre el trámite que, al terminar, refresca el de esa operación. */
-function useMutacionTramite<Variables>(
+/**
+ * Una escritura sobre el trámite que, al terminar, refresca el de esa operación.
+ *
+ * Refresca también cuando falla: marcar la escritura puede quedar guardado y
+ * fallar recién al agendar la postventa, y la casilla tiene que reflejarlo.
+ */
+function useMutacionTramite<Variables, Resultado>(
   operacionId: string,
-  escribir: (variables: Variables) => Promise<TramitePaso>,
+  escribir: (variables: Variables) => Promise<Resultado>,
+  alTerminar?: (resultado: Resultado) => void,
 ) {
   const queryClient = useQueryClient()
   const uid = useUid()
 
   return useMutation({
     mutationFn: escribir,
-    onSuccess: () =>
+    onSuccess: alTerminar,
+    onSettled: () =>
       queryClient.invalidateQueries({ queryKey: claves.operaciones.tramite(uid, operacionId) }),
   })
 }
 
+/**
+ * Completa un paso. Si es la escritura y todavía no se generó la postventa, la
+ * agenda: `agendadas` es cuántas tareas entraron, o `null` si no correspondía.
+ * Las tareas nuevas aparecen en Mi día y en el calendario sin recargar.
+ */
 export function useMarcarPaso(operacionId: string) {
+  const queryClient = useQueryClient()
+
   return useMutacionTramite(
     operacionId,
-    ({ paso, fecha }: { paso: PasoTramite; fecha?: string }) =>
-      marcarPaso(operacionId, paso, fecha),
+    async ({ paso, fecha }: { paso: PasoTramite; fecha?: string }) => {
+      const fila = await marcarPaso(operacionId, paso, fecha)
+      return { agendadas: await generarPostventaSiCorresponde(fila) }
+    },
+    ({ agendadas }) => {
+      if (agendadas) queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+    },
   )
 }
 

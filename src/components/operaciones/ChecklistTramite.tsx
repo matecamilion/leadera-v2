@@ -9,6 +9,7 @@ import {
 } from '../../hooks/useTramite'
 import type { TramitePaso } from '../../lib/api/tramite'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
+import { avisoDePostventa } from '../../lib/postventa'
 import { hoyEnArgentina } from '../../lib/ritmoSemanal'
 import {
   PASOS_TRAMITE,
@@ -16,6 +17,7 @@ import {
   textoEstadoTramite,
   type PasoTramite,
 } from '../../lib/tramite'
+import { useUiStore } from '../../stores/ui'
 
 const CLASE_TARJETA = 'mb-4 rounded-[14px] border border-border bg-surface px-4 py-5 sm:px-6'
 
@@ -41,6 +43,7 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
   const noAplica = useMarcarNoAplica(operacionId)
   const desmarcar = useDesmarcarPaso(operacionId)
   const prevista = useFijarFechaPrevistaEscritura(operacionId)
+  const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   const hoy = hoyEnArgentina()
 
   if (isPending) {
@@ -123,7 +126,15 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
             deshabilitado={guardando}
             onMarcar={(fecha) => {
               empezar()
-              marcar.mutate({ paso: paso.clave, fecha })
+              marcar.mutate(
+                { paso: paso.clave, fecha },
+                {
+                  onSuccess: ({ agendadas }) => {
+                    const aviso = avisoDePostventa(agendadas)
+                    if (aviso) mostrarAviso(aviso)
+                  },
+                },
+              )
             }}
             onDesmarcar={() => {
               empezar()

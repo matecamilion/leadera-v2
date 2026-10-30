@@ -14,10 +14,11 @@ import { descargarPng, ErrorFotos } from './imagen/exportar'
 import { fotosParaPlantilla } from './imagen/fotos'
 import { IconoDato } from './imagen/iconos'
 import { LienzoMiniatura } from './imagen/LienzoMiniatura'
-import { PALETAS } from './imagen/paletas'
+import { cambiarColor, elegirAtajo, paletaDeAtajo, paletaDeEleccion } from './imagen/eleccionColor'
 import { PLANTILLAS } from './imagen/registro'
 import { SelectorFotos } from './imagen/SelectorFotos'
-import type { ClaveIcono, ClavePaleta, DatoImagen, DatosImagen } from './imagen/tipos'
+import { SeccionEstilo } from './SeccionEstilo'
+import type { ClaveIcono, DatoImagen, DatosImagen } from './imagen/tipos'
 import {
   MAX_SUBTITULO,
   MAX_TITULO,
@@ -110,7 +111,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   )
   const [datos, setDatos] = useState(() => datosIniciales(propiedad))
   const [nota, setNota] = useState('')
-  const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>(plantilla.paletaInicial)
+  const [color, setColor] = useState(() => elegirAtajo(plantilla.paletaInicial))
   // Una paleta elegida a mano se mantiene al cambiar de plantilla.
   const [paletaManual, setPaletaManual] = useState(false)
   const [conDireccion, setConDireccion] = useState(false)
@@ -129,7 +130,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   const [generando, setGenerando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
 
-  const paleta = PALETAS.find((p) => p.clave === claveDePaleta) ?? PALETAS[0]
+  const paleta = useMemo(() => paletaDeEleccion(color), [color])
   const encabezado = encabezadoEditado ?? inmobiliaria ?? ''
   const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos
 
@@ -157,10 +158,12 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   )
 
   // --- Miniaturas de las plantillas ------------------------------------------
-  // Las tres plantillas reales, con los textos de la pantalla pero recién cuando
-  // se deja de escribir: redibujar tres lienzos de 1080×1350 en cada tecla
-  // trabaría los campos. Las fotos y la paleta se aplican en el acto.
+  // Las tres plantillas reales, con los textos y los colores de la pantalla pero
+  // recién cuando se deja de escribir o de arrastrar el selector de color:
+  // redibujar tres lienzos de 1080×1350 en cada cambio trabaría los campos. Las
+  // fotos se aplican en el acto.
   const textosDiferidos = useDiferido(textos, 300)
+  const paletaDiferida = useDiferido(paleta, 300)
   const datosMiniaturas = useMemo(
     () =>
       PLANTILLAS.map((p) => ({
@@ -169,12 +172,10 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
           ...textosDiferidos,
           fotos: fotosParaPlantilla(elegidas, propiedad.fotos_urls, p.fotos),
           // La paleta que quedaría al elegirla: la de la plantilla, salvo una elegida a mano.
-          paleta: paletaManual
-            ? paleta
-            : (PALETAS.find((q) => q.clave === p.paletaInicial) ?? PALETAS[0]),
+          paleta: paletaManual ? paletaDiferida : paletaDeAtajo(p.paletaInicial),
         } satisfies DatosImagen,
       })),
-    [textosDiferidos, elegidas, propiedad.fotos_urls, paletaManual, paleta],
+    [textosDiferidos, elegidas, propiedad.fotos_urls, paletaManual, paletaDiferida],
   )
 
   // --- Vista previa: el nodo mide 1080×1350 y se achica con transform --------
@@ -203,7 +204,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
     const nueva = PLANTILLAS.find((p) => p.id === nuevaId)
     if (!nueva) return
     setPlantillaId(nuevaId)
-    if (!paletaManual) setClaveDePaleta(nueva.paletaInicial)
+    if (!paletaManual) setColor(elegirAtajo(nueva.paletaInicial))
     setElegidas((actuales) => fotosParaPlantilla(actuales, propiedad.fotos_urls, nueva.fotos))
   }
 
@@ -380,42 +381,18 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
             </Campo>
           )}
 
-          <fieldset className="m-0 min-w-0 border-0 p-0">
-            <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Paleta</legend>
-            <div className="grid w-fit grid-cols-4 gap-3">
-              {PALETAS.map((p) => {
-                const elegida = claveDePaleta === p.clave
-                return (
-                  <button
-                    key={p.clave}
-                    type="button"
-                    onClick={() => {
-                      setClaveDePaleta(p.clave)
-                      setPaletaManual(true)
-                    }}
-                    aria-pressed={elegida}
-                    aria-label={p.nombre}
-                    className={`relative size-9 rounded-full border border-ink-4 p-0 ${
-                      elegida ? 'ring-[3px] ring-primary ring-offset-2' : ''
-                    }`}
-                    style={{ background: `linear-gradient(135deg, ${p.fondo} 50%, ${p.acento} 50%)` }}
-                  >
-                    {elegida && (
-                      <span
-                        aria-hidden
-                        className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-primary-contrast"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="m5 12.5 4.5 4.5L19 7.5" />
-                        </svg>
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-            <p className="m-0 mt-2 text-[0.8rem] text-ink-3">{paleta.nombre}</p>
-          </fieldset>
+          <SeccionEstilo
+            eleccion={color}
+            paleta={paleta}
+            onAtajo={(clave) => {
+              setColor(elegirAtajo(clave))
+              setPaletaManual(true)
+            }}
+            onColor={(cual, hex) => {
+              setColor((actual) => cambiarColor(actual, cual, hex))
+              setPaletaManual(true)
+            }}
+          />
 
           <label className="flex cursor-pointer items-center gap-2.5 text-[0.88rem] font-semibold text-ink">
             <input

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   escrituraHecha,
+  fechaInicialEscritura,
   formatearDiaMes,
   PASOS_TRAMITE,
   pasosFaltantes,
@@ -140,5 +141,20 @@ describe('textoEstadoTramite', () => {
   it('con todo resuelto pero la escritura en "no aplica", está completo', () => {
     const filas = PASOS_TRAMITE.map((p) => noAplica(p.clave))
     expect(textoEstadoTramite(filas)).toBe('Trámite completo')
+  })
+})
+
+describe('fechaInicialEscritura', () => {
+  it('usa la prevista si es de hoy o anterior', () => {
+    expect(fechaInicialEscritura('2026-11-05', '2026-11-10')).toBe('2026-11-05')
+    expect(fechaInicialEscritura('2026-11-10', '2026-11-10')).toBe('2026-11-10')
+  })
+
+  it('usa hoy si la prevista es futura', () => {
+    expect(fechaInicialEscritura('2026-11-20', '2026-11-10')).toBe('2026-11-10')
+  })
+
+  it('usa hoy si no hay prevista', () => {
+    expect(fechaInicialEscritura(null, '2026-11-10')).toBe('2026-11-10')
   })
 })

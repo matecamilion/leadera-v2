@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { MenuDesplegable } from '../comunes/MenuDesplegable'
+import { ModalFechaEscritura } from './ModalFechaEscritura'
 import {
   useDesmarcarPaso,
   useFijarFechaPrevistaEscritura,
@@ -12,6 +13,7 @@ import { mensajeDeGuardado } from '../../lib/mensajesDeError'
 import { avisoDePostventa } from '../../lib/postventa'
 import { hoyEnArgentina } from '../../lib/ritmoSemanal'
 import {
+  fechaInicialEscritura,
   PASOS_TRAMITE,
   pasosResueltos,
   textoEstadoTramite,
@@ -44,6 +46,7 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
   const desmarcar = useDesmarcarPaso(operacionId)
   const prevista = useFijarFechaPrevistaEscritura(operacionId)
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
+  const [confirmandoEscritura, setConfirmandoEscritura] = useState(false)
   const hoy = hoyEnArgentina()
 
   if (isPending) {
@@ -88,6 +91,25 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
     prevista.reset()
   }
 
+  // Sin fecha, la de hoy. El diálogo de la escritura se cierra al terminar, bien
+  // o mal: si falla, el motivo queda en el aviso de la tarjeta, que el diálogo
+  // abierto taparía.
+  function marcarPaso(paso: PasoTramite, fecha?: string) {
+    empezar()
+    marcar.mutate(
+      { paso, fecha },
+      {
+        onSuccess: ({ agendadas }) => {
+          const aviso = avisoDePostventa(agendadas)
+          if (aviso) mostrarAviso(aviso)
+        },
+        onSettled: () => setConfirmandoEscritura(false),
+      },
+    )
+  }
+
+  const escritura = filas.find((f) => f.paso === 'ESCRITURA')
+
   return (
     <div className={CLASE_TARJETA}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -124,18 +146,11 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
             fila={filas.find((f) => f.paso === paso.clave)}
             hoy={hoy}
             deshabilitado={guardando}
-            onMarcar={(fecha) => {
-              empezar()
-              marcar.mutate(
-                { paso: paso.clave, fecha },
-                {
-                  onSuccess: ({ agendadas }) => {
-                    const aviso = avisoDePostventa(agendadas)
-                    if (aviso) mostrarAviso(aviso)
-                  },
-                },
-              )
-            }}
+            // La escritura pide la fecha antes de marcarse; el resto se marca con hoy.
+            onTildar={() =>
+              paso.clave === 'ESCRITURA' ? setConfirmandoEscritura(true) : marcarPaso(paso.clave)
+            }
+            onMarcar={(fecha) => marcarPaso(paso.clave, fecha)}
             onDesmarcar={() => {
               empezar()
               desmarcar.mutate(paso.clave)
@@ -157,6 +172,17 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
           {mensajeDeGuardado(falla, 'No se pudo guardar el paso del trámite.')}
         </p>
       )}
+
+      {confirmandoEscritura && (
+        <ModalFechaEscritura
+          fechaInicial={fechaInicialEscritura(escritura?.fecha_prevista ?? null, hoy)}
+          hoy={hoy}
+          postventaYaGenerada={!!escritura?.postventa_generada_at}
+          procesando={marcar.isPending}
+          onConfirmar={(fecha) => marcarPaso('ESCRITURA', fecha)}
+          onCancelar={() => setConfirmandoEscritura(false)}
+        />
+      )}
     </div>
   )
 }
@@ -167,7 +193,9 @@ interface FilaPasoProps {
   fila: TramitePaso | undefined
   hoy: string
   deshabilitado: boolean
-  /** Sin fecha, la de hoy. */
+  /** Tildar la casilla: marca con hoy, o pide la fecha si es la escritura. */
+  onTildar: () => void
+  /** Cambiar la fecha de un paso ya hecho. */
   onMarcar: (fecha?: string) => void
   onDesmarcar: () => void
   onNoAplica: () => void
@@ -180,6 +208,7 @@ function FilaPaso({
   fila,
   hoy,
   deshabilitado,
+  onTildar,
   onMarcar,
   onDesmarcar,
   onNoAplica,
@@ -202,7 +231,7 @@ function FilaPaso({
           checked={hecho}
           disabled={deshabilitado}
           aria-labelledby={idEtiqueta}
-          onChange={(e) => (e.target.checked ? onMarcar() : onDesmarcar())}
+          onChange={(e) => (e.target.checked ? onTildar() : onDesmarcar())}
           className="size-5 cursor-pointer accent-primary disabled:cursor-default"
         />
       </label>

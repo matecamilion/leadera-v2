@@ -86,3 +86,12 @@ export function textoEstadoTramite(filas: FilaPasoTramite[]): string {
   const etiqueta = PASOS_TRAMITE.find((p) => p.clave === siguiente)?.etiqueta
   return `Siguiente: ${etiqueta}`
 }
+
+/**
+ * La fecha con la que arranca el diálogo de la escritura: la prevista si ya
+ * llegó (es de hoy o anterior), y si no, hoy. Una prevista futura no sirve de
+ * punto de partida, porque la escritura no puede marcarse en el futuro.
+ */
+export function fechaInicialEscritura(fechaPrevista: string | null, hoy: string): string {
+  return fechaPrevista && fechaPrevista <= hoy ? fechaPrevista : hoy
+}

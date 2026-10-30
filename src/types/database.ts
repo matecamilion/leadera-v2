@@ -1849,6 +1849,23 @@ export type Database = {
         Args: { p_filas: Json; p_importacion_id?: string }
         Returns: Json
       }
+      leads_por_enfriarse: {
+        Args: {
+          p_asignado_a?: string
+          p_dias_aviso?: number
+          p_limite?: number
+        }
+        Returns: {
+          apellido: string
+          dias_sin_contacto: number
+          estado: Database["public"]["Enums"]["estado_lead"]
+          importado: boolean
+          lead_id: string
+          nombre: string
+          total: number
+          ultimo_contacto: string
+        }[]
+      }
       metricas_lead: {
         Args: { p_lead_id: string }
         Returns: {

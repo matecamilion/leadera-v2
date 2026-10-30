@@ -60,6 +60,9 @@ export function Editorial({ d }: { d: DatosImagen }) {
         background: fondo,
         color: tinta,
         fontFamily: FAMILIA_SANS,
+        // Playfair trae los números old-style de fábrica (los ceros parecen "o"):
+        // `lnum` los pasa a lining. Se hereda en precio, datos y dirección.
+        fontVariantNumeric: 'lining-nums',
         overflow: 'hidden',
       }}
     >

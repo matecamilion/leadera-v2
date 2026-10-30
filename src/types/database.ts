@@ -871,6 +871,84 @@ export type Database = {
           },
         ]
       }
+      operacion_tramite_pasos: {
+        Row: {
+          completado_por: string | null
+          created_at: string
+          fecha_completado: string | null
+          fecha_prevista: string | null
+          id: string
+          inmobiliaria_id: string
+          no_aplica: boolean
+          operacion_id: string
+          paso: string
+          postventa_generada_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          completado_por?: string | null
+          created_at?: string
+          fecha_completado?: string | null
+          fecha_prevista?: string | null
+          id?: string
+          inmobiliaria_id: string
+          no_aplica?: boolean
+          operacion_id: string
+          paso: string
+          postventa_generada_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completado_por?: string | null
+          created_at?: string
+          fecha_completado?: string | null
+          fecha_prevista?: string | null
+          id?: string
+          inmobiliaria_id?: string
+          no_aplica?: boolean
+          operacion_id?: string
+          paso?: string
+          postventa_generada_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacion_tramite_pasos_completado_por_fkey"
+            columns: ["completado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacion_tramite_pasos_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacion_tramite_pasos_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacion_tramite_pasos_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacion_tramite_pasos_operacion_id_fkey"
+            columns: ["operacion_id"]
+            isOneToOne: false
+            referencedRelation: "operaciones_ordenadas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operaciones: {
         Row: {
           agente_id: string

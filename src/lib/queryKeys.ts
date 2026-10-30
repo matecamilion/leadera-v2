@@ -266,6 +266,9 @@ export const claves = {
     reservasDeMes: (uid: Uid, mes: string) => ['operaciones', 'reservas-de-mes', uid, mes] as const,
     /** Posibles duplicados al cargar una reserva. Bajo `operaciones`: cualquier alta los refresca. */
     parecidas: (uid: Uid, titulo: string) => ['operaciones', 'parecidas', uid, titulo] as const,
+    /** Las filas del checklist del trámite de UNA operación. */
+    tramite: (uid: Uid, operacionId: string) =>
+      ['operaciones', 'tramite', uid, operacionId] as const,
   },
 
   /**

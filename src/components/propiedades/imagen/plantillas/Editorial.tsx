@@ -7,7 +7,6 @@ import {
   ALTO_MINIATURAS,
   ALTO_NOTA,
   ALTO_PIE,
-  ALTO_PRECIO,
   ALTO_SUBTITULO,
   MARGEN_INFERIOR,
   repartirAlto,
@@ -24,6 +23,7 @@ const MARGEN_FOTOS = 20
 
 const INTERLINEADO_TITULAR = 1.15
 const TAMANO_TITULAR_MAX = 160
+const TAMANO_PRECIO_MAX = 110
 
 /** Una sola línea que se corta con elipsis en vez de pisar lo de al lado. */
 const unaLinea: CSSProperties = {
@@ -48,12 +48,12 @@ const bloque: CSSProperties = {
  * (`alturasEditorial.ts`).
  */
 export function Editorial({ d }: { d: DatosImagen }) {
-  const { fondo, tinta, acento, acentoTexto } = d.paleta
+  const { fondo, tinta, acento, acentoTexto, sobreAcento } = d.paleta
   const [principal, ...chicas] = d.fotos
   const borde = bordeDeFoto(d.paleta)
   const titular = d.zona || d.titulo
   const subtitulo = d.zona ? subtituloSinZona(d.titulo, d.zona) : ''
-  const { alturaInferior, altoTitular, altoFoto } = repartirAlto({
+  const { alturaInferior, altoTitular, altoPrecio, altoFoto } = repartirAlto({
     subtitulo: subtitulo !== '',
     direccion: d.direccion !== '',
     nota: d.nota !== '',
@@ -245,31 +245,26 @@ export function Editorial({ d }: { d: DatosImagen }) {
         ))}
       </div>
 
+      {/* Bloque sólido de acento: el precio es el segundo protagonista. El tamaño
+          baja solo si el monto no entra de ancho. */}
       <div
         style={{
           ...bloque,
-          height: ALTO_PRECIO,
+          height: altoPrecio,
+          margin: `0 ${MARGEN_FOTOS}px`,
           padding: `0 ${MARGEN_TEXTO}px`,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 28,
+          background: acento,
+          color: sobreAcento,
         }}
       >
-        {linea}
-        <div
-          style={{
-            flexShrink: 0,
-            fontFamily: FAMILIA_SERIF,
-            fontSize: 64,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            whiteSpace: 'nowrap',
-            color: acentoTexto,
-          }}
-        >
-          {d.precio}
-        </div>
-        {linea}
+        <TextoAjustado
+          texto={d.precio}
+          tamanoMax={Math.min(TAMANO_PRECIO_MAX, altoPrecio - 24)}
+          tamanoMin={56}
+          altoMax={altoPrecio}
+          interlineado={1.1}
+          style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}
+        />
       </div>
 
       {alturaInferior > 0 && (

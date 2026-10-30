@@ -16,6 +16,7 @@ import {
 } from '../components/dashboard/ResumenTareasHoy'
 import { SeccionConsultas } from '../components/dashboard/SeccionConsultas'
 import { SeccionCoincidencias } from '../components/dashboard/SeccionCoincidencias'
+import { TarjetaLeadsPorEnfriarse } from '../components/dashboard/TarjetaLeadsPorEnfriarse'
 import { TarjetaSemanaGestion } from '../components/dashboard/TarjetaSemanaGestion'
 import { TarjetaVisitasPorReconfirmar } from '../components/dashboard/TarjetaVisitasPorReconfirmar'
 import { AvisoReporteSemanal } from '../components/reporte/AvisoReporteSemanal'
@@ -248,6 +249,12 @@ export default function MiDia() {
       {/* Leads que entran solos por el link de consultas: van antes que el
           resto porque son lo más nuevo. Se monta solo si hay algo para ver. */}
       <SeccionConsultas />
+
+      {/* Leads con 21+ días sin contacto real y sin seguimiento: se enfrían si nadie
+          los toca. Se monta sola solo si hay alguno; los sin ningún contacto siguen
+          en Nuevos. Fuera del `sinLeads` por lo mismo que las de arriba: no se
+          monta sin datos. */}
+      <TarjetaLeadsPorEnfriarse onRegistrar={setLeadARegistrar} />
 
       {/* Modelo de gestión: a ancho completo, pegado a los números del día. */}
       {modeloGestion.data === true && !sinLeads && <TarjetaSemanaGestion />}

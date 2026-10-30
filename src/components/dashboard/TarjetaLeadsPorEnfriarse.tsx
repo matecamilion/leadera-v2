@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SeccionCard } from './SeccionCard'
+import { MenuDesplegable } from '../comunes/MenuDesplegable'
+import { ModalConfirmarEliminar } from '../comunes/ModalConfirmarEliminar'
 import type { LeadARegistrar } from './ResumenTareasHoy'
 import { BadgeEstado } from '../leads/BadgeEstado'
-import { IconoCopo } from '../leads/Iconos'
+import { IconoCalavera, IconoCopo } from '../leads/Iconos'
 import { useLeadsPorEnfriarse } from '../../hooks/useDashboard'
+import { useActualizarEstado } from '../../hooks/useLead'
+import { useUiStore } from '../../stores/ui'
 import { DIAS_AVISO_ENFRIARSE, type LeadPorEnfriarse } from '../../lib/api/leadsPorEnfriarse'
 import { nombreDePorEnfriarse, textoDiasSinContacto } from '../../lib/textoPorEnfriarse'
 
@@ -100,6 +104,27 @@ function FilaPorEnfriarse({
   onRegistrar: (lead: LeadARegistrar) => void
 }) {
   const nombre = nombreDePorEnfriarse(lead)
+  const [confirmando, setConfirmando] = useState(false)
+  const cambioEstado = useActualizarEstado(lead.lead_id)
+  const mostrarAviso = useUiStore((s) => s.mostrarAviso)
+
+  function cerrarConfirmacion() {
+    setConfirmando(false)
+    cambioEstado.reset()
+  }
+
+  // El lead sale de la tarjeta solo: el hook invalida `claves.leads` y la RPC
+  // ya no devuelve a los INACTIVO. Si RLS rechaza el UPDATE, `actualizarEstado`
+  // lanza "No tenés permiso para editar este lead." y queda a la vista en el
+  // diálogo.
+  function pasarAInactivo() {
+    cambioEstado.mutate('INACTIVO', {
+      onSuccess: () => {
+        setConfirmando(false)
+        mostrarAviso(`${nombre} pasó a inactivo.`)
+      },
+    })
+  }
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5">
@@ -117,14 +142,62 @@ function FilaPorEnfriarse({
         </span>
       </Link>
 
-      <button
-        type="button"
-        onClick={() => onRegistrar({ id: lead.lead_id, nombre: lead.nombre, apellido: lead.apellido })}
-        aria-label={`Registrar contacto con ${nombre}`}
-        className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-3.5 py-2 text-[0.8rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:min-h-10 motion-reduce:transition-none"
-      >
-        Registrar contacto
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onRegistrar({ id: lead.lead_id, nombre: lead.nombre, apellido: lead.apellido })}
+          aria-label={`Registrar contacto con ${nombre}`}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border px-3.5 py-2 text-[0.8rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:min-h-10 motion-reduce:transition-none"
+        >
+          Registrar contacto
+        </button>
+
+        {/* Acción secundaria. Desde `md` es un botón de texto sin borde; en
+            mobile es un "⋯" de 44 px, para no apilar dos botones de texto en
+            320 px de card. Las dos puertas piden la misma confirmación. */}
+        <button
+          type="button"
+          onClick={() => setConfirmando(true)}
+          aria-label={`Pasar a inactivo a ${nombre}`}
+          className="hidden min-h-10 items-center rounded-lg px-2.5 py-2 text-[0.8rem] font-semibold whitespace-nowrap text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:inline-flex motion-reduce:transition-none"
+        >
+          Pasar a inactivo
+        </button>
+        <div className="md:hidden">
+          <MenuDesplegable
+            etiqueta={`Más acciones para ${nombre}`}
+            alinear="derecha"
+            claseBoton="inline-flex size-11 items-center justify-center rounded-lg text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+            boton={
+              <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="currentColor">
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            }
+            items={[
+              {
+                label: 'Pasar a inactivo',
+                icono: <IconoCalavera className="size-4" />,
+                onSelect: () => setConfirmando(true),
+              },
+            ]}
+          />
+        </div>
+      </div>
+
+      <ModalConfirmarEliminar
+        abierto={confirmando}
+        titulo={`¿Pasar a inactivo a ${nombre}?`}
+        descripcion="El lead sale de Mi día y de esta lista. Podés reactivarlo cuando quieras cambiándole el estado desde su ficha."
+        eliminando={cambioEstado.isPending}
+        error={cambioEstado.error instanceof Error ? cambioEstado.error.message : null}
+        onCancelar={cerrarConfirmacion}
+        onConfirmar={pasarAInactivo}
+        textoConfirmar="Sí, pasar a inactivo"
+        textoConfirmando="Guardando…"
+        textoCancelar="No, volver"
+      />
     </li>
   )
 }

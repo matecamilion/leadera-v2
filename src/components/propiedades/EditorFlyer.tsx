@@ -131,14 +131,21 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
     propiedad.precio == null ? 'Consultar' : formatearPrecio(propiedad.precio, propiedad.moneda)
 
   // --- Vista previa: el nodo mide 1080×1350 y se achica con transform --------
-  const contenedor = useRef<HTMLDivElement>(null)
+  // `area` es el lugar disponible; el flyer escalado se centra adentro. Desde lg
+  // el área tiene alto propio y la escala respeta ancho y alto; debajo de lg el
+  // alto sale de la propia vista previa, así que sólo cuenta el ancho.
+  const area = useRef<HTMLDivElement>(null)
   const nodo = useRef<HTMLDivElement>(null)
   const [escala, setEscala] = useState(0.3)
 
   useEffect(() => {
-    const el = contenedor.current
+    const el = area.current
     if (!el) return
-    const medir = () => setEscala(el.clientWidth / ANCHO)
+    const medir = () => {
+      const porAncho = el.clientWidth / ANCHO
+      const dosColumnas = window.matchMedia('(min-width: 1024px)').matches
+      setEscala(dosColumnas ? Math.min(porAncho, el.clientHeight / ALTO) : porAncho)
+    }
     medir()
     const observador = new ResizeObserver(medir)
     observador.observe(el)
@@ -194,37 +201,39 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   const { Componente } = plantilla
 
   return (
-    <>
-      <fieldset className="m-0 mt-4 min-w-0 border-0 p-0">
-        <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Plantilla</legend>
-        <div className="flex flex-wrap gap-2">
-          {PLANTILLAS.map((p) => {
-            const deshabilitada = !alcanzan(p.fotos)
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => cambiarPlantilla(p.id)}
-                disabled={deshabilitada}
-                aria-pressed={plantillaId === p.id}
-                className={`inline-flex flex-col items-start rounded-lg border bg-surface px-3 py-1.5 text-left text-[0.82rem] font-semibold text-ink disabled:opacity-60 ${
-                  plantillaId === p.id ? 'border-primary ring-1 ring-primary' : 'border-border'
-                }`}
-              >
-                {p.nombre}
-                {deshabilitada && (
-                  <span className="text-[0.72rem] font-normal text-ink-3">
-                    Necesita {p.fotos} fotos
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </fieldset>
+    // Desde lg ocupa lo que le deja la página: los controles scrollean solos y la
+    // vista previa queda quieta con el botón de descarga debajo.
+    <div className="flex flex-col lg:min-h-0 lg:flex-1">
+      <div className="mt-4 grid gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-2 lg:pl-1">
+          <fieldset className="m-0 min-w-0 border-0 p-0">
+            <legend className="mb-1.5 p-0 text-[0.8rem] font-semibold text-ink-2">Plantilla</legend>
+            <div className="flex flex-wrap gap-2">
+              {PLANTILLAS.map((p) => {
+                const deshabilitada = !alcanzan(p.fotos)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => cambiarPlantilla(p.id)}
+                    disabled={deshabilitada}
+                    aria-pressed={plantillaId === p.id}
+                    className={`inline-flex flex-col items-start rounded-lg border bg-surface px-3 py-1.5 text-left text-[0.82rem] font-semibold text-ink disabled:opacity-60 ${
+                      plantillaId === p.id ? 'border-primary ring-1 ring-primary' : 'border-border'
+                    }`}
+                  >
+                    {p.nombre}
+                    {deshabilitada && (
+                      <span className="text-[0.72rem] font-normal text-ink-3">
+                        Necesita {p.fotos} fotos
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
 
-      <div className="mt-4 grid gap-5 md:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-4">
           <Campo id={`${id}-titulo`} label="Título" contador={`${titulo.length}/${MAX_TITULO}`}>
             <input
               id={`${id}-titulo`}
@@ -394,34 +403,35 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3">
-          <div
-            ref={contenedor}
-            className="relative w-full overflow-hidden rounded-lg border border-border"
-            style={{ height: ALTO * escala }}
-          >
+        <div className="order-first flex min-w-0 flex-col gap-3 lg:order-none lg:min-h-0">
+          <div ref={area} className="lg:min-h-0 lg:flex-1">
             <div
-              ref={nodo}
-              style={{ width: ANCHO, height: ALTO, transform: `scale(${escala})`, transformOrigin: 'top left' }}
+              className="relative mx-auto box-content overflow-hidden rounded-lg border border-border"
+              style={{ width: ANCHO * escala, height: ALTO * escala }}
             >
-              <Componente
-                d={{
-                  fotos: elegidas,
-                  titulo: titulo.trim(),
-                  datos: datos
-                    .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
-                    .filter((d) => d.texto),
-                  nota: nota.trim(),
-                  encabezado: encabezado.trim(),
-                  etiqueta,
-                  zona: propiedad.zona?.trim() ?? '',
-                  direccion: conDireccion ? propiedad.direccion.trim() : '',
-                  precio,
-                  agente: agente.trim(),
-                  firma: firma.trim(),
-                  paleta,
-                }}
-              />
+              <div
+                ref={nodo}
+                style={{ width: ANCHO, height: ALTO, transform: `scale(${escala})`, transformOrigin: 'top left' }}
+              >
+                <Componente
+                  d={{
+                    fotos: elegidas,
+                    titulo: titulo.trim(),
+                    datos: datos
+                      .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
+                      .filter((d) => d.texto),
+                    nota: nota.trim(),
+                    encabezado: encabezado.trim(),
+                    etiqueta,
+                    zona: propiedad.zona?.trim() ?? '',
+                    direccion: conDireccion ? propiedad.direccion.trim() : '',
+                    precio,
+                    agente: agente.trim(),
+                    firma: firma.trim(),
+                    paleta,
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -444,7 +454,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
           </button>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

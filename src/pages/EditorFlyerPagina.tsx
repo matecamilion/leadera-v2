@@ -29,7 +29,9 @@ export default function EditorFlyerPagina() {
   }
 
   return (
-    <div className="mx-auto max-w-[900px]">
+    // Desde lg el editor llena la pantalla: 100dvh menos el header (4rem) y el
+    // padding vertical del <main> (4rem). Debajo de lg la página scrollea normal.
+    <div className="mx-auto max-w-[1200px] lg:flex lg:h-[calc(100dvh-8rem)] lg:flex-col">
       <Link
         to="/flyers"
         className="mb-3 inline-flex w-fit items-center gap-1.5 text-[0.9rem] font-bold text-primary transition-colors hover:text-primary-dark motion-reduce:transition-none"

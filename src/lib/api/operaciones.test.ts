@@ -13,6 +13,7 @@ import {
   llevaEscritura,
   MENSAJE_MONTO_RESERVA,
   puntaDeTipo,
+  seMuestraTramite,
   tipoDeReserva,
   type CrearReservaInput,
 } from './operaciones'
@@ -64,6 +65,24 @@ describe('llevaEscritura', () => {
   it('el alquiler no', () => {
     expect(llevaEscritura('ALQUILER')).toBe(false)
     expect(llevaEscritura('BUSQUEDA_ALQUILER')).toBe(false)
+  })
+})
+
+describe('seMuestraTramite', () => {
+  it('hay trámite desde la reserva y después del cierre', () => {
+    expect(seMuestraTramite('VENTA', 'RESERVADA')).toBe(true)
+    expect(seMuestraTramite('COMPRA', 'CERRADA_GANADA')).toBe(true)
+  })
+
+  it('no hay antes de reservar ni cuando se cancela', () => {
+    expect(seMuestraTramite('VENTA', 'PUBLICADA')).toBe(false)
+    expect(seMuestraTramite('VENTA', 'EN_NEGOCIACION')).toBe(false)
+    expect(seMuestraTramite('COMPRA', 'CANCELADA')).toBe(false)
+  })
+
+  it('no hay en el alquiler, cualquiera sea el estado', () => {
+    expect(seMuestraTramite('ALQUILER', 'RESERVADA')).toBe(false)
+    expect(seMuestraTramite('BUSQUEDA_ALQUILER', 'CERRADA_GANADA')).toBe(false)
   })
 })
 

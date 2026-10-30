@@ -13,6 +13,7 @@ import { ModalEditarOperacion } from '../components/operaciones/ModalEditarOpera
 import { SeccionCoincidencias } from '../components/operaciones/SeccionCoincidencias'
 import { BadgeEstadoOperacion } from '../components/operaciones/BadgeEstadoOperacion'
 import { BadgeTipoOperacion } from '../components/operaciones/BadgeTipoOperacion'
+import { ChecklistTramite } from '../components/operaciones/ChecklistTramite'
 import { ChipBusquedaVinculada } from '../components/operaciones/ChipBusquedaVinculada'
 import { ChipLeadOperacion } from '../components/operaciones/ChipLeadOperacion'
 import { ChipPropiedadVinculada } from '../components/operaciones/ChipPropiedadVinculada'
@@ -34,6 +35,7 @@ import {
   etiquetaTipoOperacion,
   formatearMonto,
   llevaCriteriosDeBusqueda,
+  seMuestraTramite,
   seVinculaConBusqueda,
 } from '../lib/api/operaciones'
 import { formatearFecha } from '../lib/formatoFecha'
@@ -217,6 +219,12 @@ export default function DetalleOperacion() {
       </div>
 
       <StepperOperacion tipo={operacion.tipo} estado={operacion.estado} />
+
+      {/* El trámite sigue con la operación cerrada: `bloqueada` apaga los datos
+          de la ficha, no este checklist. */}
+      {seMuestraTramite(operacion.tipo, operacion.estado) && (
+        <ChecklistTramite operacionId={operacion.id} />
+      )}
 
       {/* ------------------------------ FICHA ------------------------------ */}
       <div className="mb-4 rounded-[14px] border border-border bg-surface px-6 py-5">

@@ -161,6 +161,18 @@ export function llevaEscritura(tipo: TipoOperacion): boolean {
 }
 
 /**
+ * ¿Se muestra el checklist del trámite en la ficha?
+ *
+ * Arranca con la reserva y sigue después del cierre: la operación se cierra al
+ * aceptarse el acuerdo, y el trámite corre durante semanas con la fila ya
+ * cerrada. Antes de reservar no hay trámite, y una cancelada no lo tiene más.
+ * No mira `esBloqueada`: eso congela los datos de la ficha, no el trámite.
+ */
+export function seMuestraTramite(tipo: TipoOperacion, estado: EstadoOperacion): boolean {
+  return llevaEscritura(tipo) && (estado === 'RESERVADA' || estado === 'CERRADA_GANADA')
+}
+
+/**
  * Cómo se llama el lead de la operación según el tipo.
  *
  * El campo decía "Lead" a secas en los cuatro tipos, y en una VENTA no había

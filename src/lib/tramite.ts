@@ -64,3 +64,25 @@ export function siguientePaso(filas: FilaPasoTramite[]): PasoTramite | null {
 export function escrituraHecha(filas: FilaPasoTramite[]): boolean {
   return filaDe(filas, 'ESCRITURA')?.fecha_completado != null
 }
+
+/** `DD/MM` de una fecha `YYYY-MM-DD`, sin pasar por `Date` (que la correría por la zona). */
+export function formatearDiaMes(fecha: string): string {
+  const [, mes, dia] = fecha.split('-')
+  return `${dia}/${mes}`
+}
+
+/**
+ * La línea de estado del encabezado: lo que ya pasó con la escritura o, si no,
+ * lo que viene. Si no queda nada por hacer y la escritura no se firmó (se marcó
+ * "no aplica"), el trámite está completo igual.
+ */
+export function textoEstadoTramite(filas: FilaPasoTramite[]): string {
+  const escritura = filaDe(filas, 'ESCRITURA')
+  if (escritura?.fecha_completado) {
+    return `Escritura realizada el ${formatearDiaMes(escritura.fecha_completado)}`
+  }
+  const siguiente = siguientePaso(filas)
+  if (!siguiente) return 'Trámite completo'
+  const etiqueta = PASOS_TRAMITE.find((p) => p.clave === siguiente)?.etiqueta
+  return `Siguiente: ${etiqueta}`
+}

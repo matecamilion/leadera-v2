@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   escrituraHecha,
+  formatearDiaMes,
   PASOS_TRAMITE,
   pasosFaltantes,
   pasosResueltos,
   siguientePaso,
+  textoEstadoTramite,
   type FilaPasoTramite,
 } from './tramite'
 
@@ -109,5 +111,34 @@ describe('escrituraHecha', () => {
   it('no la deduce de los otros pasos', () => {
     const filas = PASOS_TRAMITE.filter((p) => p.clave !== 'ESCRITURA').map((p) => hecho(p.clave))
     expect(escrituraHecha(filas)).toBe(false)
+  })
+})
+
+describe('formatearDiaMes', () => {
+  it('da DD/MM sin correr el día por la zona horaria', () => {
+    expect(formatearDiaMes('2026-11-05')).toBe('05/11')
+    expect(formatearDiaMes('2026-01-31')).toBe('31/01')
+  })
+})
+
+describe('textoEstadoTramite', () => {
+  it('sin nada hecho, apunta al primer paso', () => {
+    expect(textoEstadoTramite([])).toBe('Siguiente: Presupuestos de escribanías pedidos')
+  })
+
+  it('apunta al primer paso sin resolver', () => {
+    const filas = [hecho('PRESUPUESTOS_PEDIDOS'), noAplica('ESCRIBANIA_ELEGIDA')]
+    expect(textoEstadoTramite(filas)).toBe('Siguiente: Documentación enviada a la escribanía')
+  })
+
+  it('con la escritura hecha, dice cuándo', () => {
+    expect(textoEstadoTramite([hecho('ESCRITURA', '2026-12-09')])).toBe(
+      'Escritura realizada el 09/12',
+    )
+  })
+
+  it('con todo resuelto pero la escritura en "no aplica", está completo', () => {
+    const filas = PASOS_TRAMITE.map((p) => noAplica(p.clave))
+    expect(textoEstadoTramite(filas)).toBe('Trámite completo')
   })
 })

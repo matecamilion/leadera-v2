@@ -98,16 +98,15 @@ export function useContactadosHoy() {
 }
 
 /**
- * Los leads que llevan 21 días o más sin contacto real. Mismo alcance que el resto
- * de Mi día: el asistente ve los que tiene asignados, el resto todo lo visible.
+ * Los leads que llevan 21 días o más sin contacto real. A diferencia del resto
+ * de Mi día, el asistente no filtra por `asignado_a`: ve todos los del agente al
+ * que asiste, así que no hay alcance en la clave ni espera al perfil.
  */
 export function useLeadsPorEnfriarse() {
   const uid = useUid()
-  const { profile } = useAuth()
-  const asignadoA = asignadoAPorDefecto(profile?.rol, uid)
   return useQuery<PorEnfriarse>({
-    queryKey: claves.leads.porEnfriarse(uid, asignadoA ? 'mios' : 'todos'),
-    queryFn: () => obtenerLeadsPorEnfriarse(asignadoA),
-    enabled: !!uid && !!profile,
+    queryKey: claves.leads.porEnfriarse(uid),
+    queryFn: obtenerLeadsPorEnfriarse,
+    enabled: !!uid,
   })
 }

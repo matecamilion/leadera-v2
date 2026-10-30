@@ -202,7 +202,7 @@ export const claves = {
     contactadosHoy: (uid: Uid, alcance: Alcance) =>
       ['leads', 'contactados-hoy', uid, alcance] as const,
     /** Leads por enfriarse de Mi día. Bajo `leads`: registrar un contacto o agendar un seguimiento lo refresca. */
-    porEnfriarse: (uid: Uid, alcance: Alcance) => ['leads', 'por-enfriarse', uid, alcance] as const,
+    porEnfriarse: (uid: Uid) => ['leads', 'por-enfriarse', uid] as const,
     /** Conteo para el badge del menú. Bajo `leads`: lo refresca cualquier invalidación de leads. */
     nuevos: (uid: Uid, alcance: Alcance) => ['leads', 'nuevos', uid, alcance] as const,
     /** ¿Hay algún lead, de cualquier estado? Bajo `leads`: crear o borrar uno la invalida. */

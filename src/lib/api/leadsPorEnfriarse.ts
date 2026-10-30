@@ -36,12 +36,12 @@ export function aPorEnfriarse(filas: FilaRpc[]): PorEnfriarse {
 /**
  * Leads sin contacto real desde hace `DIAS_AVISO_ENFRIARSE` días o más.
  *
- * `asignadoA` acota a los que lleva ese miembro (el asistente); sin él, RLS
- * decide qué ve cada rol, igual que en el resto de Mi día.
+ * No filtra por `asignado_a`: RLS decide qué ve cada rol, y un asistente ve
+ * los del agente al que asiste, estén asignados a él o no. Por eso no se manda
+ * `p_asignado_a`, que la RPC deja en null.
  */
-export async function obtenerLeadsPorEnfriarse(asignadoA?: string): Promise<PorEnfriarse> {
+export async function obtenerLeadsPorEnfriarse(): Promise<PorEnfriarse> {
   const { data, error } = await supabase.rpc('leads_por_enfriarse', {
-    p_asignado_a: asignadoA,
     p_dias_aviso: DIAS_AVISO_ENFRIARSE,
     p_limite: LIMITE_POR_ENFRIARSE,
   })

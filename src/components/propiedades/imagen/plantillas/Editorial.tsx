@@ -15,7 +15,6 @@ import { Foto } from '../Foto'
 import { IconoDato } from '../iconos'
 import { TextoAjustado } from '../TextoAjustado'
 import { bordeDeFoto } from '../paletas'
-import { subtituloSinZona } from '../subtitulo'
 import type { DatosImagen } from '../tipos'
 
 const MARGEN_TEXTO = 56
@@ -42,17 +41,15 @@ const bloque: CSSProperties = {
 }
 
 /**
- * Editorial: crema y un acento fino. La zona es el titular, serif y grande; el
- * título que escribe el agente va debajo, en la sans, sin repetir la zona. Sin
- * zona, el titular es el título. El presupuesto vertical está en `repartirAlto`
+ * Editorial: crema y un acento fino. El título es el titular, serif y grande; el
+ * subtítulo va debajo, en la sans, y si falta no deja hueco. El presupuesto vertical está en `repartirAlto`
  * (`alturasEditorial.ts`).
  */
 export function Editorial({ d }: { d: DatosImagen }) {
   const { fondo, tinta, acento, acentoTexto, sobreAcento } = d.paleta
   const [principal, ...chicas] = d.fotos
   const borde = bordeDeFoto(d.paleta)
-  const titular = d.zona || d.titulo
-  const subtitulo = d.zona ? subtituloSinZona(d.titulo, d.zona) : ''
+  const { titulo: titular, subtitulo } = d
   const { alturaInferior, altoTitular, altoPrecio, altoFoto } = repartirAlto({
     subtitulo: subtitulo !== '',
     direccion: d.direccion !== '',
@@ -132,18 +129,14 @@ export function Editorial({ d }: { d: DatosImagen }) {
         />
 
         {subtitulo && (
-          <div
-            style={{
-              ...unaLinea,
-              height: ALTO_SUBTITULO,
-              lineHeight: `${ALTO_SUBTITULO}px`,
-              textAlign: 'center',
-              fontSize: 44,
-              fontWeight: 600,
-            }}
-          >
-            {subtitulo}
-          </div>
+          <TextoAjustado
+            texto={subtitulo}
+            tamanoMax={44}
+            tamanoMin={28}
+            altoMax={ALTO_SUBTITULO}
+            interlineado={1.1}
+            style={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+          />
         )}
 
         {d.direccion && (

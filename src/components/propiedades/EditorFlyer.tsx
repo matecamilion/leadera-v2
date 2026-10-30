@@ -16,6 +16,13 @@ import { PALETAS } from './imagen/paletas'
 import { PLANTILLAS } from './imagen/registro'
 import { SelectorFotos } from './imagen/SelectorFotos'
 import type { ClaveIcono, ClavePaleta, DatoImagen } from './imagen/tipos'
+import {
+  MAX_SUBTITULO,
+  MAX_TITULO,
+  subtituloInicial,
+  tituloEfectivo,
+  tituloInicial,
+} from './imagen/titulos'
 import './imagen/fonts-imagen.css'
 
 export type DatosPropiedad = Pick<
@@ -32,7 +39,6 @@ export type DatosPropiedad = Pick<
   | 'fotos_urls'
 >
 
-const MAX_TITULO = 24
 const MAX_DATO = 24
 const MAX_NOTA = 40
 const CANTIDAD_DATOS = 4
@@ -48,14 +54,6 @@ function sanear(texto: string): string {
 
 function plural(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`
-}
-
-/** `Departamento en Palermo`, sólo si entra en el máximo: si no, que lo escriba el agente. */
-function tituloInicial(p: DatosPropiedad): string {
-  const zona = p.zona?.trim()
-  if (!zona) return ''
-  const titulo = `${etiquetaTipo(p.tipo)} en ${zona}`
-  return titulo.length <= MAX_TITULO ? titulo : ''
 }
 
 /** Ambientes, baños y m² cubiertos cuando existen; el resto de los lugares, vacíos. */
@@ -100,7 +98,13 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
   const [etiqueta, setEtiqueta] = useState(
     propiedad.finalidad === 'ALQUILER' ? 'EN ALQUILER' : 'EN VENTA',
   )
-  const [titulo, setTitulo] = useState(() => tituloInicial(propiedad))
+  const [titulo, setTitulo] = useState(() => tituloInicial(propiedad.zona, propiedad.direccion))
+  const [subtitulo, setSubtitulo] = useState(() =>
+    subtituloInicial(
+      etiquetaTipo(propiedad.tipo),
+      tituloEfectivo(titulo, propiedad.zona, propiedad.direccion),
+    ),
+  )
   const [datos, setDatos] = useState(() => datosIniciales(propiedad))
   const [nota, setNota] = useState('')
   const [claveDePaleta, setClaveDePaleta] = useState<ClavePaleta>(plantilla.paletaInicial)
@@ -124,8 +128,7 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
 
   const paleta = PALETAS.find((p) => p.clave === claveDePaleta) ?? PALETAS[0]
   const encabezado = encabezadoEditado ?? inmobiliaria ?? ''
-  const sinTitulo = titulo.trim() === ''
-  const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos && !sinTitulo
+  const listo = alcanzan(plantilla.fotos) && elegidas.length === plantilla.fotos
 
   const precio =
     propiedad.precio == null ? 'Consultar' : formatearPrecio(propiedad.precio, propiedad.moneda)
@@ -242,7 +245,20 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
               onChange={(e) => setTitulo(e.target.value)}
               className={CLASES_INPUT}
             />
-            {sinTitulo && <p className="m-0 text-xs text-peligro-ink">Escribí un título</p>}
+          </Campo>
+
+          <Campo
+            id={`${id}-subtitulo`}
+            label="Subtítulo"
+            contador={`${subtitulo.length}/${MAX_SUBTITULO}`}
+          >
+            <input
+              id={`${id}-subtitulo`}
+              value={subtitulo}
+              maxLength={MAX_SUBTITULO}
+              onChange={(e) => setSubtitulo(e.target.value)}
+              className={CLASES_INPUT}
+            />
           </Campo>
 
           <fieldset className="m-0 min-w-0 border-0 p-0">
@@ -416,14 +432,14 @@ export function EditorFlyer({ propiedad }: { propiedad: DatosPropiedad }) {
                 <Componente
                   d={{
                     fotos: elegidas,
-                    titulo: titulo.trim(),
+                    titulo: tituloEfectivo(titulo, propiedad.zona, propiedad.direccion),
+                    subtitulo: subtitulo.trim(),
                     datos: datos
                       .map((d) => ({ icono: d.icono, texto: d.texto.trim() }))
                       .filter((d) => d.texto),
                     nota: nota.trim(),
                     encabezado: encabezado.trim(),
                     etiqueta,
-                    zona: propiedad.zona?.trim() ?? '',
                     direccion: conDireccion ? propiedad.direccion.trim() : '',
                     precio,
                     agente: agente.trim(),

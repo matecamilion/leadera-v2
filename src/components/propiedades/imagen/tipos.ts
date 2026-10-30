@@ -48,13 +48,15 @@ export interface PaletaImagen {
 export interface DatosImagen {
   /** Las fotos elegidas, en orden: la 1 es la principal. */
   fotos: string[]
+  /** El texto grande, ya resuelto: nunca vacío. */
   titulo: string
+  /** El texto chico. Vacío = no se dibuja. */
+  subtitulo: string
   /** Hasta 4 datos cortos con su ícono, ya sin los de texto vacío. */
   datos: DatoImagen[]
   nota: string
   encabezado: string
   etiqueta: string
-  zona: string
   /** Vacía si el interruptor de dirección está apagado. */
   direccion: string
   precio: string

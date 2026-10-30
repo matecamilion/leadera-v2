@@ -38,7 +38,7 @@ const bloque: CSSProperties = {
  * Impacto: título enorme en el acento y banda de pie llena.
  *
  * Presupuesto vertical (px): encabezado 90 + bloque del título 258 (título
- * 170, zona 52, dirección 36) + fotos 718 (principal 460, separación 8,
+ * 170, subtítulo 52, dirección 36) + fotos 718 (principal 460, separación 8,
  * miniaturas 250) + datos 84 + banda 150 + margen 24 = 1324.
  */
 export function Impacto({ d }: { d: DatosImagen }) {
@@ -111,20 +111,17 @@ export function Impacto({ d }: { d: DatosImagen }) {
           style={{ fontFamily: FAMILIA_SERIF, fontWeight: 900 }}
         />
 
-        {d.zona && (
-          <div
-            style={{
-              ...unaLinea,
-              height: 52,
-              lineHeight: '52px',
-              textAlign: 'center',
-              fontSize: 44,
-              fontWeight: 800,
-              letterSpacing: 8,
-            }}
-          >
-            {d.zona}
-          </div>
+        {/* El renglón más angosto de la pieza: se achica en vez de cortarse.
+            El espaciado va en em para que acompañe al tamaño (8 px a 44 px). */}
+        {d.subtitulo && (
+          <TextoAjustado
+            texto={d.subtitulo}
+            tamanoMax={44}
+            tamanoMin={22}
+            altoMax={52}
+            interlineado={1.1}
+            style={{ fontWeight: 800, letterSpacing: '0.18em', whiteSpace: 'nowrap' }}
+          />
         )}
 
         {d.direccion && (

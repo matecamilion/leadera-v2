@@ -38,7 +38,7 @@ const bloque: CSSProperties = {
  * Moderno: grotesca ultra negra, tinta sobre crema, sin rellenos de color.
  *
  * Presupuesto vertical (px): fila superior 84 + bloque del título 280 (título
- * 250 a la izquierda; zona, dirección y datos a la derecha) + fotos 736
+ * 250 a la izquierda; subtítulo, dirección y datos a la derecha) + fotos 736
  * (principal 440, separación 6, miniaturas 290) + línea 28 + pie 170
  * + margen 24 = 1322.
  */
@@ -132,18 +132,15 @@ export function Moderno({ d }: { d: DatosImagen }) {
         <div style={{ flexShrink: 0, width: 4, height: 220, margin: '0 20px', background: acento }} />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          {d.zona && (
-            <div
-              style={{
-                ...unaLinea,
-                height: 44,
-                lineHeight: '44px',
-                fontSize: 34,
-                fontWeight: 800,
-              }}
-            >
-              {d.zona}
-            </div>
+          {d.subtitulo && (
+            <TextoAjustado
+              texto={d.subtitulo}
+              tamanoMax={34}
+              tamanoMin={14}
+              altoMax={44}
+              interlineado={1.1}
+              style={{ fontWeight: 800, textAlign: 'left', whiteSpace: 'nowrap' }}
+            />
           )}
 
           {d.direccion && (
@@ -152,7 +149,7 @@ export function Moderno({ d }: { d: DatosImagen }) {
             </div>
           )}
 
-          {d.datos.length > 0 && (d.zona || d.direccion) && (
+          {d.datos.length > 0 && (d.subtitulo || d.direccion) && (
             <div style={{ height: 4, margin: '9px 0', background: acento }} />
           )}
 

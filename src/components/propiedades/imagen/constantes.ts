@@ -4,6 +4,9 @@ import type { ClaveIcono } from './tipos'
 export const ANCHO = 1080
 export const ALTO = 1350
 
+/** Las fotos que pide la plantilla que menos pide: con menos no hay flyer posible. */
+export const FOTOS_PARA_FLYER = 3
+
 /** La serif la carga `fonts-imagen.css`; la sans ya la carga la app. */
 export const FAMILIA_SERIF = '"Playfair Display Variable", Georgia, serif'
 export const FAMILIA_SANS = '"Figtree Variable", system-ui, sans-serif'

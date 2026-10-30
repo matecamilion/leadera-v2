@@ -30,6 +30,8 @@ const Coincidencias = lazy(() => import('./pages/Coincidencias'))
 const Propiedades = lazy(() => import('./pages/Propiedades'))
 const NuevaPropiedad = lazy(() => import('./pages/NuevaPropiedad'))
 const DetallePropiedad = lazy(() => import('./pages/DetallePropiedad'))
+const Flyers = lazy(() => import('./pages/Flyers'))
+const EditorFlyerPagina = lazy(() => import('./pages/EditorFlyerPagina'))
 const Operaciones = lazy(() => import('./pages/Operaciones'))
 const KanbanOperaciones = lazy(() => import('./pages/KanbanOperaciones'))
 const Equipo = lazy(() => import('./pages/Equipo'))
@@ -128,6 +130,8 @@ export default function App() {
                   <Route path="/propiedades" element={<Propiedades />} />
                   <Route path="/propiedades/nueva" element={<NuevaPropiedad />} />
                   <Route path="/propiedades/:id" element={<DetallePropiedad />} />
+                  <Route path="/flyers" element={<Flyers />} />
+                  <Route path="/flyers/:propiedadId" element={<EditorFlyerPagina />} />
                   <Route path="/operaciones" element={<Operaciones />} />
                   <Route path="/operaciones/tablero" element={<KanbanOperaciones />} />
                   <Route path="/operaciones/nueva" element={<NuevaOperacion />} />

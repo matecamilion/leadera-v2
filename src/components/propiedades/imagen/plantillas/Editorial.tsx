@@ -110,7 +110,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
               textTransform: 'uppercase',
               fontSize: 26,
               fontWeight: 500,
-              letterSpacing: 9,
+              letterSpacing: 1,
               color: acentoTexto,
             }}
           >
@@ -123,7 +123,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
           tamanoMax={100}
           tamanoMin={36}
           altoMax={110}
-          style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700 }}
+          style={{ fontFamily: FAMILIA_SERIF, fontWeight: 700, letterSpacing: '-0.02em' }}
         />
 
         {d.direccion && (
@@ -242,6 +242,7 @@ export function Editorial({ d }: { d: DatosImagen }) {
             fontFamily: FAMILIA_SERIF,
             fontSize: 64,
             fontWeight: 700,
+            letterSpacing: '-0.02em',
             whiteSpace: 'nowrap',
             color: acentoTexto,
           }}
@@ -262,10 +263,9 @@ export function Editorial({ d }: { d: DatosImagen }) {
                 padding: '8px 36px',
                 border: `3px solid ${acento}`,
                 color: acentoTexto,
-                textTransform: 'uppercase',
                 fontSize: 24,
                 fontWeight: 600,
-                letterSpacing: 4,
+                letterSpacing: 1,
               }}
             >
               {d.nota}
@@ -280,10 +280,9 @@ export function Editorial({ d }: { d: DatosImagen }) {
               height: 50,
               lineHeight: '50px',
               textAlign: 'center',
-              textTransform: 'uppercase',
               fontSize: 22,
               fontWeight: 600,
-              letterSpacing: 4,
+              letterSpacing: 1,
             }}
           >
             {[d.agente, d.firma].filter(Boolean).join(' · ')}

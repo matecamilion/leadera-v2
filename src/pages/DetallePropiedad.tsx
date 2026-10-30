@@ -36,9 +36,6 @@ const BotonExportarFicha = lazy(() =>
   })),
 )
 
-/** Con sus fuentes y html-to-image: se baja recién cuando se abre "Crear flyer". */
-const PanelCrearImagen = lazy(() => import('../components/propiedades/PanelCrearImagen'))
-
 type ModalAbierto ='editar' | 'eliminar' | 'visita' | null
 
 export default function DetallePropiedad() {
@@ -51,7 +48,6 @@ export default function DetallePropiedad() {
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
   // El link de consultas se crea recién la primera vez que se abre el panel.
   const [linkAbierto, setLinkAbierto] = useState(false)
-  const [imagenAbierta, setImagenAbierta] = useState(false)
   const [fotosAbiertas, setFotosAbiertas] = useState(false)
   // La ficha en PDF se arma una por vez: mientras haya una en curso, se ignora otro pedido.
   const [exportando, setExportando] = useState(false)
@@ -116,7 +112,7 @@ export default function DetallePropiedad() {
           }
           onAgendarVisita={() => setModal('visita')}
           onEditar={() => setModal('editar')}
-          onCrearImagen={() => setImagenAbierta(true)}
+          onCrearImagen={() => navigate(`/flyers/${propiedad.id}`)}
           onExportarFicha={() => {
             if (exportando) return
             mostrarAviso('Generando la ficha…')
@@ -156,20 +152,6 @@ export default function DetallePropiedad() {
           <PanelLinkPropiedad propiedad={propiedad} onCerrar={() => setLinkAbierto(false)} />
         )}
 
-        {imagenAbierta && (
-          <Suspense
-            fallback={
-              <div
-                aria-busy="true"
-                aria-label="Cargando el panel del flyer"
-                className="mb-6 h-48 animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
-              />
-            }
-          >
-            <PanelCrearImagen propiedad={propiedad} onCerrar={() => setImagenAbierta(false)} />
-          </Suspense>
-        )}
-
         <div className="mb-6">
           <GaleriaPortal
             fotos={propiedad.fotos_urls ?? []}
@@ -183,7 +165,7 @@ export default function DetallePropiedad() {
               propiedadId={propiedad.id}
               fotos={propiedad.fotos_urls ?? []}
               onCerrar={() => setFotosAbiertas(false)}
-              onCrearFlyer={() => setImagenAbierta(true)}
+              onCrearFlyer={() => navigate(`/flyers/${propiedad.id}`)}
             />
           </div>
         )}

@@ -9,6 +9,7 @@ import { etiquetaRol } from '../lib/api/equipo'
 import { DETALLE_PLAN } from '../lib/api/suscripcion'
 import { claveDia } from '../lib/calendario'
 import { useUiStore } from '../stores/ui'
+import { CLAVE_FLYER_VISTO, guardar, leerGuardado } from './propiedades/imagen/almacenamiento'
 import { AvisoFlash } from './AvisoFlash'
 import { BannerSuscripcion } from './BannerSuscripcion'
 import { BotonTema } from './BotonTema'
@@ -30,6 +31,8 @@ interface ItemNav {
   /** Roles que ven el link. Sin esto, lo ven todos. */
   roles?: RolAgente[]
   badge?: Badge
+  /** Muestra "Nuevo" hasta que se visita el ítem (ver `CLAVE_FLYER_VISTO`). */
+  nuevo?: boolean
   /** Activo sólo en `to` exacto, no en sus subrutas. */
   exacto?: boolean
   /** Subruta de `to` donde el ítem NO se marca activo, porque la tiene otro ítem. */
@@ -141,6 +144,19 @@ const NAV: GrupoNav[] = [
         ),
       },
       {
+        to: '/flyers',
+        label: 'Flyers',
+        nuevo: true,
+        icono: (
+          <svg {...trazo}>
+            <rect x="5" y="3" width="14" height="18" rx="2" />
+            <path d="M5 12h14" />
+            <circle cx="9.5" cy="7.5" r="1.2" />
+            <path d="M8.5 16h7M8.5 18.5h4" />
+          </svg>
+        ),
+      },
+      {
         to: '/operaciones',
         label: 'Operaciones',
         // /operaciones/reservas tiene su propio ítem: sin esto quedarían los dos activos.
@@ -228,6 +244,15 @@ export function AppLayout() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  // Entrar a /flyers (lista o editor) apaga el "Nuevo" del menú. Se lee del
+  // storage en cada render, que ocurre con cada navegación, y se muestra
+  // apagado en la misma pasada en que se guarda.
+  const enFlyers = location.pathname.startsWith('/flyers')
+  useEffect(() => {
+    if (enFlyers) guardar(CLAVE_FLYER_VISTO, '1')
+  }, [enFlyers])
+  const flyerVisto = enFlyers || leerGuardado(CLAVE_FLYER_VISTO) === '1'
 
   const esDueno = profile?.rol === 'DUENO'
 
@@ -339,6 +364,11 @@ export function AppLayout() {
                       >
                         {item.icono}
                         {item.label}
+                        {item.nuevo && !flyerVisto && (
+                          <span className="ml-auto rounded-full bg-primary px-1.5 py-px text-[0.62rem] leading-tight font-bold text-primary-contrast uppercase">
+                            Nuevo
+                          </span>
+                        )}
                         {n > 0 && (
                           <span
                             aria-label={

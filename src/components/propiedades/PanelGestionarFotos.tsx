@@ -3,17 +3,15 @@ import { useFotosPropiedad } from '../../hooks/useFotosPropiedad'
 import { MAX_FOTOS } from '../../lib/api/storage'
 import { ModalConfirmarEliminar } from '../comunes/ModalConfirmarEliminar'
 import { IconoCerrar, IconoTacho } from '../leads/Iconos'
+import { FOTOS_PARA_FLYER } from './imagen/constantes'
 
 interface Props {
   propiedadId: string
   fotos: string[]
   onCerrar: () => void
-  /** Abre el panel del flyer. */
+  /** Lleva al editor de flyers. */
   onCrearFlyer: () => void
 }
-
-/** Con menos fotos que esto ninguna plantilla del flyer se puede usar. */
-const FOTOS_PARA_FLYER = 3
 
 const CLASE_ACCION =
   'inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-[0.78rem] font-semibold transition-colors hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 motion-reduce:transition-none'

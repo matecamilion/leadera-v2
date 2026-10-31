@@ -201,7 +201,6 @@ export function construirMensajeReconfirmacion({
     `Hola ${nombre}! Te escribo para reconfirmar la visita de ${cuando}, ${nombreDelDia(fecha)} ${diaMes}${aLas}, en ${direccion}.`,
   ]
   if (link) lineas.push(`Publicación: ${link}`)
-  lineas.push('¿Seguimos en pie?')
   return lineas.join('\n')
 }
 

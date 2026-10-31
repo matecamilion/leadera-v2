@@ -52,7 +52,7 @@ describe('construirMensajeReconfirmacion', () => {
 
   it('dice "mañana" con día de la semana, fecha, hora sin segundos y dirección', () => {
     expect(construirMensajeReconfirmacion(base)).toBe(
-      'Hola Juan! Te escribo para reconfirmar la visita de mañana, jueves 29/10, a las 10:30, en Alvear 3355.\n¿Seguimos en pie?',
+      'Hola Juan! Te escribo para reconfirmar la visita de mañana, jueves 29/10, a las 10:30, en Alvear 3355.',
     )
   })
 
@@ -68,7 +68,7 @@ describe('construirMensajeReconfirmacion', () => {
       link: 'https://portal.com/aviso/123',
     })
     expect(mensaje).toBe(
-      'Hola Juan! Te escribo para reconfirmar la visita de mañana, jueves 29/10, a las 10:30, en Casa en Los Troncos.\nPublicación: https://portal.com/aviso/123\n¿Seguimos en pie?',
+      'Hola Juan! Te escribo para reconfirmar la visita de mañana, jueves 29/10, a las 10:30, en Casa en Los Troncos.\nPublicación: https://portal.com/aviso/123',
     )
   })
 

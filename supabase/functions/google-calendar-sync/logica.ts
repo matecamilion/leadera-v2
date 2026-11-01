@@ -81,6 +81,49 @@ export interface Registro {
   google_event_id: string | null
 }
 
+/** Lo que se lee de una visita para armar su evento. */
+export interface FilaVisita {
+  fecha: string
+  hora: string | null
+  notas: string | null
+  estado: string
+  google_event_id: string | null
+  /** Solo en visitas externas (sin propiedad): el texto libre con que se agendó. */
+  titulo_externo: string | null
+  link_externo: string | null
+  propiedades: { direccion: string } | null
+}
+
+/**
+ * La visita como registro a sincronizar.
+ *
+ * La visita no tiene título propio. Se arma con la misma cadena que
+ * `visitaAEvento` en `hooks/useTareas.ts`, para que el evento en Google se lea
+ * igual que la fila en el calendario de LeadEra: la dirección de la propiedad;
+ * si es una visita externa (sin propiedad), su `titulo_externo`; y si no hay
+ * ninguna de las dos, "Propiedad".
+ *
+ * La descripción son las notas y, debajo, el link externo si existe. Sin link
+ * queda exactamente como antes: las notas tal cual.
+ */
+export function visitaARegistro(fila: FilaVisita): Registro {
+  const direccion = fila.propiedades?.direccion ?? fila.titulo_externo ?? 'Propiedad'
+
+  const descripcion = fila.link_externo
+    ? [fila.notas?.trim() ? fila.notas : null, fila.link_externo].filter(Boolean).join('\n\n')
+    : fila.notas
+
+  return {
+    tipo: 'visita',
+    titulo: `Visita: ${direccion}`,
+    descripcion,
+    fecha: fila.fecha,
+    hora: fila.hora,
+    estadoVisible: fila.estado === 'CANCELADA' ? 'Cancelada' : null,
+    google_event_id: fila.google_event_id,
+  }
+}
+
 /** Quién dispara la llamada: para los logs. Nunca tokens ni cuerpos de Google. */
 export interface Disparador {
   id: string

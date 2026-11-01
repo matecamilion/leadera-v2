@@ -38,9 +38,11 @@ import {
   type DepsSync,
   type Entrada,
   type FilaToken,
+  type FilaVisita,
   type Registro,
   type Tipo,
   ejecutarSync,
+  visitaARegistro,
 } from './logica.ts'
 
 const TIMEOUT_GOOGLE_MS = 15_000
@@ -346,33 +348,19 @@ async function leerRegistro(
     }
   }
 
-  // La visita no tiene título propio: se arma con la dirección de la propiedad,
-  // igual que `visitaAEvento` en `hooks/useTareas.ts`, para que el evento en
-  // Google se lea igual que la fila en el calendario de LeadEra.
+  // El título y la descripción de la visita los arma `visitaARegistro`: la
+  // dirección de la propiedad, o el título de una visita externa.
   const { data } = await admin
     .from('visitas')
-    .select('fecha, hora, notas, estado, google_event_id, propiedades(direccion)')
+    .select(
+      'fecha, hora, notas, estado, google_event_id, titulo_externo, link_externo, propiedades(direccion)',
+    )
     .eq('id', id)
     .eq('inmobiliaria_id', contexto.inmobiliariaId)
     .or(delEquipo)
-    .maybeSingle<{
-      fecha: string
-      hora: string | null
-      notas: string | null
-      estado: string
-      google_event_id: string | null
-      propiedades: { direccion: string } | null
-    }>()
+    .maybeSingle<FilaVisita>()
 
   if (!data) return null
 
-  return {
-    tipo,
-    titulo: `Visita: ${data.propiedades?.direccion ?? 'Propiedad'}`,
-    descripcion: data.notas,
-    fecha: data.fecha,
-    hora: data.hora,
-    estadoVisible: data.estado === 'CANCELADA' ? 'Cancelada' : null,
-    google_event_id: data.google_event_id,
-  }
+  return visitaARegistro(data)
 }

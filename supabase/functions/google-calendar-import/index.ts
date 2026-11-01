@@ -36,6 +36,7 @@
  */
 import { adminClient, bearerToken } from '../_shared/supabase.ts'
 import { GOOGLE_TOKEN_URL, MARCA_ORIGEN } from '../_shared/google.ts'
+import { esAsistente, rolesDeUsuarios } from '../_shared/permisosGoogle.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars'
@@ -109,6 +110,7 @@ interface Resumen {
     | 'sync_token_vencido'
     | 'reautorizar'
     | 'importacion_no_activada'
+    | 'asistente_ignorado'
   error?: string
 }
 
@@ -154,10 +156,35 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'lectura_cuentas', detalle: error.message }, { status: 500 })
   }
 
+  // Un asistente no tiene calendario propio: lo que importara quedaría a su
+  // nombre y el equipo no lo vería como del agente. Se leen los roles de todas
+  // las cuentas juntas. Si la lectura falla se corta la corrida y no se importa
+  // nada: asumir un rol dejaría pasar justo lo que este filtro frena.
+  let roles: Map<string, string>
+  try {
+    roles = await rolesDeUsuarios(
+      admin,
+      ((cuentas ?? []) as Cuenta[]).map((c) => c.agente_id),
+    )
+  } catch (err) {
+    console.error('google-calendar-import: no se pudieron leer los roles', err)
+    return Response.json(
+      { error: 'lectura_roles', detalle: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    )
+  }
+
   const resumenes: Resumen[] = []
   // En serie y no en paralelo: son pocas cuentas y así un pico de Google o de
   // la base no se multiplica por la cantidad de agentes.
   for (const cuenta of (cuentas ?? []) as Cuenta[]) {
+    // Se ignora sin tocar Google ni la fila (ni sus contadores): queda como
+    // está hasta que alguien la limpie. Aparece en el resumen.
+    if (esAsistente(roles.get(cuenta.agente_id))) {
+      resumenes.push(resumenVacio(cuenta, 'asistente_ignorado'))
+      continue
+    }
+
     // Sin opt-in no se toca nada de esa cuenta: ni Google, ni sus contadores de
     // error. Aparece en el resumen para que se vea que existe y está apagada.
     if (!cuenta.importacion_activa) {

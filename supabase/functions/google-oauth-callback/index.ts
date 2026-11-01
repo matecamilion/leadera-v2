@@ -20,6 +20,7 @@
  */
 import { adminClient } from '../_shared/supabase.ts'
 import { GOOGLE_TOKEN_URL, redirectUri, verificarState } from '../_shared/google.ts'
+import { puedeConectarGoogle, rolDeUsuario } from '../_shared/permisosGoogle.ts'
 
 const TIMEOUT_GOOGLE_MS = 15_000
 
@@ -40,6 +41,8 @@ type Motivo =
   | 'token_error'
   | 'sin_refresh_token'
   | 'guardado_error'
+  // Un asistente (o alguien sin perfil) no puede conectar: lo hace su agente.
+  | 'sin_permiso'
 
 interface RespuestaToken {
   access_token?: string
@@ -101,6 +104,24 @@ Deno.serve(async (req) => {
     if (!code) {
       console.error(`google-oauth-callback: sin code para el agente ${agenteId}`)
       return redirigir(destino, { google: 'error', motivo: 'sin_codigo' })
+    }
+
+    // --- 2b. Rol ------------------------------------------------------------
+    // Se repite el chequeo de `google-oauth-init` porque el `state` vale 10
+    // minutos: alguien que lo obtuvo antes de ser asistente (o que cambió de
+    // rol en el medio) no puede guardar un token por esta vía. Va antes de
+    // canjear el `code`, así no se gasta un consentimiento que no se va a usar.
+    // Falla cerrado: sin perfil, o si la lectura falla, no se guarda nada.
+    let rol: string | null
+    try {
+      rol = await rolDeUsuario(adminClient(), agenteId)
+    } catch (err) {
+      console.error(`google-oauth-callback: no se pudo leer el rol de ${agenteId}`, err)
+      return redirigir(destino, { google: 'error', motivo: 'guardado_error' })
+    }
+    if (!puedeConectarGoogle(rol)) {
+      console.warn(`google-oauth-callback: ${agenteId} (rol ${rol ?? 'sin perfil'}) no puede conectar`)
+      return redirigir(destino, { google: 'error', motivo: 'sin_permiso' })
     }
 
     // --- 3. Config --------------------------------------------------------

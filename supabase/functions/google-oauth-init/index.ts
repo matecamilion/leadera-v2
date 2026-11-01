@@ -19,6 +19,11 @@ import { preflight } from '../_shared/cors.ts'
 import { errorResponse, jsonResponse } from '../_shared/http.ts'
 import { adminClient, bearerToken } from '../_shared/supabase.ts'
 import { GOOGLE_AUTH_URL, GOOGLE_SCOPE, firmarState, redirectUri } from '../_shared/google.ts'
+import {
+  MENSAJE_ASISTENTE_NO_CONECTA,
+  puedeConectarGoogle,
+  rolDeUsuario,
+} from '../_shared/permisosGoogle.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
@@ -40,7 +45,24 @@ Deno.serve(async (req) => {
       return errorResponse(req, 'Sesión inválida o expirada', 401, 'NO_AUTENTICADO')
     }
 
-    // --- 2. Config --------------------------------------------------------
+    // --- 2. Rol -----------------------------------------------------------
+    // Un asistente no tiene calendario propio: opera el de su agente, y solo
+    // el agente conecta Google. El rol se lee de la base con el id del JWT
+    // validado; nada del body. Sin perfil o con error de lectura también se
+    // cierra: no se firma un `state` para quien no se sabe qué es.
+    let rol: string | null
+    try {
+      rol = await rolDeUsuario(admin, userData.user.id)
+    } catch (err) {
+      console.error(`google-oauth-init: no se pudo leer el rol de ${userData.user.id}`, err)
+      return errorResponse(req, 'Error interno del servidor', 500, 'ERROR_INTERNO')
+    }
+    if (!puedeConectarGoogle(rol)) {
+      console.warn(`google-oauth-init: ${userData.user.id} (rol ${rol ?? 'sin perfil'}) no puede conectar`)
+      return errorResponse(req, MENSAJE_ASISTENTE_NO_CONECTA, 403, 'SIN_PERMISO')
+    }
+
+    // --- 3. Config --------------------------------------------------------
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
     if (!clientId) {
       return errorResponse(
@@ -52,7 +74,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // --- 3. URL de consentimiento ----------------------------------------
+    // --- 4. URL de consentimiento ----------------------------------------
     const parametros = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri(),

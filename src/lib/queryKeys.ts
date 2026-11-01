@@ -148,6 +148,9 @@ export const claves = {
   googleCalendar: {
     raiz: ['google-calendar'] as const,
     conexion: (uid: Uid) => ['google-calendar', uid] as const,
+    // La fila PROPIA de un ASISTENTE (caso de limpieza), aparte de la conexión de
+    // su agente que trae `conexion`.
+    propia: (uid: Uid) => ['google-calendar', uid, 'propia'] as const,
   },
 
   /**

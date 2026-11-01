@@ -32,7 +32,7 @@ export function BotonActualizarCalendario() {
     setMensaje(null)
     actualizar.mutate(undefined, {
       onSuccess: (respuesta) => {
-        const estado = estadoDeActualizacion(respuesta.resultado)
+        const estado = estadoDeActualizacion(respuesta.resultado, profile?.rol)
         setMensaje({ tipo: estado.tipo, texto: estado.mensaje })
       },
       onError: (err) => setMensaje({ tipo: 'error', texto: err.message }),

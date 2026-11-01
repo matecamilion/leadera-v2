@@ -9,8 +9,18 @@ describe('puedeActualizarCalendario', () => {
     expect(puedeActualizarCalendario('AGENTE', activa)).toBe(true)
   })
 
-  it('el asistente todavía no', () => {
-    expect(puedeActualizarCalendario('ASISTENTE', activa)).toBe(false)
+  it('el asistente, con la conexión activa de su agente', () => {
+    expect(puedeActualizarCalendario('ASISTENTE', activa)).toBe(true)
+  })
+
+  it('el asistente no, si su agente no está conectado o no importa', () => {
+    expect(puedeActualizarCalendario('ASISTENTE', null)).toBe(false)
+    expect(puedeActualizarCalendario('ASISTENTE', { conectado: false, importacionActiva: true })).toBe(false)
+    expect(puedeActualizarCalendario('ASISTENTE', { conectado: true, importacionActiva: false })).toBe(false)
+  })
+
+  it('otro rol, no', () => {
+    expect(puedeActualizarCalendario('ADMIN', activa)).toBe(false)
   })
 
   it('sin conexión, desconectado o con la importación apagada, no', () => {
@@ -42,5 +52,13 @@ describe('estadoDeActualizacion', () => {
 
   it('reautorizar manda al perfil', () => {
     expect(estadoDeActualizacion('reautorizar').mensaje).toMatch(/perfil/)
+    expect(estadoDeActualizacion('reautorizar', 'AGENTE').mensaje).toMatch(/perfil/)
+  })
+
+  it('un asistente no es mandado a reconectar: lo resuelve el agente', () => {
+    const m = estadoDeActualizacion('reautorizar', 'ASISTENTE').mensaje
+    expect(m).toMatch(/agente/)
+    expect(m).not.toMatch(/perfil/)
+    expect(estadoDeActualizacion('importacion_no_activada', 'ASISTENTE').mensaje).not.toMatch(/perfil/)
   })
 })

@@ -1,5 +1,7 @@
 import { IconoCalendario } from '../leads/Iconos'
+import { useAuth } from '../../contexts/AuthContext'
 import { useConectarGoogle, useConexionGoogle } from '../../hooks/useGoogleCalendar'
+import { mostrarBannerConectar } from '../../lib/googleAsistente'
 
 /**
  * Invitación a conectar Google Calendar, arriba del calendario de Tareas.
@@ -20,8 +22,13 @@ import { useConectarGoogle, useConexionGoogle } from '../../hooks/useGoogleCalen
  * desaparecer sin recargar nada.
  */
 export function BannerConectarGoogle() {
+  const { profile } = useAuth()
   const conexion = useConexionGoogle()
   const conectar = useConectarGoogle()
+
+  // Un asistente no conecta Google (lo hace su agente, y el servidor se lo
+  // rechaza): no se le ofrece.
+  if (!mostrarBannerConectar(profile?.rol)) return null
 
   // Mientras carga no se muestra nada: asomar el banner medio segundo y
   // esconderlo cuando llega el dato le haría un salto a todo el calendario, y

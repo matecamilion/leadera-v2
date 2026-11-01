@@ -5,9 +5,11 @@ import {
   importarGoogleAhora,
   iniciarConexionGoogle,
   obtenerConexionGoogle,
+  obtenerConexionSegunRol,
   type ConexionGoogle,
   type RespuestaImportacion,
 } from '../lib/api/googleCalendar'
+import { useAuth } from '../contexts/AuthContext'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
 
@@ -23,10 +25,28 @@ import { useUid } from './useUid'
  */
 export function useConexionGoogle() {
   const uid = useUid()
+  const rol = useAuth().profile?.rol
   return useQuery<ConexionGoogle | null>({
     queryKey: claves.googleCalendar.conexion(uid),
+    // Un asistente lee la conexión de su agente (`mi_conexion_google`); el resto,
+    // la propia. Se espera al rol, que no cambia dentro de una sesión.
+    queryFn: () => obtenerConexionSegunRol(rol as string),
+    enabled: !!uid && !!rol,
+  })
+}
+
+/**
+ * La fila PROPIA de Google de un asistente. No debería tener una (no puede
+ * conectar), pero puede quedar una de antes: se lee solo para ofrecerle
+ * desconectarla. Para el resto de los roles no se pide.
+ */
+export function useConexionPropiaGoogle() {
+  const uid = useUid()
+  const rol = useAuth().profile?.rol
+  return useQuery<ConexionGoogle | null>({
+    queryKey: claves.googleCalendar.propia(uid),
     queryFn: obtenerConexionGoogle,
-    enabled: !!uid,
+    enabled: !!uid && rol === 'ASISTENTE',
   })
 }
 
@@ -71,7 +91,8 @@ export function useDesconectarGoogle() {
     mutationFn: desconectarGoogle,
     onSuccess: () => {
       queryClient.setQueryData(claves.googleCalendar.conexion(uid), null)
-      queryClient.invalidateQueries({ queryKey: claves.googleCalendar.conexion(uid) })
+      queryClient.setQueryData(claves.googleCalendar.propia(uid), null)
+      queryClient.invalidateQueries({ queryKey: claves.googleCalendar.raiz })
     },
   })
 }

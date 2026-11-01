@@ -62,6 +62,45 @@ export async function obtenerConexionGoogle(): Promise<ConexionGoogle | null> {
 }
 
 /**
+ * Estado de la conexión del AGENTE al que asiste el usuario (para un ASISTENTE).
+ *
+ * Un asistente no conecta Google: opera el calendario de su agente. La policy
+ * de `google_calendar_tokens` solo le deja ver filas propias, así que el estado
+ * del agente sale de la función `mi_conexion_google` (SECURITY DEFINER), que
+ * devuelve únicamente `conectado`, `updated_at` e `importacion_activa` y no
+ * acepta ningún id: el agente lo resuelve la base con la sesión.
+ *
+ * Cero filas = el agente nunca conectó (o el asistente no es válido): `null`,
+ * igual que `obtenerConexionGoogle`.
+ */
+export async function obtenerConexionDelAgente(): Promise<ConexionGoogle | null> {
+  const { data, error } = await (supabase as SupabaseClient).rpc('mi_conexion_google')
+
+  if (error) {
+    throw new Error(
+      interpretarErrorSupabase(error, 'No se pudo leer la conexión de tu agente con Google.'),
+    )
+  }
+
+  const fila = (Array.isArray(data) ? data[0] : data) as FilaConexion | null | undefined
+  if (!fila) return null
+
+  return {
+    conectado: fila.conectado === true,
+    actualizado: fila.updated_at,
+    importacionActiva: fila.importacion_activa === true,
+  }
+}
+
+/**
+ * La conexión que le corresponde mostrar a un rol: la del agente para un
+ * asistente (por la función) y la propia para el resto (por la tabla).
+ */
+export function obtenerConexionSegunRol(rol: string): Promise<ConexionGoogle | null> {
+  return rol === 'ASISTENTE' ? obtenerConexionDelAgente() : obtenerConexionGoogle()
+}
+
+/**
  * Prende o apaga la importación del calendario del agente.
  *
  * Es el único UPDATE que el cliente puede hacer sobre `google_calendar_tokens`:
@@ -196,14 +235,20 @@ export function sincronizarConGoogle(entrada: EntradaSync): void {
   // es exactamente lo que este helper existe para evitar.
   try {
     void supabase.functions
-      .invoke<{ synced: boolean; reason?: string }>('google-calendar-sync', { body: entrada })
+      .invoke<{ synced: boolean; reason?: string; lo_resuelve_el_agente?: boolean }>(
+        'google-calendar-sync',
+        { body: entrada },
+      )
       .then(({ data, error }) => {
         if (error) {
           console.warn('[google-calendar] no se pudo sincronizar', entrada, error)
           return
         }
         if (data && !data.synced && data.reason !== 'not_connected') {
-          console.warn(`[google-calendar] sin sincronizar (${data.reason})`, entrada)
+          // Un asistente no puede reconectar: lo resuelve su agente. Solo se
+          // deja constancia en la consola, sin ofrecerle nada.
+          const quien = data.lo_resuelve_el_agente ? ' (lo resuelve el agente)' : ''
+          console.warn(`[google-calendar] sin sincronizar (${data.reason})${quien}`, entrada)
         }
       })
       .catch((err) => {

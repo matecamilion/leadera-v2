@@ -6,8 +6,10 @@ import {
   useConectarGoogle,
   useCambiarImportacionGoogle,
   useConexionGoogle,
+  useConexionPropiaGoogle,
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
+import { estadoDelAgente, vistaGooglePerfil } from '../lib/googleAsistente'
 import { PasswordInput } from '../components/ui/PasswordInput'
 import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
 import { ModalActivarReporteSemanal } from '../components/reporte/ModalActivarReporteSemanal'
@@ -559,15 +561,25 @@ const MENSAJE_VUELTA: Record<string, string> = {
     'Google no nos dio un permiso duradero. Quitá el acceso de LeadEra en ' +
     'myaccount.google.com/permissions y volvé a conectar.',
   guardado_error: 'Conectamos con Google pero no pudimos guardar el permiso. Probá de nuevo.',
+  sin_permiso:
+    'Tu cuenta no puede conectar Google Calendar: lo conecta tu agente, y tus tareas y ' +
+    'visitas se reflejan en su calendario.',
 }
 
 /**
  * Conectar el calendario del agente.
  *
- * La ve cualquier rol: la agenda es de cada uno, no de la inmobiliaria.
+ * La ven todos los roles, pero solo el dueño y el agente conectan: un asistente
+ * no tiene calendario propio, opera el de su agente. Al asistente se le muestra
+ * "Lo gestiona tu agente" con el estado de la conexión del agente (que sale de
+ * `mi_conexion_google`) y nada para conectar, reconectar ni importar. Si todavía
+ * tiene una fila propia conectada (de antes de esta regla), solo puede
+ * desconectarla.
  */
 function GoogleCalendar() {
+  const { profile } = useAuth()
   const conexion = useConexionGoogle()
+  const propia = useConexionPropiaGoogle()
   const conectar = useConectarGoogle()
   const desconectar = useDesconectarGoogle()
   const cambiarImportacion = useCambiarImportacionGoogle()
@@ -595,6 +607,8 @@ function GoogleCalendar() {
   // `null` es "nunca conectó"; `conectado: false` es "conectó y le revocaron el
   // permiso". Se distinguen porque el segundo pide reconectar, no conectar.
   const estado = conexion.data
+  const vista = vistaGooglePerfil(profile?.rol, propia.data?.conectado === true)
+  const delAgente = estadoDelAgente(estado)
   const conectado = estado?.conectado === true
   const necesitaReconectar = estado != null && !estado.conectado
   // El toggle pinta lo que dice la base, no un estado local: así no puede
@@ -664,20 +678,23 @@ function GoogleCalendar() {
                       ? 'Reconexión pendiente'
                       : 'No conectado'}
               </span>
+              {vista.loGestionaElAgente && (
+                <span className="text-[0.8rem] font-semibold text-ink-2">Lo gestiona tu agente</span>
+              )}
             </div>
             <p className="mt-1 mb-0 text-[0.84rem] leading-relaxed text-ink-3">
-              {necesitaReconectar
-                ? 'Google dejó de aceptar el permiso. Volvé a conectar para retomar la sincronización.'
-                : 'Tus tareas y visitas aparecen como eventos en tu calendario de Google.'}
+              {vista.loGestionaElAgente
+                ? delAgente.detalle
+                : necesitaReconectar
+                  ? 'Google dejó de aceptar el permiso. Volvé a conectar para retomar la sincronización.'
+                  : 'Tus tareas y visitas aparecen como eventos en tu calendario de Google.'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Desconectar sólo con una conexión andando. En "reconexión
-                pendiente" la fila todavía existe, pero al agente no le sirve
-                desconectar: lo que quiere es volver a conectar, y reconectar
-                pisa la fila igual. */}
-            {conectado && (
+            {/* Un asistente con una fila propia conectada (limpieza): solo puede
+                desconectarla. Conectar y reconectar no se le ofrecen. */}
+            {vista.soloDesconectar && (
               <button
                 type="button"
                 onClick={() => setConfirmandoBaja(true)}
@@ -687,15 +704,33 @@ function GoogleCalendar() {
                 Desconectar
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => conectar.mutate()}
-              disabled={conectar.isPending || conexion.isPending}
-              className={conectado ? BOTON_SECUNDARIO : BOTON_PRIMARIO}
-            >
-              {conectar.isPending && (conectado ? <GirandoNeutro /> : <Girando />)}
-              {conectado ? 'Volver a conectar' : necesitaReconectar ? 'Reconectar' : 'Conectar'}
-            </button>
+            {vista.gestiona && (
+              <>
+                {/* Desconectar sólo con una conexión andando. En "reconexión
+                    pendiente" la fila todavía existe, pero al agente no le sirve
+                    desconectar: lo que quiere es volver a conectar, y reconectar
+                    pisa la fila igual. */}
+                {conectado && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoBaja(true)}
+                    disabled={desconectar.isPending}
+                    className={BOTON_SECUNDARIO}
+                  >
+                    Desconectar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => conectar.mutate()}
+                  disabled={conectar.isPending || conexion.isPending}
+                  className={conectado ? BOTON_SECUNDARIO : BOTON_PRIMARIO}
+                >
+                  {conectar.isPending && (conectado ? <GirandoNeutro /> : <Girando />)}
+                  {conectado ? 'Volver a conectar' : necesitaReconectar ? 'Reconectar' : 'Conectar'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -715,7 +750,7 @@ function GoogleCalendar() {
       {/* Sólo con la conexión andando: sin token no hay nada que importar, y
           en "reconexión pendiente" lo que el agente tiene que hacer es
           reconectar. */}
-      {conectado && (
+      {vista.gestiona && conectado && (
         <div>
           <FilaAjuste
             titulo="Importar mi calendario a LeadEra"

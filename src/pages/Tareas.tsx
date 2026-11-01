@@ -6,6 +6,7 @@ import { CalendarioMes } from '../components/tareas/CalendarioMes'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
 import { PanelDiaTareas } from '../components/tareas/PanelDiaTareas'
+import { CLASES_CALENDARIO_FIJO } from '../components/tareas/calendarioFijo'
 import { IconoCasa, IconoMas } from '../components/leads/Iconos'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
@@ -220,22 +221,26 @@ export default function Tareas() {
         </p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          {eventos.isPending ? (
-            <div
-              aria-busy="true"
-              aria-label="Cargando el calendario"
-              className="h-[520px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
-            />
-          ) : (
-            <CalendarioMes
-              ano={ano}
-              mes={mes}
-              eventos={eventos.data}
-              diaSeleccionado={diaSel}
-              onSelectDia={setDiaSel}
-              onNuevaTareaEnDia={abrirModal}
-            />
-          )}
+          {/* El wrapper es lo que se fija: el `overflow-hidden` de la grilla
+              está en su propio contenedor y no corta el sticky de un padre. */}
+          <div className={CLASES_CALENDARIO_FIJO}>
+            {eventos.isPending ? (
+              <div
+                aria-busy="true"
+                aria-label="Cargando el calendario"
+                className="h-[520px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
+              />
+            ) : (
+              <CalendarioMes
+                ano={ano}
+                mes={mes}
+                eventos={eventos.data}
+                diaSeleccionado={diaSel}
+                onSelectDia={setDiaSel}
+                onNuevaTareaEnDia={abrirModal}
+              />
+            )}
+          </div>
 
           <PanelDiaTareas
             dia={diaSel}

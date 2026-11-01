@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { claveDia, diasDeLaGrilla } from '../../lib/calendario'
+import { ordenarEventosCalendario } from '../../lib/ordenEventos'
 import type { EventoCalendario } from '../../hooks/useTareas'
 
 /** Cuántos chips entran en una celda antes del "+N más". */
@@ -59,9 +60,11 @@ export function CalendarioMes({
       if (lista) lista.push(e)
       else mapa.set(e.fecha, [e])
     }
-    // Dentro del día: primero lo que tiene hora, en orden.
-    for (const lista of mapa.values()) {
-      lista.sort((a, b) => (a.hora ?? '99:99').localeCompare(b.hora ?? '99:99'))
+    // Dentro del día: primero lo que tiene hora, en orden, y al final lo de
+    // todo el día. La celda corta a VISIBLES_POR_DIA con "+N más": si lo sin
+    // hora fuera primero, una tarea suelta taparía una visita con horario.
+    for (const [clave, lista] of mapa) {
+      mapa.set(clave, ordenarEventosCalendario(lista, 'ultimo'))
     }
     return mapa
   }, [eventos])

@@ -5,6 +5,8 @@ import { IconoUsuarios } from '../leads/Iconos'
 import { desdeClaveDia } from '../../lib/calendario'
 import type { EventoCalendario } from '../../hooks/useTareas'
 import type { VisitaConContexto } from '../../lib/api/visitas'
+import { ordenarEventosCalendario } from '../../lib/ordenEventos'
+import { CLASES_PANEL_FIJO } from './calendarioFijo'
 import type { Tarea } from '../../types/database'
 
 /** "jueves 27 de agosto", con la primera en mayúscula. */
@@ -55,12 +57,19 @@ export function PanelDiaTareas({
   onCancelarVisita,
   onEliminarVisita,
 }: PanelDiaTareasProps) {
-  const tareas = eventos.filter((e) => e.tipo === 'TAREA')
-  const seguimientos = eventos.filter((e) => e.tipo === 'SEGUIMIENTO')
-  const visitas = eventos.filter((e) => e.tipo === 'VISITA')
+  // Tres secciones por tipo; dentro de cada una, lo de todo el día primero y
+  // después por hora (`lib/ordenEventos`).
+  const tareas = ordenarEventosCalendario(eventos.filter((e) => e.tipo === 'TAREA'), 'primero')
+  const seguimientos = ordenarEventosCalendario(
+    eventos.filter((e) => e.tipo === 'SEGUIMIENTO'),
+    'primero',
+  )
+  const visitas = ordenarEventosCalendario(eventos.filter((e) => e.tipo === 'VISITA'), 'primero')
 
   return (
-    <section className="rounded-2xl border border-border bg-surface p-5">
+    <section
+      className={`rounded-2xl border border-border bg-surface p-5 ${CLASES_PANEL_FIJO}`}
+    >
       <h2 className="m-0 text-[0.95rem] font-bold text-ink">{titulaDia(dia)}</h2>
 
       {eventos.length === 0 ? (

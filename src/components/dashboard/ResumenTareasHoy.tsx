@@ -13,6 +13,7 @@ import { TONOS, type TonoKpi } from '../comunes/tonos'
 import { useEventosCalendario, type EventoCalendario } from '../../hooks/useTareas'
 import type { SeguimientoLead } from '../../lib/api/tareas'
 import { hoyComoClave } from '../../lib/calendario'
+import { ordenarEventosCalendario } from '../../lib/ordenEventos'
 
 /** Cuántas filas entran en el resumen. El "Ver todo" aparece si hay más. */
 const MOSTRADOS = 6
@@ -58,17 +59,6 @@ const ETIQUETA: Record<EventoCalendario['tipo'], string> = {
 }
 
 /**
- * Los eventos sin hora van al final: son los del día entero, y ponerlos entre
- * dos horarios rompería la lectura de arriba abajo de la agenda.
- */
-function porHora(a: EventoCalendario, b: EventoCalendario): number {
-  if (!a.hora) return b.hora ? 1 : 0
-  if (!b.hora) return -1
-  // Ambas son `HH:MM` de largo fijo: comparar como texto ya ordena por reloj.
-  return a.hora.localeCompare(b.hora)
-}
-
-/**
  * La agenda de hoy en seis renglones: tareas, seguimientos de leads y visitas
  * mezclados y ordenados por hora.
  *
@@ -101,9 +91,12 @@ export function ResumenTareasHoy({
 
   // Un lead GANADO ya no es a quién volver a llamar. Se saca acá y no en la
   // query porque el calendario de Tareas comparte esa query y los muestra.
-  const eventos = data
-    .filter((e) => !(e.tipo === 'SEGUIMIENTO' && e.estadoLead === 'GANADO'))
-    .sort(porHora)
+  // Los sin hora van al final: la lista corta a MOSTRADOS y los del día entero
+  // no tienen que esconder una visita con horario. Criterio: `lib/ordenEventos`.
+  const eventos = ordenarEventosCalendario(
+    data.filter((e) => !(e.tipo === 'SEGUIMIENTO' && e.estadoLead === 'GANADO')),
+    'ultimo',
+  )
   const visibles = eventos.slice(0, MOSTRADOS)
   const hayMas = eventos.length > visibles.length
 

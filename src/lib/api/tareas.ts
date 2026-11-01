@@ -9,6 +9,7 @@ import type {
 } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 import { asignadoDeAlta } from '../equipoCalendario'
+import { ordenarPorFechaYHora } from '../ordenEventos'
 import type { RolAgente } from './auth'
 import type { EstadoLead } from './leads'
 
@@ -217,13 +218,17 @@ export async function listarTareasPorLead(leadId: string): Promise<Tarea[]> {
     throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las tareas del lead.'))
   }
 
-  // Pendientes primero; dentro de cada grupo, la más próxima arriba.
-  return (data ?? []).sort((a, b) => {
-    const pesoA = a.estado === 'COMPLETADA' ? 1 : 0
-    const pesoB = b.estado === 'COMPLETADA' ? 1 : 0
-    if (pesoA !== pesoB) return pesoA - pesoB
-    return a.fecha.localeCompare(b.fecha)
-  })
+  // Pendientes primero y completadas al final; dentro de cada grupo, la más
+  // próxima arriba, por fecha y hora (`lib/ordenEventos`).
+  const campos = {
+    hora: (t: Tarea) => t.hora,
+    creado: (t: Tarea) => t.created_at,
+  }
+  const ordenadas = ordenarPorFechaYHora(data ?? [], campos)
+  return [
+    ...ordenadas.filter((t) => t.estado !== 'COMPLETADA'),
+    ...ordenadas.filter((t) => t.estado === 'COMPLETADA'),
+  ]
 }
 
 /**

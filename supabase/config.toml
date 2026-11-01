@@ -485,6 +485,14 @@ verify_jwt = true
 enabled = true
 verify_jwt = true
 
+# google-calendar-import-ahora la llama el frontend (botón "Actualizar" del
+# calendario) con el JWT del usuario. verify_jwt frena a los anónimos y adentro
+# se exige además un usuario real (getUser): la anon key también pasa el gateway.
+# La cuenta a importar la resuelve el servidor; el body no se lee.
+[functions.google-calendar-import-ahora]
+enabled = true
+verify_jwt = true
+
 # calcular-reporte-semanal devuelve los números del reporte de un agente, sin
 # mandar nada. La llama el equipo a mano para revisar; adentro exige rol
 # service_role porque recibe el agente por parámetro.

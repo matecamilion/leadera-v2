@@ -213,3 +213,49 @@ export function sincronizarConGoogle(entrada: EntradaSync): void {
     console.warn('[google-calendar] no se pudo sincronizar', entrada, err)
   }
 }
+
+// ---------------------------------------------------------------------------
+// Importación inmediata (botón "Actualizar")
+// ---------------------------------------------------------------------------
+
+/**
+ * Qué pasó al pedir la importación. `ya_actualizado` es el enfriamiento del
+ * servidor (se importó hace menos de 15 s): para el usuario es lo mismo que
+ * "Actualizado", porque la vista ya está al día.
+ */
+export type ResultadoImportacion =
+  | 'ok'
+  | 'ya_actualizado'
+  | 'no_conectado'
+  | 'importacion_no_activada'
+  | 'reautorizar'
+  | 'reintentar'
+  | 'error'
+
+export interface RespuestaImportacion {
+  resultado: ResultadoImportacion
+  leidos: number
+  tareas: number
+  visitas: number
+  tareas_posible_visita: number
+  salteados: Record<string, number>
+}
+
+/**
+ * Importa ahora el Google Calendar del usuario, sin esperar al cron.
+ *
+ * No manda ningún dato: la cuenta la resuelve el servidor con la sesión.
+ */
+export async function importarGoogleAhora(): Promise<RespuestaImportacion> {
+  const { data, error } = await supabase.functions.invoke<RespuestaImportacion>(
+    'google-calendar-import-ahora',
+    { body: {} },
+  )
+
+  if (error) {
+    throw new Error(await mensajeDeFuncion(error, 'No se pudo actualizar el calendario.'))
+  }
+  if (!data) throw new Error('No se pudo actualizar el calendario.')
+
+  return data
+}

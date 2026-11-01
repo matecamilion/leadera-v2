@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BannerConectarGoogle } from '../components/tareas/BannerConectarGoogle'
+import { BotonActualizarCalendario } from '../components/tareas/BotonActualizarCalendario'
 import { CalendarioMes } from '../components/tareas/CalendarioMes'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
@@ -152,6 +153,9 @@ export default function Tareas() {
               ›
             </BotonMes>
           </div>
+
+          {/* Solo dueño/agente con Google conectado e importación activa. */}
+          <BotonActualizarCalendario />
 
           {/* Todos los roles crean tareas: como mínimo para sí mismos, y además
               para quien les toca según el rol (lo resuelve el modal). */}

@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   actualizarImportacionActiva,
   desconectarGoogle,
+  importarGoogleAhora,
   iniciarConexionGoogle,
   obtenerConexionGoogle,
   type ConexionGoogle,
+  type RespuestaImportacion,
 } from '../lib/api/googleCalendar'
 import { claves } from '../lib/queryKeys'
 import { useUid } from './useUid'
@@ -94,6 +96,25 @@ export function useCambiarImportacionGoogle() {
         (previo) => (previo ? { ...previo, importacionActiva: activa } : previo),
       )
       queryClient.invalidateQueries({ queryKey: claves.googleCalendar.conexion(uid) })
+    },
+  })
+}
+
+/**
+ * Botón "Actualizar" del calendario: importa ya los eventos de Google.
+ *
+ * Al terminar —con o sin eventos nuevos— se invalidan tareas y visitas, que
+ * son lo que la importación puede haber agregado. Los estados que no son
+ * "actualizado" (`reautorizar`, `error`…) los interpreta quien lo usa.
+ */
+export function useActualizarCalendario() {
+  const queryClient = useQueryClient()
+
+  return useMutation<RespuestaImportacion, Error, void>({
+    mutationFn: importarGoogleAhora,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
+      queryClient.invalidateQueries({ queryKey: claves.visitas.raiz })
     },
   })
 }

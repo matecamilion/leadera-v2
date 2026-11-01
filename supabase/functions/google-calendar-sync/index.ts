@@ -2,87 +2,51 @@
  * google-calendar-sync
  *
  * Refleja una tarea o una visita de LeadEra como evento en el Google Calendar
- * del agente. Fase 1: one-way push, LeadEra -> Google.
+ * del agente. One-way push, LeadEra -> Google.
+ *
+ * Un ASISTENTE no tiene calendario propio: opera el de su agente
+ * (`profiles.asiste_a`) y lo que hace se refleja en el Google DEL AGENTE, con el
+ * token del agente. Solo el agente (o el dueño que hace de agente) conecta
+ * Google. La decisión de a qué calendario se empuja y la validación de que el
+ * asistente pertenece a ese agente viven en `logica.ts`, que se testea sin red;
+ * este archivo es el HTTP y las lecturas/escrituras reales.
  *
  * El contrato de entrada ya contempla las dos direcciones —`tipo` + `accion` +
  * `registro_id`— para que traer eventos de Google no obligue a rediseñarlo,
- * pero hoy sólo se llama desde LeadEra.
+ * pero hoy sólo se llama desde LeadEra. El cuerpo nunca aporta un id de agente:
+ * el dueño del calendario sale de la base con el JWT validado.
  *
  * "No conectado" NO es un error: la mayoría de los agentes no va a conectar
  * Calendar, y sus altas de tarea tienen que seguir andando igual. Por eso ese
  * caso vuelve 200 con `{ synced: false, reason: 'not_connected' }` y el
  * frontend lo ignora en silencio.
  *
- * Requiere sesión: el calendario que se toca es el del agente del JWT, y el
- * registro tiene que ser suyo. Sin ese chequeo, un agente podría empujar al
- * suyo propio la tarea de un compañero y leerle el título en el camino.
+ * Logs: se registra quién dispara cada llamada (id y rol) y los estados HTTP de
+ * Google. Nunca tokens ni cuerpos de respuesta de Google.
  *
  * Secretos: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET.
  */
 import { preflight } from '../_shared/cors.ts'
-import { errorResponse, jsonResponse } from '../_shared/http.ts'
+import { errorResponse, jsonResponse, type ErrorCode } from '../_shared/http.ts'
 import { adminClient, bearerToken } from '../_shared/supabase.ts'
-import { GOOGLE_TOKEN_URL, MARCA_ORIGEN } from '../_shared/google.ts'
+import { GOOGLE_TOKEN_URL } from '../_shared/google.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { googleReal } from './googleApi.ts'
+import { ErrorLecturaPerfil, leerPerfilesDe } from './perfiles.ts'
+import {
+  type Disparador,
+  type DepsSync,
+  type Entrada,
+  type FilaToken,
+  type Registro,
+  type Tipo,
+  ejecutarSync,
+} from './logica.ts'
 
-const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars'
 const TIMEOUT_GOOGLE_MS = 15_000
-
-/**
- * Huso con el que se interpretan `fecha` y `hora`.
- *
- * Las dos columnas son `date` y `time` sin huso, y el resto de la app las trata
- * como hora de pared local —`momentoDeLaInteraccion` en `api/visitas.ts` las
- * arma con `new Date(a, m, d, hh, mm)`, que usa el del navegador—. Se declara
- * el mismo huso acá para que el evento caiga en Google a la hora que el agente
- * ve en LeadEra y no tres horas después.
- */
-const ZONA = 'America/Argentina/Buenos_Aires'
-
-/** Cuánto dura un evento sin hora de fin. No hay dato para diferenciar tarea de visita. */
-const DURACION_HORAS = 1
 
 /** Margen para considerar vencido un token: renovarlo justo al filo llega tarde. */
 const MARGEN_VENCIMIENTO_S = 60
-
-type Tipo = 'tarea' | 'visita'
-type Accion = 'crear' | 'editar' | 'borrar'
-
-interface Entrada {
-  tipo: Tipo
-  accion: Accion
-  registro_id: string
-  /**
-   * Sólo para `borrar`: el id del evento en Google.
-   *
-   * Lo manda el frontend porque para cuando este sync corre, la fila de la
-   * tarea o la visita ya se borró de Supabase —el borrado es un DELETE real, no
-   * un soft-delete— y no hay de dónde leerlo, ni siquiera con service_role.
-   */
-  google_event_id?: string | null
-}
-
-interface FilaToken {
-  id: string
-  access_token: string
-  refresh_token: string | null
-  token_expiry: string | null
-  google_calendar_id: string | null
-  conectado: boolean
-}
-
-/** El evento tal como lo espera la Calendar API. */
-interface EventoGoogle {
-  summary: string
-  description?: string | null
-  start: Momento
-  end: Momento
-  /** La marca de origen, ver `MARCA_ORIGEN`. */
-  extendedProperties: { private: Record<string, string> }
-}
-
-/** Google distingue evento de día completo (`date`) de evento con hora (`dateTime`). */
-type Momento = { date: string } | { dateTime: string; timeZone: string }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
@@ -103,7 +67,6 @@ Deno.serve(async (req) => {
     if (userError || !userData?.user) {
       return errorResponse(req, 'Sesión inválida o expirada', 401, 'NO_AUTENTICADO')
     }
-    const agenteId = userData.user.id
 
     // --- 2. Entrada -------------------------------------------------------
     let entrada: Entrada
@@ -126,101 +89,96 @@ Deno.serve(async (req) => {
       )
     }
 
-    // --- 3. ¿El agente conectó Calendar? ----------------------------------
-    const { data: fila, error: errorToken } = await admin
-      .from('google_calendar_tokens')
-      .select('id, access_token, refresh_token, token_expiry, google_calendar_id, conectado')
-      .eq('agente_id', agenteId)
-      .maybeSingle<FilaToken>()
+    // --- 3. Todo lo demás: autorización, token y Google -------------------
+    const salida = await ejecutarSync(depsReales(admin), userData.user.id, entrada)
 
-    if (errorToken) {
-      console.error(`google-calendar-sync: no se pudo leer el token de ${agenteId}`, errorToken)
-      return errorResponse(req, 'No se pudo leer la conexión con Google', 500, 'ERROR_INTERNO')
+    return salida.tipo === 'json'
+      ? jsonResponse(req, salida.cuerpo, salida.status)
+      : errorResponse(req, salida.mensaje, salida.status, salida.code as ErrorCode)
+  } catch (err) {
+    // Un fallo de lectura de base se distingue en el log de un rechazo por
+    // permiso (403): el cliente ignora los errores del sync, así que el log es
+    // lo único que dice cuál de las dos cosas pasó.
+    if (err instanceof ErrorLecturaPerfil) {
+      console.error(`google-calendar-sync: no se pudo leer el perfil (error de base, no de permiso): ${err.message}`)
+    } else {
+      console.error('google-calendar-sync: error inesperado', err)
     }
+    return errorResponse(req, 'Error interno del servidor', 500, 'ERROR_INTERNO')
+  }
+})
 
-    // Sin fila o desconectado: estado normal, no error. El frontend no muestra nada.
-    if (!fila || !fila.conectado) {
-      return jsonResponse(req, { synced: false, reason: 'not_connected' })
-    }
+// ---------------------------------------------------------------------------
+// Dependencias reales
+// ---------------------------------------------------------------------------
 
-    // --- 4. Access token fresco -------------------------------------------
-    const acceso = await asegurarAccessToken(admin, fila)
-    if (!acceso) {
-      return jsonResponse(req, { synced: false, reason: 'reauth_required' })
-    }
+function depsReales(admin: SupabaseClient): DepsSync {
+  return {
+    log: (mensaje) => console.warn(mensaje),
 
-    const calendarioId = fila.google_calendar_id ?? 'primary'
+    // Perfil del usuario y, solo si es un asistente con `asiste_a`, el de su
+    // agente: DOS consultas simples por id, sin embeds ni hints de FK (la FK
+    // `profiles_asiste_a_fkey` es autorreferenciada y el embed es ambiguo).
+    leerPerfiles: (userId) =>
+      leerPerfilesDe(
+        (id) =>
+          admin
+            .from('profiles')
+            .select('id, rol, activo, asiste_a, inmobiliaria_id')
+            .eq('id', id)
+            .maybeSingle(),
+        userId,
+      ),
 
-    // --- 5. Borrar: no necesita la fila, que ya no existe -----------------
-    if (entrada.accion === 'borrar') {
-      if (!entrada.google_event_id) {
-        // El registro nunca llegó a Google —se creó con el agente
-        // desconectado—, así que no hay nada que borrar allá.
-        return jsonResponse(req, { synced: false, reason: 'sin_evento' })
-      }
+    // Incluye inactivos: lo que cargó un asistente antes de darse de baja sigue
+    // siendo del calendario del equipo.
+    async leerAsistentesIds(duenoCalendario, inmobiliariaId) {
+      const { data, error } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('asiste_a', duenoCalendario)
+        .eq('inmobiliaria_id', inmobiliariaId)
 
-      const ok = await borrarEvento(calendarioId, entrada.google_event_id, acceso)
-      if (!ok) {
-        return errorResponse(req, 'Google rechazó el borrado del evento', 502, 'GOOGLE_API_ERROR')
-      }
+      if (error) throw error
+      return (data ?? []).map((f: { id: string }) => f.id)
+    },
 
-      return jsonResponse(req, { synced: true, google_event_id: null })
-    }
+    async leerToken(duenoCalendario) {
+      const { data, error } = await admin
+        .from('google_calendar_tokens')
+        .select('id, access_token, refresh_token, token_expiry, google_calendar_id, conectado')
+        .eq('agente_id', duenoCalendario)
+        .maybeSingle<FilaToken>()
 
-    // --- 6. Leer el registro, y que sea del agente ------------------------
-    const registro = await leerRegistro(admin, entrada.tipo, entrada.registro_id, agenteId)
-    if (!registro) {
-      // No existe, o es de otro agente. No se distingue en la respuesta: decir
-      // "existe pero no es tuyo" ya filtra información.
-      return errorResponse(
-        req,
-        'No se encontró la tarea o la visita, o no es tuya',
-        404,
-        'REGISTRO_NO_ENCONTRADO',
-      )
-    }
+      if (error) throw error
+      return data
+    },
 
-    const evento = armarEvento(registro)
+    asegurarAccessToken: (fila, disparadoPor) => asegurarAccessToken(admin, fila, disparadoPor),
 
-    // --- 7. Crear o editar -------------------------------------------------
-    // Un `editar` sobre algo que nunca se sincronizó —se creó con el agente
-    // desconectado y recién ahora conectó— se trata como alta: el PATCH no
-    // tendría a qué apuntar y la alternativa sería no reflejarlo nunca.
-    const esAlta = entrada.accion === 'crear' || !registro.google_event_id
+    leerRegistro: (tipo, id, contexto) => leerRegistro(admin, tipo, id, contexto),
 
-    const eventId = esAlta
-      ? await crearEvento(calendarioId, evento, acceso)
-      : await editarEvento(calendarioId, registro.google_event_id as string, evento, acceso)
-
-    if (!eventId) {
-      return errorResponse(req, 'Google rechazó el evento', 502, 'GOOGLE_API_ERROR')
-    }
-
-    // Sólo se escribe si cambió: un PATCH devuelve el mismo id que ya estaba.
-    if (eventId !== registro.google_event_id) {
-      const { error: errorGuardado } = await admin
-        .from(entrada.tipo === 'tarea' ? 'tareas' : 'visitas')
+    async guardarEventId(tipo, id, eventId) {
+      const { error } = await admin
+        .from(tipo === 'tarea' ? 'tareas' : 'visitas')
         .update({ google_event_id: eventId })
-        .eq('id', entrada.registro_id)
+        .eq('id', id)
 
-      if (errorGuardado) {
+      if (error) {
         // El evento ya existe en Google. Perder el id acá significa que un
         // futuro editar va a crear un duplicado, así que se avisa fuerte, pero
         // no se le dice al usuario que falló algo que del lado de Google salió.
         console.error(
           `google-calendar-sync: evento ${eventId} creado en Google pero no se pudo guardar ` +
-            `en ${entrada.tipo} ${entrada.registro_id}`,
-          errorGuardado,
+            `en ${tipo} ${id}`,
+          error,
         )
       }
-    }
+    },
 
-    return jsonResponse(req, { synced: true, google_event_id: eventId })
-  } catch (err) {
-    console.error('google-calendar-sync: error inesperado', err)
-    return errorResponse(req, 'Error interno del servidor', 500, 'ERROR_INTERNO')
+    google: googleReal,
   }
-})
+}
 
 // ---------------------------------------------------------------------------
 // Tokens
@@ -233,17 +191,20 @@ Deno.serve(async (req) => {
  * Cuando el refresh falla se baja `conectado` en la fila y no se borra nada: el
  * refresh_token revocado no sirve, pero la fila es lo que le permite a la UI
  * decir "reconectá" en vez de "conectá", y al callback conservar el histórico.
+ * La fila es la del AGENTE aunque dispare la llamada un asistente, por eso cada
+ * baja registra quién la provocó.
  */
 async function asegurarAccessToken(
   admin: SupabaseClient,
   fila: FilaToken,
+  disparadoPor: Disparador,
 ): Promise<string | null> {
   const vencimiento = fila.token_expiry ? Date.parse(fila.token_expiry) : 0
   const vigente = vencimiento - MARGEN_VENCIMIENTO_S * 1000 > Date.now()
   if (vigente) return fila.access_token
 
   if (!fila.refresh_token) {
-    await marcarDesconectado(admin, fila.id)
+    await marcarDesconectado(admin, fila.id, disparadoPor, 'sin refresh_token')
     return null
   }
 
@@ -275,13 +236,16 @@ async function asegurarAccessToken(
   }
 
   if (!respuesta.ok) {
-    const detalle = (await respuesta.text()).slice(0, 500)
-    console.error(`google-calendar-sync: refresh rechazado (${respuesta.status}): ${detalle}`)
+    // Solo el estado: el cuerpo no se registra.
+    console.error(
+      `google-calendar-sync: refresh rechazado (${respuesta.status}); ` +
+        `lo disparó ${disparadoPor.id} (${disparadoPor.rol})`,
+    )
     // Un 4xx acá sí es el refresh_token revocado o vencido: el agente sacó el
     // permiso desde su cuenta de Google. Ahí sí se marca para que la UI se lo
     // pida de nuevo. Un 5xx es de Google y no amerita desconectar a nadie.
     if (respuesta.status >= 400 && respuesta.status < 500) {
-      await marcarDesconectado(admin, fila.id)
+      await marcarDesconectado(admin, fila.id, disparadoPor, `refresh ${respuesta.status}`)
     }
     return null
   }
@@ -309,7 +273,17 @@ async function asegurarAccessToken(
   return datos.access_token
 }
 
-async function marcarDesconectado(admin: SupabaseClient, filaId: string): Promise<void> {
+async function marcarDesconectado(
+  admin: SupabaseClient,
+  filaId: string,
+  disparadoPor: Disparador,
+  motivo: string,
+): Promise<void> {
+  console.warn(
+    `google-calendar-sync: se marca desconectada la conexión ${filaId} (${motivo}); ` +
+      `lo disparó ${disparadoPor.id} (${disparadoPor.rol})`,
+  )
+
   const { error } = await admin
     .from('google_calendar_tokens')
     .update({ conectado: false, updated_at: new Date().toISOString() })
@@ -319,41 +293,32 @@ async function marcarDesconectado(admin: SupabaseClient, filaId: string): Promis
 }
 
 // ---------------------------------------------------------------------------
-// Lectura y mapeo
+// Lectura del registro
 // ---------------------------------------------------------------------------
 
-interface Registro {
-  tipo: Tipo
-  titulo: string
-  descripcion: string | null
-  fecha: string
-  hora: string | null
-  /** Sufijo de estado, o null si el estado no merece uno. */
-  estadoVisible: string | null
-  google_event_id: string | null
-}
-
 /**
- * Lee la tarea o la visita, siempre que sea del agente.
+ * Lee la tarea o la visita, siempre que sea del equipo del dueño del calendario.
  *
- * El filtro por agente va a mano y no por RLS porque el cliente es service_role,
- * que la saltea. Se acepta `asignado_a` o `creado_por`, el mismo criterio con el
- * que el módulo de tareas decide qué le pertenece a quién.
+ * Los filtros van a mano y no por RLS porque el cliente es service_role, que la
+ * saltea: la misma inmobiliaria que el usuario, y que la fila la haya creado o
+ * la tenga asignada alguien del equipo (el agente y sus asistentes).
  */
 async function leerRegistro(
   admin: SupabaseClient,
   tipo: Tipo,
   id: string,
-  agenteId: string,
+  contexto: { inmobiliariaId: string; equipoIds: string[] },
 ): Promise<Registro | null> {
-  const propio = `asignado_a.eq.${agenteId},creado_por.eq.${agenteId}`
+  const ids = contexto.equipoIds.join(',')
+  const delEquipo = `asignado_a.in.(${ids}),creado_por.in.(${ids})`
 
   if (tipo === 'tarea') {
     const { data } = await admin
       .from('tareas')
       .select('titulo, descripcion, fecha, hora, estado, google_event_id')
       .eq('id', id)
-      .or(propio)
+      .eq('inmobiliaria_id', contexto.inmobiliariaId)
+      .or(delEquipo)
       .maybeSingle<{
         titulo: string
         descripcion: string | null
@@ -388,7 +353,8 @@ async function leerRegistro(
     .from('visitas')
     .select('fecha, hora, notas, estado, google_event_id, propiedades(direccion)')
     .eq('id', id)
-    .or(propio)
+    .eq('inmobiliaria_id', contexto.inmobiliariaId)
+    .or(delEquipo)
     .maybeSingle<{
       fecha: string
       hora: string | null
@@ -409,185 +375,4 @@ async function leerRegistro(
     estadoVisible: data.estado === 'CANCELADA' ? 'Cancelada' : null,
     google_event_id: data.google_event_id,
   }
-}
-
-/**
- * Registro a evento de Google.
- *
- * La marca de origen va en el mismo cuerpo que se manda al crear, no en un
- * PATCH posterior: así no existe ningún momento en que el evento esté en
- * Google sin marcar. Va también en cada edición aunque un PATCH de Google no
- * borra `extendedProperties` si se omite —las claves no mandadas se
- * conservan—: reenviarla es gratis y, de paso, marca los eventos creados antes
- * de que existiera la marca la próxima vez que se editan.
- *
- * Una visita cancelada se edita a "(Cancelada)" en vez de borrarse: el agente
- * probablemente ya tiene ese bloque horario en la cabeza o se lo mostró a
- * alguien, y que el evento desaparezca sin dejar rastro es peor que verlo caído.
- */
-function armarEvento(registro: Registro): EventoGoogle {
-  const summary = registro.estadoVisible
-    ? `${registro.titulo} (${registro.estadoVisible})`
-    : registro.titulo
-
-  return {
-    summary,
-    description: registro.descripcion,
-    ...momentos(registro.fecha, registro.hora),
-    extendedProperties: { private: { [MARCA_ORIGEN.clave]: MARCA_ORIGEN.valor } },
-  }
-}
-
-/**
- * Inicio y fin del evento.
- *
- * Sin hora es un evento de día completo. Ahí `end.date` de Google es EXCLUSIVO:
- * para que ocupe un solo día hay que mandar el día siguiente, o el evento no
- * aparece.
- */
-function momentos(fecha: string, hora: string | null): { start: Momento; end: Momento } {
-  if (!hora) {
-    return { start: { date: fecha }, end: { date: sumarUnDia(fecha) } }
-  }
-
-  // `time` de Postgres llega como `HH:MM:SS`; se normaliza a `HH:MM` y se
-  // completan los segundos, que RFC3339 exige.
-  const inicio = hora.slice(0, 5)
-  const fin = sumarHoras(fecha, inicio, DURACION_HORAS)
-
-  return {
-    start: { dateTime: `${fecha}T${inicio}:00`, timeZone: ZONA },
-    end: { dateTime: `${fin.fecha}T${fin.hora}:00`, timeZone: ZONA },
-  }
-}
-
-/**
- * Aritmética de fechas en UTC a propósito.
- *
- * `Date.UTC` se usa como calculadora, no como huso: entra hora de pared y sale
- * hora de pared, con el desborde de día resuelto. Construir el Date con el
- * constructor local haría que el resultado dependiera del reloj del server,
- * que en Supabase es UTC y no el del agente.
- */
-function sumarUnDia(fecha: string): string {
-  const [a, m, d] = fecha.split('-').map(Number)
-  return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10)
-}
-
-function sumarHoras(
-  fecha: string,
-  hora: string,
-  horas: number,
-): { fecha: string; hora: string } {
-  const [a, m, d] = fecha.split('-').map(Number)
-  const [hh, mm] = hora.split(':').map(Number)
-  const t = new Date(Date.UTC(a, m - 1, d, hh + horas, mm)).toISOString()
-  return { fecha: t.slice(0, 10), hora: t.slice(11, 16) }
-}
-
-// ---------------------------------------------------------------------------
-// Calendar API
-// ---------------------------------------------------------------------------
-
-function urlEventos(calendarioId: string, eventId?: string): string {
-  const base = `${CALENDAR_API}/${encodeURIComponent(calendarioId)}/events`
-  return eventId ? `${base}/${encodeURIComponent(eventId)}` : base
-}
-
-/** Devuelve el id del evento creado, o null si Google lo rechazó. */
-async function crearEvento(
-  calendarioId: string,
-  evento: EventoGoogle,
-  acceso: string,
-): Promise<string | null> {
-  const respuesta = await llamarGoogle(urlEventos(calendarioId), 'POST', evento, acceso)
-  if (!respuesta) return null
-
-  const datos = (await respuesta.json()) as { id?: string }
-  return datos.id ?? null
-}
-
-/** Devuelve el id del evento editado, o null si Google lo rechazó. */
-async function editarEvento(
-  calendarioId: string,
-  eventId: string,
-  evento: EventoGoogle,
-  acceso: string,
-): Promise<string | null> {
-  const respuesta = await llamarGoogle(
-    urlEventos(calendarioId, eventId),
-    'PATCH',
-    evento,
-    acceso,
-  )
-  if (!respuesta) return null
-
-  const datos = (await respuesta.json()) as { id?: string }
-  return datos.id ?? eventId
-}
-
-/**
- * true si el evento ya no está en Google, se haya borrado ahora o antes.
- *
- * 404 y 410 cuentan como éxito: el objetivo era que no estuviera, y ya no está.
- * Tratarlos como falla dejaría al frontend reintentando un borrado imposible.
- */
-async function borrarEvento(
-  calendarioId: string,
-  eventId: string,
-  acceso: string,
-): Promise<boolean> {
-  let respuesta: Response
-  try {
-    respuesta = await fetch(urlEventos(calendarioId, eventId), {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${acceso}` },
-      signal: AbortSignal.timeout(TIMEOUT_GOOGLE_MS),
-    })
-  } catch (err) {
-    console.error('google-calendar-sync: no se pudo contactar a Google para borrar', err)
-    return false
-  }
-
-  if (respuesta.ok || respuesta.status === 404 || respuesta.status === 410) return true
-
-  console.error(
-    `google-calendar-sync: Google respondió ${respuesta.status} al borrar ${eventId}: ` +
-      (await respuesta.text()).slice(0, 500),
-  )
-  return false
-}
-
-/** POST/PATCH contra la Calendar API. null si no contestó o rechazó. */
-async function llamarGoogle(
-  url: string,
-  metodo: 'POST' | 'PATCH',
-  cuerpo: EventoGoogle,
-  acceso: string,
-): Promise<Response | null> {
-  let respuesta: Response
-  try {
-    respuesta = await fetch(url, {
-      method: metodo,
-      headers: {
-        Authorization: `Bearer ${acceso}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(cuerpo),
-      signal: AbortSignal.timeout(TIMEOUT_GOOGLE_MS),
-    })
-  } catch (err) {
-    console.error(`google-calendar-sync: no se pudo contactar a Google (${metodo})`, err)
-    return null
-  }
-
-  if (!respuesta.ok) {
-    console.error(
-      `google-calendar-sync: Google respondió ${respuesta.status} en ${metodo}: ` +
-        (await respuesta.text()).slice(0, 500),
-    )
-    return null
-  }
-
-  return respuesta
 }

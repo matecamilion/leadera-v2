@@ -5,6 +5,8 @@ import type { EstadoVisita, Visita, VisitaInsert } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 import { claveDia, desdeClaveDia } from '../calendario'
 import { esTelefonoConfiable } from '../telefono'
+import { asignadoDeAlta } from '../equipoCalendario'
+import type { RolAgente } from './auth'
 
 /**
  * Perfil del usuario logueado: hace falta para el alta.
@@ -13,13 +15,19 @@ import { esTelefonoConfiable } from '../telefono'
  * módulo común obligaría a tocar tareas, que está fuera del alcance de esta
  * fase; queda anotado como candidato a extraer cuando haya un tercer caso.
  */
-async function miPerfil(): Promise<{ id: string; inmobiliaria_id: string }> {
+async function miPerfil(): Promise<{
+  id: string
+  inmobiliaria_id: string
+  rol: RolAgente
+  asiste_a: string | null
+}> {
   const { data: userData, error: errorUser } = await supabase.auth.getUser()
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
+  // `rol` y `asiste_a` deciden a quién queda atribuida (ver `asignadoDeAlta`).
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id')
+    .select('id, inmobiliaria_id, rol, asiste_a')
     .eq('id', userData.user.id)
     .single()
 
@@ -60,10 +68,11 @@ const SELECT_CON_CONTEXTO =
 /**
  * Visitas que caen en el rango de días.
  *
- * A diferencia de `listarTareas`, acá NO se filtra por `creado_por`/`asignado_a`:
- * la policy de la tabla ya define quién ve qué —creador, asignado, dueño de la
- * inmobiliaria y la relación agente↔asistente— y repetir ese criterio en el
- * cliente sólo lograría esconder filas que el usuario sí tiene que ver.
+ * A diferencia de `listarTareas`, acá NO se filtra por usuario ni por equipo:
+ * la RLS de la tabla ya define quién ve qué —creador, asignado, dueño de la
+ * inmobiliaria y el equipo del agente (`mi_equipo_ids()`: el agente y sus
+ * asistentes)— y repetir ese criterio en el cliente sólo lograría esconder
+ * filas que el usuario sí tiene que ver.
  */
 export async function listarVisitas(
   desde: string,
@@ -100,19 +109,21 @@ const SELECT_POR_RECONFIRMAR =
   '*, propiedad:propiedades(id, direccion, zona), lead:leads(id, nombre, apellido, telefono)'
 
 /**
- * Visitas agendadas de hoy y mañana que el usuario creó o tiene asignadas y
- * todavía no reconfirmó.
+ * Visitas agendadas de hoy y mañana que creó o tiene asignadas alguien del
+ * equipo (`equipoIds`: el agente y sus asistentes) y todavía no se reconfirmaron.
  *
  * Consulta propia y no `listarVisitas`: esa comparte el select con el calendario
- * de Tareas y no tiene por qué cargar el teléfono de cada lead. Acá sí se filtra
- * por usuario, porque la RLS deja ver también las de los compañeros y el aviso
- * es de quien tiene que hacer la reconfirmación.
+ * de Tareas y no tiene por qué cargar el teléfono de cada lead. Acá sí se
+ * filtra, porque la RLS deja ver también las de otros equipos (un dueño ve toda
+ * la inmobiliaria) y el aviso es de quien tiene que hacer la reconfirmación: el
+ * equipo es el que comparte la agenda, así que le toca a cualquiera de ellos.
  */
 export async function listarVisitasPorReconfirmar(
   hoy: string,
   manana: string,
-  uid: string,
+  equipoIds: readonly string[],
 ): Promise<VisitaPorReconfirmar[]> {
+  const ids = equipoIds.join(',')
   const { data, error } = await supabase
     .from('visitas')
     .select(SELECT_POR_RECONFIRMAR)
@@ -120,7 +131,7 @@ export async function listarVisitasPorReconfirmar(
     .lte('fecha', manana)
     .eq('estado', 'AGENDADA')
     .is('reconfirmada_at', null)
-    .or(`creado_por.eq.${uid},asignado_a.eq.${uid}`)
+    .or(`creado_por.in.(${ids}),asignado_a.in.(${ids})`)
     .order('fecha', { ascending: true })
     .order('hora', { ascending: true, nullsFirst: true })
 
@@ -230,7 +241,10 @@ interface CrearVisitaComun {
   /** `HH:MM`, o null si no hay hora pactada. */
   hora?: string | null
   notas?: string | null
-  /** Si no viene, la visita queda a nombre de quien la crea. */
+  /**
+   * Si no viene, la visita queda a nombre de quien la crea. Un asistente no
+   * elige: queda a nombre de su agente igual (ver `asignadoDeAlta`).
+   */
   asignado_a?: string | null
 }
 
@@ -280,8 +294,10 @@ export async function crearVisita(input: CrearVisitaInput): Promise<Visita> {
 
   const fila: VisitaInsert = {
     inmobiliaria_id: perfil.inmobiliaria_id,
+    // Siempre el usuario real; solo `asignado_a` pasa por la atribución: un
+    // asistente carga en el calendario de su agente.
     creado_por: perfil.id,
-    asignado_a: input.asignado_a || perfil.id,
+    asignado_a: asignadoDeAlta(perfil, input.asignado_a),
     ...destino,
     lead_id: input.lead_id || null,
     fecha: input.fecha,

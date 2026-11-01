@@ -20,7 +20,8 @@ function titulaDia(clave: string): string {
 interface PanelDiaTareasProps {
   dia: string
   eventos: EventoCalendario[]
-  miId: string
+  /** Ids del equipo del usuario (el agente y sus asistentes): deciden las acciones de cada tarjeta. */
+  equipoIds: readonly string[]
   idCambiando: string | null
   idEliminando: string | null
   onAlternarCompletada: (tarea: Tarea) => void
@@ -43,7 +44,7 @@ interface PanelDiaTareasProps {
 export function PanelDiaTareas({
   dia,
   eventos,
-  miId,
+  equipoIds,
   idCambiando,
   idEliminando,
   onAlternarCompletada,
@@ -81,7 +82,7 @@ export function PanelDiaTareas({
                     <ItemTarea
                       key={e.id}
                       tarea={tarea}
-                      miId={miId}
+                      equipoIds={equipoIds}
                       cambiando={idCambiando === tarea.id}
                       eliminando={idEliminando === tarea.id}
                       onAlternarCompletada={onAlternarCompletada}
@@ -148,7 +149,7 @@ export function PanelDiaTareas({
                     <ItemVisita
                       key={e.id}
                       visita={visita}
-                      miId={miId}
+                      equipoIds={equipoIds}
                       cambiando={idVisitaCambiando === visita.id}
                       eliminando={idVisitaEliminando === visita.id}
                       onMarcarRealizada={onMarcarRealizada}

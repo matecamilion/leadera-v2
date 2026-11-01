@@ -109,14 +109,19 @@ export function ModalNuevaVisita({
   const [asignadoA, setAsignadoA] = useState(miId)
   const [notas, setNotas] = useState('')
 
-  // Un asistente no reparte visitas: la suya queda a su nombre. Para agente y
-  // dueño, `listarEquipo` ya devuelve a quién le pueden asignar.
-  const puedeAsignar = rol === 'AGENTE' || rol === 'DUENO'
+  // El calendario es del equipo (el agente y sus asistentes). Un asistente no
+  // reparte visitas: la suya queda a nombre de su agente (lo resuelve el alta).
+  // El agente tampoco: asignarle una a un asistente suyo la sacaría de su
+  // calendario. Solo el dueño puede darle una visita a otro miembro de la
+  // inmobiliaria, que no sea uno de sus propios asistentes.
+  const puedeAsignar = rol === 'DUENO'
   const equipo = useEquipo(puedeAsignar ? rol : undefined, puedeAsignar ? miId : undefined)
 
-  // El dueño se ve a sí mismo en el listado del equipo; el agente no. Se arma
-  // la lista con uno mismo primero y sin repetidos.
-  const otros = (equipo.data ?? []).filter((m) => m.id !== miId && m.activo)
+  // El dueño se ve a sí mismo en el listado del equipo: se lo saca, y "Yo" va
+  // primero en el selector.
+  const otros = (equipo.data ?? []).filter(
+    (m) => m.id !== miId && m.activo && m.asisteA?.id !== miId,
+  )
   const hayAQuienAsignar = puedeAsignar && otros.length > 0
 
   const crear = useCrearVisita()

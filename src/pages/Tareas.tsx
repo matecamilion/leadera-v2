@@ -8,6 +8,7 @@ import { PanelDiaTareas } from '../components/tareas/PanelDiaTareas'
 import { IconoCasa, IconoMas } from '../components/leads/Iconos'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
+import { useEquipoCalendario } from '../hooks/useEquipoCalendario'
 import {
   useCompletarTarea,
   useDescompletarTarea,
@@ -50,6 +51,7 @@ export default function Tareas() {
   }, [ano, mes])
 
   const eventos = useEventosCalendario(desde, hasta)
+  const { equipo: equipoCalendario } = useEquipoCalendario()
   // Los asistentes salen de la misma fuente que usa Equipo: para un AGENTE,
   // `listarEquipo` devuelve exactamente la gente que lo asiste.
   const equipo = useEquipo(esAgente ? rol : undefined, esAgente ? miId : undefined)
@@ -234,7 +236,7 @@ export default function Tareas() {
           <PanelDiaTareas
             dia={diaSel}
             eventos={delDia}
-            miId={miId}
+            equipoIds={equipoCalendario?.equipoIds ?? [miId]}
             idCambiando={
               completar.isPending || descompletar.isPending
                 ? ((completar.variables ?? descompletar.variables) ?? null)

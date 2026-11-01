@@ -20,7 +20,7 @@ import { TooltipAyuda } from '../comunes/TooltipAyuda'
 import { ItemTarea } from '../tareas/ItemTarea'
 import { BadgeEstadoOperacion } from '../operaciones/BadgeEstadoOperacion'
 import { BadgeEstadoPropiedad } from '../propiedades/BadgeEstadoPropiedad'
-import { useAuth } from '../../contexts/AuthContext'
+import { useEquipoCalendario } from '../../hooks/useEquipoCalendario'
 import { useInteraccionesPorLead } from '../../hooks/useInteracciones'
 import { useActualizarDescripcion } from '../../hooks/useLead'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
@@ -425,8 +425,8 @@ function PanelTareas({
   leadId: string
   onIrATab: (tab: TabDestino) => void
 }) {
-  const { profile } = useAuth()
-  const miId = profile?.id ?? ''
+  const { equipo } = useEquipoCalendario()
+  const equipoIds = equipo?.equipoIds ?? []
 
   const { data, isPending, isError, error } = useTareasPorLead(leadId)
 
@@ -462,7 +462,7 @@ function PanelTareas({
             <ItemTarea
               key={tarea.id}
               tarea={tarea}
-              miId={miId}
+              equipoIds={equipoIds}
               cambiando={idCambiando === tarea.id}
               eliminando={borrar.isPending && borrar.variables === tarea.id}
               onAlternarCompletada={alternarCompletada}

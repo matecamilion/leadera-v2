@@ -138,6 +138,13 @@ export const claves = {
     resumenCupo: (uid: Uid) => ['equipo', 'resumen-cupo', uid] as const,
   },
 
+  /** Quiénes comparten el calendario del usuario: su agente y los asistentes. */
+  equipoCalendario: {
+    raiz: ['equipo-calendario'] as const,
+    de: (uid: Uid, duenoCalendario: string | undefined) =>
+      ['equipo-calendario', uid, duenoCalendario] as const,
+  },
+
   googleCalendar: {
     raiz: ['google-calendar'] as const,
     conexion: (uid: Uid) => ['google-calendar', uid] as const,
@@ -349,8 +356,10 @@ export const claves = {
    */
   tareas: {
     raiz: ['tareas'] as const,
-    eventos: (uid: Uid, desde: string, hasta: string) =>
-      ['tareas', 'eventos', uid, desde, hasta] as const,
+    // `equipo` (ver `claveDeEquipo`) va en la clave porque el calendario se
+    // pide por equipo: si cambia su composición, no se sirve el cache anterior.
+    eventos: (uid: Uid, equipo: string, desde: string, hasta: string) =>
+      ['tareas', 'eventos', uid, equipo, desde, hasta] as const,
     porLead: (uid: Uid, leadId: string) => ['tareas', 'por-lead', uid, leadId] as const,
   },
 
@@ -366,12 +375,13 @@ export const claves = {
    */
   visitas: {
     raiz: ['visitas'] as const,
-    rango: (uid: Uid, desde: string, hasta: string) => ['visitas', uid, desde, hasta] as const,
+    rango: (uid: Uid, equipo: string, desde: string, hasta: string) =>
+      ['visitas', uid, equipo, desde, hasta] as const,
     estadisticasPropiedad: (uid: Uid, propiedadId: string) =>
       ['visitas', 'estadisticas-propiedad', uid, propiedadId] as const,
     porLead: (uid: Uid, leadId: string) => ['visitas', 'por-lead', uid, leadId] as const,
-    porReconfirmar: (uid: Uid, hoy: string, manana: string) =>
-      ['visitas', 'por-reconfirmar', uid, hoy, manana] as const,
+    porReconfirmar: (uid: Uid, equipo: string, hoy: string, manana: string) =>
+      ['visitas', 'por-reconfirmar', uid, equipo, hoy, manana] as const,
   },
 }
 

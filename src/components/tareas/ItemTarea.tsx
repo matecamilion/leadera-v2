@@ -1,10 +1,15 @@
 import { IconoTacho } from '../leads/Iconos'
 import type { Tarea } from '../../types/database'
+import { esDelEquipo } from '../../lib/equipoCalendario'
 
 interface ItemTareaProps {
   tarea: Tarea
-  /** Id del usuario logueado: decide qué acciones se ofrecen. */
-  miId: string
+  /**
+   * Ids del equipo del usuario logueado (el agente y sus asistentes): decide qué
+   * acciones se ofrecen. El calendario es compartido, así que lo que cargó un
+   * asistente lo opera también el otro asistente y el agente.
+   */
+  equipoIds: readonly string[]
   cambiando: boolean
   eliminando: boolean
   onAlternarCompletada: (tarea: Tarea) => void
@@ -14,20 +19,22 @@ interface ItemTareaProps {
 /**
  * Una tarea del día.
  *
- * Completar sólo lo ve el asignado y eliminar sólo quien la creó. RLS rechaza
- * lo demás igual, pero un botón que siempre falla es peor que no tenerlo.
+ * Completar y eliminar los ve cualquiera del equipo si la tarea es del equipo
+ * (la creó o la tiene asignada alguien de él). RLS rechaza lo demás igual, pero
+ * un botón que siempre falla es peor que no tenerlo.
  */
 export function ItemTarea({
   tarea,
-  miId,
+  equipoIds,
   cambiando,
   eliminando,
   onAlternarCompletada,
   onEliminar,
 }: ItemTareaProps) {
   const completada = tarea.estado === 'COMPLETADA'
-  const puedeCompletar = tarea.asignado_a === miId
-  const puedeEliminar = tarea.creado_por === miId
+  const delEquipo = esDelEquipo(tarea, equipoIds)
+  const puedeCompletar = delEquipo
+  const puedeEliminar = delEquipo
 
   return (
     <li className="flex items-start gap-2.5 rounded-xl border border-border bg-surface p-3">

@@ -8,6 +8,8 @@ import type {
   TareaInsert,
 } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
+import { asignadoDeAlta } from '../equipoCalendario'
+import type { RolAgente } from './auth'
 import type { EstadoLead } from './leads'
 
 /**
@@ -18,14 +20,24 @@ import type { EstadoLead } from './leads'
  */
 export const MAX_OCURRENCIAS = 200
 
-/** Perfil del usuario logueado: hace falta para el alta. */
-async function miPerfil(): Promise<{ id: string; inmobiliaria_id: string }> {
+/**
+ * Perfil del usuario logueado: hace falta para el alta. `rol` y `asiste_a`
+ * deciden a quién queda atribuida (ver `asignadoDeAlta`).
+ */
+interface PerfilDeAlta {
+  id: string
+  inmobiliaria_id: string
+  rol: RolAgente
+  asiste_a: string | null
+}
+
+async function miPerfil(): Promise<PerfilDeAlta> {
   const { data: userData, error: errorUser } = await supabase.auth.getUser()
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, inmobiliaria_id')
+    .select('id, inmobiliaria_id, rol, asiste_a')
     .eq('id', userData.user.id)
     .single()
 
@@ -38,23 +50,28 @@ async function miPerfil(): Promise<{ id: string; inmobiliaria_id: string }> {
 // ---------------------------------------------------------------------------
 
 /**
- * Tareas del usuario en un rango de días, tanto las que creó como las que le
- * asignaron.
+ * Tareas del equipo en un rango de días: las que creó o tiene asignadas
+ * cualquiera de `equipoIds` (el agente y sus asistentes).
  *
- * RLS ya acota lo que puede ver; el `.or()` de acá es sobre qué se pide, para
- * no traerse las de otros miembros del equipo que la policy sí permitiría.
+ * El calendario es del equipo, no de cada usuario: un asistente opera el del
+ * agente, así que lo que carga un asistente tiene que verlo el otro asistente
+ * y el agente. La RLS (`mi_equipo_ids()`) deja ver lo mismo; el `.or()` de acá
+ * es sobre qué se pide, para no traerse las de otros miembros de la
+ * inmobiliaria que la policy de un dueño sí permitiría.
  */
-export async function listarTareas(desde: string, hasta: string): Promise<Tarea[]> {
-  const { data: userData, error: errorUser } = await supabase.auth.getUser()
-  if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
-  const miId = userData.user.id
+export async function listarTareas(
+  desde: string,
+  hasta: string,
+  equipoIds: readonly string[],
+): Promise<Tarea[]> {
+  const ids = equipoIds.join(',')
 
   const { data, error } = await supabase
     .from('tareas')
     .select('*')
     .gte('fecha', desde)
     .lte('fecha', hasta)
-    .or(`creado_por.eq.${miId},asignado_a.eq.${miId}`)
+    .or(`creado_por.in.(${ids}),asignado_a.in.(${ids})`)
     .order('fecha', { ascending: true })
     .order('hora', { ascending: true, nullsFirst: true })
 
@@ -85,14 +102,20 @@ export interface SeguimientoLead {
  * La columna es `timestamptz` y las celdas del calendario son días locales, así
  * que el rango se arma desde la medianoche local del primer día hasta la
  * medianoche local del día siguiente al último.
+ *
+ * Se filtra por la cartera del dueño del calendario (`leads.agente_id`) y no por
+ * quién lo trabaja (`asignado_a`): el calendario es del equipo, así que el
+ * asistente ve los seguimientos de los leads del agente aunque los lleve el
+ * otro asistente. No achica lo que veía nadie: `asignado_a` solo puede ser el
+ * agente del lead o un asistente suyo, así que todo lo que alguien tenía
+ * asignado está en la cartera de su dueño de calendario. La RLS de `leads`
+ * sigue decidiendo qué se puede leer.
  */
 export async function listarSeguimientosComoEventos(
   desde: string,
   hasta: string,
+  duenoCalendario: string,
 ): Promise<SeguimientoLead[]> {
-  const { data: userData, error: errorUser } = await supabase.auth.getUser()
-  if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
-
   const inicio = desdeClaveDia(desde)
   const fin = desdeClaveDia(hasta)
   fin.setDate(fin.getDate() + 1)
@@ -100,7 +123,7 @@ export async function listarSeguimientosComoEventos(
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, apellido, telefono, estado, fecha_proximo_seguimiento')
-    .eq('asignado_a', userData.user.id)
+    .eq('agente_id', duenoCalendario)
     .not('fecha_proximo_seguimiento', 'is', null)
     .gte('fecha_proximo_seguimiento', inicio.toISOString())
     .lt('fecha_proximo_seguimiento', fin.toISOString())
@@ -121,6 +144,10 @@ export interface CrearTareaInput {
   fecha: string
   /** `HH:MM`, o null para una tarea sin hora puntual. */
   hora?: string | null
+  /**
+   * A quién se la asigna quien la crea. Un asistente no elige: la tarea queda
+   * a nombre de su agente igual (ver `asignadoDeAlta`).
+   */
   asignado_a: string
   lead_id?: string | null
   operacion_id?: string | null
@@ -129,14 +156,15 @@ export interface CrearTareaInput {
 
 function aFilaTarea(
   input: CrearTareaInput,
-  perfil: { id: string; inmobiliaria_id: string },
+  perfil: PerfilDeAlta,
   fecha: string,
   serieId: string | null,
 ): TareaInsert {
   return {
     inmobiliaria_id: perfil.inmobiliaria_id,
+    // Siempre el usuario real; solo `asignado_a` pasa por la atribución.
     creado_por: perfil.id,
-    asignado_a: input.asignado_a,
+    asignado_a: asignadoDeAlta(perfil, input.asignado_a),
     titulo: input.titulo.trim(),
     descripcion: input.descripcion?.trim() || null,
     fecha,

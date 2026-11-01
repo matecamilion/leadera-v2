@@ -25,22 +25,24 @@ const YO = 'yo'
 /**
  * A quién más, además de uno mismo, se le puede asignar una tarea.
  *
- *  - ASISTENTE: el agente al que asiste.
- *  - AGENTE: sus asistentes (`listarEquipo` ya los trae filtrados).
- *  - DUENO: cualquier otro miembro activo de la inmobiliaria.
+ *  - ASISTENTE: a nadie. No tiene calendario propio: lo que carga queda a
+ *    nombre de su agente (lo resuelve el alta, no este formulario).
+ *  - AGENTE: a nadie. Sus asistentes comparten su calendario, así que asignarles
+ *    una tarea la sacaría de él.
+ *  - DUENO: cualquier otro miembro activo de la inmobiliaria, salvo sus propios
+ *    asistentes por la misma razón.
  *
- * Es la misma regla que aplican las policies de INSERT de `tareas`; esto sólo
- * decide qué se ofrece.
+ * Esto sólo decide qué se ofrece; las policies de INSERT de `tareas` ponen el
+ * límite en la base.
  */
 function otrosDestinatarios(
   rol: RolAgente | undefined,
   miId: string,
-  asisteA: string | null,
   miembros: Miembro[],
 ): Miembro[] {
-  if (rol === 'ASISTENTE') return miembros.filter((m) => m.id === asisteA)
-  if (rol === 'AGENTE') return miembros.filter((m) => m.asisteA?.id === miId)
-  if (rol === 'DUENO') return miembros.filter((m) => m.id !== miId && m.activo)
+  if (rol === 'DUENO') {
+    return miembros.filter((m) => m.id !== miId && m.activo && m.asisteA?.id !== miId)
+  }
   return []
 }
 
@@ -81,8 +83,10 @@ export function ModalNuevaTarea({
 
   const { profile } = useAuth()
   const miId = profile?.id ?? ''
-  const equipo = useEquipo(profile?.rol, profile?.id)
-  const otros = otrosDestinatarios(profile?.rol, miId, profile?.asiste_a ?? null, equipo.data ?? [])
+  // Solo el dueño elige a quién asignarle: para los demás no hay nada que traer.
+  const puedeAsignar = profile?.rol === 'DUENO'
+  const equipo = useEquipo(puedeAsignar ? profile?.rol : undefined, puedeAsignar ? profile?.id : undefined)
+  const otros = otrosDestinatarios(profile?.rol, miId, equipo.data ?? [])
   const destinatario = asignadoA === YO ? miId : asignadoA
 
   const crear = useCrearTarea()
@@ -248,24 +252,29 @@ export function ModalNuevaTarea({
             </div>
           </div>
 
-          <div>
-            <label htmlFor="tarea-asignado" className={etiquetaCampo}>
-              Para quién
-            </label>
-            <select
-              id="tarea-asignado"
-              value={asignadoA}
-              onChange={(e) => setAsignadoA(e.target.value)}
-              className={campo}
-            >
-              <option value={YO}>Yo</option>
-              {otros.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre} {a.apellido}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Sin otros destinatarios no hay nada que elegir: la tarea queda en el
+              calendario del equipo (a nombre de uno mismo o, si es un asistente,
+              de su agente). */}
+          {otros.length > 0 && (
+            <div>
+              <label htmlFor="tarea-asignado" className={etiquetaCampo}>
+                Para quién
+              </label>
+              <select
+                id="tarea-asignado"
+                value={asignadoA}
+                onChange={(e) => setAsignadoA(e.target.value)}
+                className={campo}
+              >
+                <option value={YO}>Yo</option>
+                {otros.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nombre} {a.apellido}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="rounded-xl border border-border p-3.5">
             <label className="flex cursor-pointer items-center gap-2.5">

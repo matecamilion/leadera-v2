@@ -20,7 +20,9 @@ import { hoyEnArgentina } from '../lib/ritmoSemanal'
 // La dependencia va en un solo sentido —`useTareas` no importa nada de acá— así
 // que no hay ciclo.
 import { type EventoCalendario } from './useTareas'
+import { claveDeEquipo } from '../lib/equipoCalendario'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useEquipoCalendario } from './useEquipoCalendario'
 import { useUid } from './useUid'
 import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import type { EstadoVisita, Visita } from '../types/database'
@@ -28,29 +30,34 @@ import type { EstadoVisita, Visita } from '../types/database'
 /** Visitas de un rango, para quien las quiera sin el resto del calendario. */
 export function useVisitas(desde: string, hasta: string) {
   const uid = useUid()
+  const { equipo, listo } = useEquipoCalendario()
   return useQuery<VisitaConContexto[]>({
-    queryKey: claves.visitas.rango(uid, desde, hasta),
+    // La lectura no filtra por equipo (lo hace la RLS), pero el equipo va en la
+    // clave para no servir el cache de otra composición del equipo.
+    queryKey: claves.visitas.rango(uid, equipo ? claveDeEquipo(equipo) : '', desde, hasta),
     queryFn: () => listarVisitas(desde, hasta),
-    enabled: !!uid,
+    enabled: !!uid && listo,
     placeholderData: anteriorDelMismoUsuario(uid),
   })
 }
 
 /**
- * Visitas de hoy y mañana que el usuario todavía no reconfirmó.
+ * Visitas de hoy y mañana del equipo que todavía no se reconfirmaron.
  *
  * "Hoy" es el de Argentina, no el del navegador: el día de la visita lo fija la
  * base en esa zona. La clave lleva los dos días, así que pasada la medianoche la
- * query se vuelve a pedir sola.
+ * query se vuelve a pedir sola. Es del equipo y no del usuario: reconfirmar le
+ * toca a quien opera el calendario, sea el agente o cualquiera de sus asistentes.
  */
 export function useVisitasPorReconfirmar() {
   const uid = useUid()
+  const { equipo, listo } = useEquipoCalendario()
   const hoy = hoyEnArgentina()
   const manana = diaSiguiente(hoy)
   return useQuery<VisitaPorReconfirmar[]>({
-    queryKey: claves.visitas.porReconfirmar(uid, hoy, manana),
-    queryFn: () => listarVisitasPorReconfirmar(hoy, manana, uid as string),
-    enabled: !!uid,
+    queryKey: claves.visitas.porReconfirmar(uid, equipo ? claveDeEquipo(equipo) : '', hoy, manana),
+    queryFn: () => listarVisitasPorReconfirmar(hoy, manana, equipo!.equipoIds),
+    enabled: !!uid && listo && !!equipo,
   })
 }
 
@@ -63,13 +70,19 @@ export function useVisitasPorReconfirmar() {
 export function useReconfirmarVisita() {
   const queryClient = useQueryClient()
   const uid = useUid()
+  const { equipo } = useEquipoCalendario()
   const hoy = hoyEnArgentina()
 
   return useMutation<void, Error, string>({
     mutationFn: (id) => reconfirmarVisita(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: claves.visitas.porReconfirmar(uid, hoy, diaSiguiente(hoy)),
+        queryKey: claves.visitas.porReconfirmar(
+          uid,
+          equipo ? claveDeEquipo(equipo) : '',
+          hoy,
+          diaSiguiente(hoy),
+        ),
       })
     },
   })

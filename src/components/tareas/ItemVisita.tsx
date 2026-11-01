@@ -3,6 +3,7 @@ import { IconoCasa, IconoCheck, IconoCerrar, IconoLink, IconoTacho } from '../le
 import type { EstadoVisita } from '../../types/database'
 import type { VisitaConContexto } from '../../lib/api/visitas'
 import { urlInvalida } from '../../lib/validaciones'
+import { esDelEquipo } from '../../lib/equipoCalendario'
 
 const ETIQUETA_ESTADO: Record<EstadoVisita, string> = {
   AGENDADA: 'Agendada',
@@ -18,8 +19,11 @@ const COLOR_ESTADO: Record<EstadoVisita, string> = {
 
 interface ItemVisitaProps {
   visita: VisitaConContexto
-  /** Id del usuario logueado: decide qué acciones se ofrecen. */
-  miId: string
+  /**
+   * Ids del equipo del usuario logueado (el agente y sus asistentes): decide qué
+   * acciones se ofrecen. El calendario es compartido.
+   */
+  equipoIds: readonly string[]
   cambiando: boolean
   eliminando: boolean
   onMarcarRealizada: (visita: VisitaConContexto) => void
@@ -30,14 +34,14 @@ interface ItemVisitaProps {
 /**
  * Una visita del día.
  *
- * Cambiar el estado lo pueden el creador y el asignado; eliminar, sólo quien la
- * creó. RLS rechaza lo demás igual, pero un botón que siempre falla es peor que
- * no tenerlo. Una visita ya cerrada —realizada o cancelada— no ofrece acciones:
- * es historial.
+ * Cambiar el estado y eliminar los puede cualquiera del equipo si la visita es
+ * del equipo (la creó o la tiene asignada alguien de él). RLS rechaza lo demás
+ * igual, pero un botón que siempre falla es peor que no tenerlo. Una visita ya
+ * cerrada —realizada o cancelada— no ofrece acciones: es historial.
  */
 export function ItemVisita({
   visita,
-  miId,
+  equipoIds,
   cambiando,
   eliminando,
   onMarcarRealizada,
@@ -45,8 +49,9 @@ export function ItemVisita({
   onEliminar,
 }: ItemVisitaProps) {
   const abierta = visita.estado === 'AGENDADA'
-  const puedeGestionar = visita.creado_por === miId || visita.asignado_a === miId
-  const puedeEliminar = visita.creado_por === miId
+  const delEquipo = esDelEquipo(visita, equipoIds)
+  const puedeGestionar = delEquipo
+  const puedeEliminar = delEquipo
   // Externa = a una propiedad que no está cargada. No hay ficha a la que
   // linkear: el título es texto y, si hay, se ofrece el link que se cargó.
   const externa = !visita.propiedad_id

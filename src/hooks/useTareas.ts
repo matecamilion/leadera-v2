@@ -17,7 +17,9 @@ import { sincronizarConGoogle } from '../lib/api/googleCalendar'
 import { claveDia } from '../lib/calendario'
 import type { EstadoTarea, EstadoVisita, Recurrencia, Tarea } from '../types/database'
 import type { EstadoLead } from '../lib/api/leads'
+import { claveDeEquipo } from '../lib/equipoCalendario'
 import { anteriorDelMismoUsuario, claves } from '../lib/queryKeys'
+import { useEquipoCalendario } from './useEquipoCalendario'
 import { useUid } from './useUid'
 
 export interface EventoCalendario {
@@ -104,20 +106,23 @@ export function useTareasPorLead(leadId: string | undefined) {
 }
 
 /**
- * Eventos del mes visible: tareas propias, seguimientos de leads y visitas a
+ * Eventos del mes visible: tareas del equipo, seguimientos de leads y visitas a
  * propiedades, en una sola lista con forma común.
  *
- * Las tres fuentes van en la misma query key para que el calendario se pinte de
- * una vez y no en saltos.
+ * El calendario es del equipo (el agente y sus asistentes), no de cada usuario:
+ * por eso espera a saber quién lo integra y lo lleva en la clave. Las tres
+ * fuentes van en la misma query key para que se pinte de una vez y no en saltos.
  */
 export function useEventosCalendario(desde: string, hasta: string) {
   const uid = useUid()
+  const { equipo, listo } = useEquipoCalendario()
   return useQuery<EventoCalendario[]>({
-    queryKey: claves.tareas.eventos(uid, desde, hasta),
+    queryKey: claves.tareas.eventos(uid, equipo ? claveDeEquipo(equipo) : '', desde, hasta),
     queryFn: async () => {
+      const { duenoCalendario, equipoIds } = equipo!
       const [tareas, seguimientos, visitas] = await Promise.all([
-        listarTareas(desde, hasta),
-        listarSeguimientosComoEventos(desde, hasta),
+        listarTareas(desde, hasta, equipoIds),
+        listarSeguimientosComoEventos(desde, hasta, duenoCalendario),
         listarVisitas(desde, hasta),
       ])
       return [
@@ -126,7 +131,7 @@ export function useEventosCalendario(desde: string, hasta: string) {
         ...visitas.map(visitaAEvento),
       ]
     },
-    enabled: !!uid,
+    enabled: !!uid && listo && !!equipo,
     // Al cambiar de mes se mantiene el calendario anterior en vez de saltar al
     // skeleton: navegar entre meses se siente continuo.
     placeholderData: anteriorDelMismoUsuario(uid),

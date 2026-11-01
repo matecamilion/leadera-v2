@@ -6,7 +6,7 @@ import {
   useInteraccionesPorLead,
 } from '../../hooks/useInteracciones'
 import { BarraTabs } from '../comunes/BarraTabs'
-import { useAuth } from '../../contexts/AuthContext'
+import { useEquipoCalendario } from '../../hooks/useEquipoCalendario'
 import { useOperacionesPorLead } from '../../hooks/useOperacion'
 import {
   useCompletarTarea,
@@ -65,7 +65,6 @@ export function TabsDetalleLead({
   // Misma clave que el panel del Resumen: si el agente ya pasó por ahí, esto
   // no dispara un request nuevo.
   const tareas = useTareasPorLead(leadId)
-  const { profile } = useAuth()
 
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
   // Qué interacción está en el modal, y cuál de los dos. La fila se guarda
@@ -148,7 +147,6 @@ export function TabsDetalleLead({
         {activa === 'tareas' && (
           <PanelTareas
             leadId={leadId}
-            miId={profile?.id ?? ''}
             onNuevaTarea={onNuevaTarea}
           />
         )}
@@ -242,14 +240,14 @@ export function TabsDetalleLead({
  */
 function PanelTareas({
   leadId,
-  miId,
   onNuevaTarea,
 }: {
   leadId: string
-  miId: string
   onNuevaTarea: () => void
 }) {
   const { data, isPending, isError, error } = useTareasPorLead(leadId)
+  const { equipo } = useEquipoCalendario()
+  const equipoIds = equipo?.equipoIds ?? []
 
   const completar = useCompletarTarea()
   const descompletar = useDescompletarTarea()
@@ -308,7 +306,7 @@ function PanelTareas({
             <ItemTarea
               key={tarea.id}
               tarea={tarea}
-              miId={miId}
+              equipoIds={equipoIds}
               cambiando={idCambiando === tarea.id}
               eliminando={borrar.isPending && borrar.variables === tarea.id}
               onAlternarCompletada={alternarCompletada}

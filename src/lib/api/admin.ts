@@ -53,6 +53,8 @@ const UN_DIA_MS = 24 * 60 * 60 * 1000
 export interface DuenoCuenta {
   nombre: string
   email: string
+  /** Celular en formato internacional. null en cuentas anteriores al campo. */
+  telefono: string | null
 }
 
 /**
@@ -160,7 +162,7 @@ export async function obtenerPanelAdmin(ahora: Date = new Date()): Promise<Datos
     // se muestra. Mismo criterio que `vista_cuentas_en_riesgo`.
     supabase
       .from('profiles')
-      .select('inmobiliaria_id, nombre, apellido, email, created_at')
+      .select('inmobiliaria_id, nombre, apellido, email, telefono, created_at')
       .eq('rol', 'DUENO')
       .order('created_at', { ascending: true }),
 
@@ -196,6 +198,7 @@ export async function obtenerPanelAdmin(ahora: Date = new Date()): Promise<Datos
     duenoPorCuenta.set(p.inmobiliaria_id, {
       nombre: `${p.nombre} ${p.apellido}`.trim(),
       email: p.email,
+      telefono: p.telefono,
     })
   }
 
@@ -513,6 +516,45 @@ export function estaPorVencer(cuenta: CuentaAdmin, ahora: Date = new Date()): bo
   if (cuenta.estado === 'GRACIA') return true
   if (cuenta.estado !== 'TRIAL') return false
   return new Date(cuenta.finTrial).getTime() < ahora.getTime() + DIAS_RIESGO_TRIAL * UN_DIA_MS
+}
+
+/** Ventana, tope y umbral de "Nuevo" de la sección Registros recientes. */
+export const DIAS_REGISTROS_RECIENTES = 7
+export const MAX_REGISTROS_RECIENTES = 20
+export const HORAS_REGISTRO_NUEVO = 48
+
+const UNA_HORA_MS = 60 * 60 * 1000
+
+export interface RegistrosRecientes {
+  /** Cuántas cuentas se registraron en la ventana, sin el tope de la lista. */
+  total: number
+  /** Las más nuevas primero, hasta `MAX_REGISTROS_RECIENTES`. */
+  lista: CuentaAdmin[]
+}
+
+/**
+ * Las cuentas creadas en los últimos 7 días, más nuevas primero.
+ *
+ * Sólo CLIENTE: una cuenta interna o de testing no es alguien a quien escribirle.
+ * El creador de cada cuenta es `dueno` (el DUENO más antiguo), así que los
+ * miembros invitados nunca aparecen.
+ */
+export function registrosRecientes(
+  cuentas: CuentaAdmin[],
+  ahora: Date = new Date(),
+): RegistrosRecientes {
+  const desde = ahora.getTime() - DIAS_REGISTROS_RECIENTES * UN_DIA_MS
+  const enVentana = cuentas
+    .filter((c) => c.tipoCuenta === 'CLIENTE' && new Date(c.creadaEl).getTime() >= desde)
+    .sort((a, b) => new Date(b.creadaEl).getTime() - new Date(a.creadaEl).getTime())
+  return { total: enVentana.length, lista: enVentana.slice(0, MAX_REGISTROS_RECIENTES) }
+}
+
+/** true si la cuenta se creó hace menos de 48 horas. */
+export function esRegistroNuevo(cuenta: CuentaAdmin, ahora: Date = new Date()): boolean {
+  return (
+    ahora.getTime() - new Date(cuenta.creadaEl).getTime() < HORAS_REGISTRO_NUEVO * UNA_HORA_MS
+  )
 }
 
 export interface IngresoDelPeriodo {

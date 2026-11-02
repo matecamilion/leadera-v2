@@ -93,6 +93,88 @@ export function esTelefonoConfiable(valor: string): boolean {
 }
 
 /**
+ * Resultado de `normalizarCelularRegistro`: el número listo para guardar, o por
+ * qué no sirve.
+ */
+export type ResultadoCelular = { ok: true; e164: string } | { ok: false; motivo: string }
+
+const MOTIVO_VACIO = 'Ingresá tu celular con código de área.'
+const MOTIVO_SIN_AREA = 'Falta el código de área. Ej.: 223 555 1234.'
+const MOTIVO_REVISAR = 'Revisá el número: no parece un celular válido.'
+
+/**
+ * Celular del registro, en formato internacional (`+549…` para Argentina).
+ *
+ * A diferencia de `normalizarTelefonoAR` —que nunca falla y le inventa el
+ * código de área 223 a lo que no lo trae—, acá se rechaza lo que no se puede
+ * interpretar con certeza: el dato se usa para escribirle a una persona, y un
+ * número armado a ciegas es peor que pedirle que lo corrija.
+ *
+ *  - Con `+` o `00` adelante es internacional: `+54` se normaliza como celular
+ *    argentino y cualquier otro país se acepta tal cual (8 a 15 dígitos).
+ *  - Sin prefijo es argentino: se saca el 0 y el 15, y tiene que quedar el
+ *    código de área más el abonado (10 dígitos). Sin código de área se rechaza.
+ *
+ * `normalizarTelefonoAR` no se toca: la detección de duplicados y los links de
+ * WhatsApp de los leads dependen de su comportamiento actual.
+ */
+export function normalizarCelularRegistro(valor: string): ResultadoCelular {
+  const texto = valor.trim()
+  let digitos = soloDigitos(texto)
+  if (!digitos) return { ok: false, motivo: MOTIVO_VACIO }
+
+  let internacional = texto.startsWith('+')
+  if (!internacional && texto.startsWith('00')) {
+    internacional = true
+    digitos = digitos.slice(2)
+  }
+  // `54 9 223…` sin el `+`: ningún código de área argentino empieza con 54.
+  if (!internacional && digitos.startsWith('54') && digitos.length >= 12) internacional = true
+
+  if (internacional) {
+    if (digitos.startsWith('54')) return celularArgentino(digitos.slice(2))
+    // Sin ceros a la izquierda: el primer dígito es del país (1 a 9).
+    if (/^[1-9]\d{7,14}$/.test(digitos)) return { ok: true, e164: `+${digitos}` }
+    return { ok: false, motivo: MOTIVO_REVISAR }
+  }
+
+  if (digitos.startsWith('0')) digitos = digitos.slice(1)
+  // Con el 9 de celular y sin el 54: 9 + área + número.
+  if (digitos.length === 11 && digitos.startsWith('9')) return celularArgentino(digitos)
+
+  digitos = sacarEl15(digitos)
+  // Un abonado suelto, con o sin 15: falta el área, y no se adivina. Ningún
+  // código de área argentino empieza con 15, así que 15 + 8 dígitos es un
+  // celular tipeado a la local, no un número con área.
+  if (digitos.length >= 7 && (digitos.length < 10 || digitos.startsWith('15'))) {
+    return { ok: false, motivo: MOTIVO_SIN_AREA }
+  }
+  if (digitos.length !== 10) return { ok: false, motivo: MOTIVO_REVISAR }
+
+  return celularArgentino(digitos)
+}
+
+/** `resto` es lo que sigue al `54`: 10 dígitos (área + abonado) o `9` + 10. */
+function celularArgentino(resto: string): ResultadoCelular {
+  const local = resto.length === 11 && resto.startsWith('9') ? resto.slice(1) : resto
+  // El área no empieza con 0 ni con 9.
+  if (!/^[1-8]\d{9}$/.test(local)) return { ok: false, motivo: MOTIVO_REVISAR }
+  return { ok: true, e164: `+549${local}` }
+}
+
+/**
+ * El número guardado, legible: `+5492235551234` → `+54 9 223 555 1234`.
+ * Buenos Aires (11) agrupa 2-4-4; el resto 3-3-4. Otros países, tal cual.
+ */
+export function formatearInternacional(e164: string): string {
+  const m = /^\+549(\d{10})$/.exec(e164)
+  if (!m) return e164
+  const n = m[1]
+  if (n.startsWith('11')) return `+54 9 11 ${n.slice(2, 6)} ${n.slice(6)}`
+  return `+54 9 ${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`
+}
+
+/**
  * Saca el 15 de celular, si es que hay uno.
  *
  * HEURÍSTICA, no una regla exacta: los códigos de área argentinos miden entre
@@ -172,6 +254,16 @@ export function linkWhatsApp(telefono: string, mensaje?: string): string {
   // que es como lo usan los botones de contacto de todas las pantallas.
   const base = `https://wa.me/${numero}`
   return mensaje?.trim() ? `${base}?text=${encodeURIComponent(mensaje)}` : base
+}
+
+/**
+ * Link de WhatsApp para un número que YA está guardado en formato internacional
+ * (`profiles.telefono`). `linkWhatsApp` no sirve acá: normaliza como si todo
+ * fuera argentino y le arma un `54 9…` a un `+598…`. Devuelve '' si no es un
+ * `+` seguido de dígitos.
+ */
+export function linkWhatsAppInternacional(e164: string): string {
+  return /^\+[1-9]\d{7,14}$/.test(e164) ? `https://wa.me/${e164.slice(1)}` : ''
 }
 
 /**

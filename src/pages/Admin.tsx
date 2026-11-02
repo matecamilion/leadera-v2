@@ -3,6 +3,7 @@ import { AlertaGracia } from '../components/admin/AlertaGracia'
 import { DistribucionEstados } from '../components/admin/DistribucionEstados'
 import { GraficoIngresos } from '../components/admin/GraficoIngresos'
 import { GraficoPlanes } from '../components/admin/GraficoPlanes'
+import { RegistrosRecientes } from '../components/admin/RegistrosRecientes'
 import { TablaCuentas } from '../components/admin/TablaCuentas'
 import { CardKpi } from '../components/comunes/CardKpi'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
@@ -16,6 +17,7 @@ import {
   ingresoUltimos30Dias,
   ingresosPorMes,
   ordenarCuentas,
+  registrosRecientes,
 } from '../lib/api/admin'
 
 /**
@@ -37,6 +39,8 @@ export default function Admin() {
     const clientes = cuentas.filter((c) => c.tipoCuenta === 'CLIENTE')
     const porVencer = clientes.filter((c) => estaPorVencer(c, ahora))
     return {
+      ahora,
+      registros: registrosRecientes(cuentas, ahora),
       // El listado recibe todas: tiene su propio toggle.
       cuentas: ordenarCuentas(cuentas),
       totalClientes: clientes.length,
@@ -74,6 +78,8 @@ export default function Admin() {
       </header>
 
       {resumen.enGracia.length > 0 && <AlertaGracia cuentas={resumen.enGracia} />}
+
+      <RegistrosRecientes registros={resumen.registros} ahora={resumen.ahora} />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <CardKpi

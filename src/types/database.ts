@@ -1141,6 +1141,7 @@ export type Database = {
           nombre: string
           reporte_semanal_activo: boolean
           rol: Database["public"]["Enums"]["rol_agente"]
+          telefono: string | null
         }
         Insert: {
           activo?: boolean
@@ -1155,6 +1156,7 @@ export type Database = {
           nombre: string
           reporte_semanal_activo?: boolean
           rol?: Database["public"]["Enums"]["rol_agente"]
+          telefono?: string | null
         }
         Update: {
           activo?: boolean
@@ -1169,6 +1171,7 @@ export type Database = {
           nombre?: string
           reporte_semanal_activo?: boolean
           rol?: Database["public"]["Enums"]["rol_agente"]
+          telefono?: string | null
         }
         Relationships: [
           {

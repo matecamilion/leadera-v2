@@ -10,6 +10,7 @@ import {
   useDesconectarGoogle,
 } from '../hooks/useGoogleCalendar'
 import { estadoDelAgente, vistaGooglePerfil } from '../lib/googleAsistente'
+import { InterpretacionCelular } from '../components/InterpretacionCelular'
 import { PasswordInput } from '../components/ui/PasswordInput'
 import { ModalActivarImportacion } from '../components/perfil/ModalActivarImportacion'
 import { ModalActivarReporteSemanal } from '../components/reporte/ModalActivarReporteSemanal'
@@ -24,6 +25,7 @@ import {
   LARGO_MINIMO_PASSWORD,
 } from '../lib/api/perfil'
 import { DETALLE_PLAN, type EstadoSuscripcion } from '../lib/api/suscripcion'
+import { formatearInternacional, normalizarCelularRegistro } from '../lib/telefono'
 
 const ETIQUETA_ROL: Record<string, string> = {
   DUENO: 'Dueño',
@@ -70,6 +72,7 @@ export default function Perfil() {
 
   const nombre = profile?.nombre ?? ''
   const apellido = profile?.apellido ?? ''
+  const telefono = profile?.telefono ?? ''
   const rol = profile ? (ETIQUETA_ROL[profile.rol] ?? profile.rol) : ''
 
   // Mientras `profile` carga es null y el chequeo da false: Plan y facturación
@@ -132,9 +135,10 @@ export default function Perfil() {
             // El borrador arranca del profile; el key lo remonta cuando el
             // profile cambia de verdad, así un refetch no pisa lo tipeado.
             <DatosDeCuenta
-              key={`${nombre}|${apellido}`}
+              key={`${nombre}|${apellido}|${telefono}`}
               nombreActual={nombre}
               apellidoActual={apellido}
+              telefonoActual={telefono}
               email={user?.email ?? ''}
               rol={rol}
               deshabilitado={profile == null}
@@ -276,16 +280,19 @@ function BarraGuardar({
 interface DatosDeCuentaProps {
   nombreActual: string
   apellidoActual: string
+  /** Lo guardado (+549…), o '' si no hay. */
+  telefonoActual: string
   email: string
   rol: string
   deshabilitado: boolean
   alGuardar: () => Promise<void>
 }
 
-/** Nombre y apellido editables; email y rol de sólo lectura, como texto. */
+/** Nombre, apellido y celular editables; email y rol de sólo lectura, como texto. */
 function DatosDeCuenta({
   nombreActual,
   apellidoActual,
+  telefonoActual,
   email,
   rol,
   deshabilitado,
@@ -294,16 +301,29 @@ function DatosDeCuenta({
   const id = useId()
   const [nombre, setNombre] = useState(nombreActual)
   const [apellido, setApellido] = useState(apellidoActual)
+  // Se muestra legible, pero lo que se compara y se guarda es el normalizado.
+  const [telefono, setTelefono] = useState(
+    telefonoActual ? formatearInternacional(telefonoActual) : '',
+  )
+  const [telefonoTocado, setTelefonoTocado] = useState(false)
   const [estado, setEstado] = useState<Estado>({ tipo: 'quieto' })
 
+  // Opcional acá: vacío es válido y borra el dato. Lo escrito tiene que poder
+  // interpretarse; si no, no se guarda.
+  const celular = telefono.trim() === '' ? null : normalizarCelularRegistro(telefono)
+  const telefonoValido = celular === null || celular.ok
+  const telefonoNuevo = celular?.ok ? celular.e164 : ''
+
   const sinCambios =
-    nombre.trim() === nombreActual && apellido.trim() === apellidoActual
+    nombre.trim() === nombreActual &&
+    apellido.trim() === apellidoActual &&
+    (!telefonoValido || telefonoNuevo === telefonoActual)
 
   async function enviar(e: FormEvent) {
     e.preventDefault()
     setEstado({ tipo: 'enviando' })
     try {
-      await actualizarDatosCuenta({ nombre, apellido })
+      await actualizarDatosCuenta({ nombre, apellido, telefono })
       await alGuardar()
       setEstado({ tipo: 'ok', mensaje: 'Datos guardados.' })
     } catch (err) {
@@ -318,6 +338,8 @@ function DatosDeCuenta({
   function descartar() {
     setNombre(nombreActual)
     setApellido(apellidoActual)
+    setTelefono(telefonoActual ? formatearInternacional(telefonoActual) : '')
+    setTelefonoTocado(false)
     setEstado({ tipo: 'quieto' })
   }
 
@@ -331,7 +353,12 @@ function DatosDeCuenta({
             <Aviso estado={estado} />
             <BarraGuardar
               hayCambios={!sinCambios}
-              puedeGuardar={!deshabilitado && Boolean(nombre.trim()) && Boolean(apellido.trim())}
+              puedeGuardar={
+                !deshabilitado &&
+                Boolean(nombre.trim()) &&
+                Boolean(apellido.trim()) &&
+                telefonoValido
+              }
               guardando={estado.tipo === 'enviando'}
               onDescartar={descartar}
             />
@@ -357,6 +384,29 @@ function DatosDeCuenta({
             required
             disabled={deshabilitado}
           />
+        </FilaAjuste>
+        <FilaAjuste
+          titulo="Celular"
+          descripcion="Con código de área. Lo usamos para escribirte por WhatsApp."
+          htmlFor={`${id}-telefono`}
+        >
+          <div>
+            <CampoTexto
+              id={`${id}-telefono`}
+              value={telefono}
+              onChange={setTelefono}
+              type="tel"
+              autoComplete="tel"
+              disabled={deshabilitado}
+              onBlur={() => setTelefonoTocado(true)}
+              invalido={telefonoTocado && !telefonoValido}
+            />
+            <InterpretacionCelular
+              valor={telefono}
+              mostrarError={telefonoTocado}
+              prefijo="Guardamos"
+            />
+          </div>
         </FilaAjuste>
         <FilaAjuste titulo="Email" descripcion="Es tu usuario para entrar. No se puede cambiar desde acá.">
           <p className="m-0 truncate text-[0.92rem] text-ink">{email || '—'}</p>
@@ -1010,6 +1060,7 @@ interface CampoTextoProps {
   minLength?: number
   invalido?: boolean
   error?: string
+  onBlur?: () => void
 }
 
 /** Input de 40px. La label la pone la fila (`FilaAjuste` con `htmlFor`). */
@@ -1024,6 +1075,7 @@ function CampoTexto({
   minLength,
   invalido,
   error,
+  onBlur,
 }: CampoTextoProps) {
   const propsInput = {
     id,
@@ -1032,6 +1084,7 @@ function CampoTexto({
     required,
     disabled,
     minLength,
+    onBlur,
     'aria-invalid': invalido || undefined,
     'aria-describedby': error ? `${id}-error` : undefined,
     onChange: (e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value),

@@ -61,6 +61,8 @@ export interface SignupIndependienteInput {
   nombre: string
   apellido: string
   nombre_inmobiliaria: string
+  /** Celular de quien crea la cuenta. Obligatorio; el servidor lo normaliza. */
+  telefono: string
   /**
    * El plan que la inmobiliaria arranca evaluando.
    *

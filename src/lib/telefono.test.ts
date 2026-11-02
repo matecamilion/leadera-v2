@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { esTelefonoConfiable, normalizarTelefonoAR } from './telefono'
+import {
+  esTelefonoConfiable,
+  formatearInternacional,
+  linkWhatsAppInternacional,
+  normalizarCelularRegistro,
+  normalizarTelefonoAR,
+} from './telefono'
 // La copia que usan las Edge Functions (Deno): tiene que dar lo mismo que el front.
 import {
   esTelefonoConfiable as esConfiableEnFunciones,
+  normalizarCelularRegistro as celularEnFunciones,
   normalizarTelefonoAR as normalizarEnFunciones,
 } from '../../supabase/functions/_shared/telefono'
 
@@ -98,4 +105,124 @@ describe('esTelefonoConfiable', () => {
       expect(esTelefonoConfiable(entrada)).toBe(false)
     },
   )
+})
+
+describe('normalizarCelularRegistro', () => {
+  it.each([
+    ['2235551234', '+5492235551234'],
+    ['223 555-1234', '+5492235551234'],
+    ['11 5555 1234', '+5491155551234'],
+    ['0223 15 555 1234', '+5492235551234'],
+    ['+54 9 223 555 1234', '+5492235551234'],
+    ['+54 223 555 1234', '+5492235551234'],
+    ['54 9 223 555 1234', '+5492235551234'],
+    ['0054 9 223 555 1234', '+5492235551234'],
+    ['9 223 555 1234', '+5492235551234'],
+    ['+598 99 123 456', '+59899123456'],
+    ['+1 310 555 0108', '+13105550108'],
+  ])('%s -> %s', (entrada, esperado) => {
+    expect(normalizarCelularRegistro(entrada)).toEqual({ ok: true, e164: esperado })
+  })
+
+  it('un abonado sin código de área se rechaza y no se completa con 223', () => {
+    for (const entrada of ['5551234', '555-1234', '15 555 1234', '15 5555 1234']) {
+      const r = normalizarCelularRegistro(entrada)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.motivo).toMatch(/código de área/)
+    }
+  })
+
+  it('vacío o sin dígitos se rechaza', () => {
+    expect(normalizarCelularRegistro('').ok).toBe(false)
+    expect(normalizarCelularRegistro('   ').ok).toBe(false)
+    expect(normalizarCelularRegistro('sin número').ok).toBe(false)
+  })
+
+  it('largos imposibles se rechazan', () => {
+    for (const entrada of [
+      '223 555 12345678',
+      '+54 223 555',
+      '+54 9 223 555 12345',
+      '+1234567',
+      '+1234567890123456',
+      '+0 223 555 1234',
+      '9 223 555 123',
+    ]) {
+      expect(normalizarCelularRegistro(entrada).ok).toBe(false)
+    }
+  })
+
+  it('un área que empieza con 9 no es argentina', () => {
+    expect(normalizarCelularRegistro('+54 9 923 555 1234').ok).toBe(false)
+  })
+
+  it('todo lo que acepta cumple el patrón del CHECK de la base', () => {
+    for (const entrada of ['2235551234', '+598 99 123 456', '11 5555 1234', '+1 310 555 0108']) {
+      const r = normalizarCelularRegistro(entrada)
+      expect(r.ok && /^\+[1-9][0-9]{7,14}$/.test(r.e164)).toBe(true)
+    }
+  })
+
+  it('es idempotente: lo guardado se vuelve a leer igual', () => {
+    for (const entrada of ['2235551234', '+598 99 123 456', '11 5555 1234']) {
+      const r = normalizarCelularRegistro(entrada)
+      if (!r.ok) throw new Error('debería ser válido')
+      expect(normalizarCelularRegistro(r.e164)).toEqual(r)
+      expect(normalizarCelularRegistro(formatearInternacional(r.e164))).toEqual(r)
+    }
+  })
+
+  it('no cambia normalizarTelefonoAR: sigue completando con 223 para los leads', () => {
+    expect(normalizarTelefonoAR('5551234')).toBe('5492235551234')
+  })
+})
+
+describe('las dos copias de normalizarCelularRegistro', () => {
+  const ENTRADAS = [
+    '2235551234',
+    '223 555-1234',
+    '11 5555 1234',
+    '5551234',
+    '0223 15 555 1234',
+    '+54 9 223 555 1234',
+    '+598 99 123 456',
+    '+1 310 555 0108',
+    '54 9 223 555 1234',
+    '0054 9 223 555 1234',
+    '9 223 555 1234',
+    '15 555 1234',
+    '+54 9 923 555 1234',
+    '+0 223 555 1234',
+    '+1234567890123456',
+    'sin número',
+    '',
+    '   ',
+  ]
+
+  it.each(ENTRADAS)('%j da lo mismo en el front y en las funciones', (entrada) => {
+    expect(celularEnFunciones(entrada)).toEqual(normalizarCelularRegistro(entrada))
+  })
+})
+
+describe('formatearInternacional', () => {
+  it('agrupa un celular argentino', () => {
+    expect(formatearInternacional('+5492235551234')).toBe('+54 9 223 555 1234')
+    expect(formatearInternacional('+5491155551234')).toBe('+54 9 11 5555 1234')
+  })
+
+  it('deja igual lo que no es un celular argentino', () => {
+    expect(formatearInternacional('+59899123456')).toBe('+59899123456')
+  })
+})
+
+describe('linkWhatsAppInternacional', () => {
+  it('arma el link sin tocar el número', () => {
+    expect(linkWhatsAppInternacional('+5492235551234')).toBe('https://wa.me/5492235551234')
+    expect(linkWhatsAppInternacional('+59899123456')).toBe('https://wa.me/59899123456')
+  })
+
+  it('con algo que no es internacional no arma link', () => {
+    expect(linkWhatsAppInternacional('')).toBe('')
+    expect(linkWhatsAppInternacional('223 555 1234')).toBe('')
+  })
 })

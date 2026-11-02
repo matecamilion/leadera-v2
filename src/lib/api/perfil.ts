@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { TOPE_META_MENSUAL } from '../validaciones'
+import { normalizarCelularRegistro } from '../telefono'
 import type { EstadoLead, OrigenLead } from './leads'
 import type { Database } from '../../types/database'
 import {
@@ -467,6 +468,18 @@ export const LARGO_MINIMO_PASSWORD = 8
 export interface DatosCuenta {
   nombre: string
   apellido: string
+  /**
+   * Celular tal como lo escribió la persona. Vacío lo borra; sin la clave no se
+   * toca. Se guarda normalizado (+549…) y se rechaza lo que no se puede
+   * interpretar, igual que en el alta.
+   */
+  telefono?: string
+}
+
+export interface DatosCuentaGuardados {
+  nombre: string
+  apellido: string
+  telefono: string | null
 }
 
 /**
@@ -475,7 +488,9 @@ export interface DatosCuenta {
  * El email y el rol no se tocan desde acá: el email es la identidad de auth y
  * el rol lo define quien invita, no el propio usuario.
  */
-export async function actualizarDatosCuenta(datos: DatosCuenta): Promise<DatosCuenta> {
+export async function actualizarDatosCuenta(
+  datos: DatosCuenta,
+): Promise<DatosCuentaGuardados> {
   const { data: userData, error: errorUser } = await supabase.auth.getUser()
   if (errorUser || !userData.user) throw new Error('Tu sesión expiró. Volvé a entrar.')
 
@@ -486,11 +501,21 @@ export async function actualizarDatosCuenta(datos: DatosCuenta): Promise<DatosCu
 
   const cambio: ProfileUpdate = { nombre, apellido }
 
+  if (datos.telefono !== undefined) {
+    if (datos.telefono.trim() === '') {
+      cambio.telefono = null
+    } else {
+      const celular = normalizarCelularRegistro(datos.telefono)
+      if (!celular.ok) throw new Error(celular.motivo)
+      cambio.telefono = celular.e164
+    }
+  }
+
   const { data, error } = await supabase
     .from('profiles')
     .update(cambio)
     .eq('id', userData.user.id)
-    .select('nombre, apellido')
+    .select('nombre, apellido, telefono')
 
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudieron guardar tus datos.'))
   // Un UPDATE que RLS bloquea vuelve 200 con lista vacía, no error.

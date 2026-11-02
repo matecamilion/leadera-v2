@@ -4,9 +4,11 @@ import { AuthShell } from '../components/AuthShell'
 import { BotonPrimario, Campo, MensajeError } from '../components/Campo'
 import { Spinner } from '../components/Spinner'
 import { useAuth } from '../contexts/AuthContext'
+import { InterpretacionCelular } from '../components/InterpretacionCelular'
 import { ApiError, signup, type SignupInput } from '../lib/api/auth'
 import { DETALLE_PLAN, PLANES, type Plan } from '../lib/api/suscripcion'
 import { supabase } from '../lib/supabase'
+import { normalizarCelularRegistro } from '../lib/telefono'
 
 /**
  * Alta de cuenta.
@@ -115,6 +117,8 @@ function AltaIndependiente({ onRegistrado }: { onRegistrado: () => void }) {
   const [apellido, setApellido] = useState('')
   const [nombreInmobiliaria, setNombreInmobiliaria] = useState('')
   const [email, setEmail] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [telefonoTocado, setTelefonoTocado] = useState(false)
   const [password, setPassword] = useState('')
 
   const [error, setError] = useState<string | null>(null)
@@ -153,6 +157,15 @@ function AltaIndependiente({ onRegistrado }: { onRegistrado: () => void }) {
   async function registrar(e: FormEvent) {
     e.preventDefault()
     setError(null)
+
+    // El servidor valida lo mismo; esto evita el viaje y muestra el motivo.
+    const celular = normalizarCelularRegistro(telefono)
+    if (!celular.ok) {
+      setTelefonoTocado(true)
+      setError(celular.motivo)
+      return
+    }
+
     setEnviando(true)
 
     const input: SignupInput = {
@@ -162,6 +175,7 @@ function AltaIndependiente({ onRegistrado }: { onRegistrado: () => void }) {
       nombre,
       apellido,
       nombre_inmobiliaria: nombreInmobiliaria,
+      telefono: celular.e164,
       plan,
     }
 
@@ -344,6 +358,24 @@ function AltaIndependiente({ onRegistrado }: { onRegistrado: () => void }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
+
+          <div>
+            <Campo
+              label="Celular (con código de área)"
+              type="tel"
+              name="telefono"
+              autoComplete="tel"
+              inputMode="tel"
+              required
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              onBlur={() => setTelefonoTocado(true)}
+            />
+            <InterpretacionCelular valor={telefono} mostrarError={telefonoTocado} />
+            <p className="mt-1.5 text-xs text-ink-subtle">
+              Te escribimos por WhatsApp para ayudarte a empezar con LeadEra.
+            </p>
+          </div>
 
           <div>
             <Campo

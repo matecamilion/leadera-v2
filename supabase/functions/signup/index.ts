@@ -23,6 +23,7 @@ import {
   mensajeSinCupo,
   type RolAgente,
 } from '../_shared/supabase.ts'
+import { guardarTelefono, parseTelefonoIndependiente } from './registro.ts'
 
 /** A quién puede asistir un ASISTENTE. Igual que en `crear-invitacion`. */
 const ROLES_ASISTIBLES: RolAgente[] = ['DUENO', 'AGENTE']
@@ -121,6 +122,14 @@ async function signupIndependiente(
     plan = body.plan as Plan
   }
 
+  // El celular se valida antes de crear nada: un número mal escrito no puede
+  // dejar una inmobiliaria huérfana. Sólo lo pide esta puerta; el invitado no lo
+  // manda y, si lo manda, no se mira.
+  const celular = parseTelefonoIndependiente(body)
+  if ('error' in celular) {
+    return errorResponse(req, celular.error, 400, 'INPUT_INVALIDO')
+  }
+
   const admin = adminClient()
 
   const { data: inmobiliaria, error: inmoError } = await admin
@@ -145,6 +154,10 @@ async function signupIndependiente(
     await admin.from('inmobiliarias').delete().eq('id', inmobiliaria.id)
     return errorResponse(req, creado.error, creado.status, creado.code)
   }
+
+  // Después de crear el usuario y sin condicionar la respuesta: si no se guarda,
+  // el alta sigue y devuelve la sesión.
+  await guardarTelefono(admin, creado.userId, celular.telefono)
 
   return await responderConSesion(req, creado.userId, datos)
 }

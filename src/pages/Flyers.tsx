@@ -1,16 +1,13 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { Paginacion } from '../components/leads/Paginacion'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { FiltrosPropiedades, type RangosPropiedad } from '../components/propiedades/FiltrosPropiedades'
-import { FOTOS_PARA_FLYER } from '../components/propiedades/imagen/constantes'
+import { TarjetaFlyer } from '../components/propiedades/TarjetaFlyer'
 import { PROPIEDADES_POR_PAGINA, usePropiedades } from '../hooks/usePropiedades'
 import {
   ESTADOS_PROPIEDAD,
   TIPOS_PROPIEDAD,
-  etiquetaTipo,
-  formatearPrecio,
   type EstadoPropiedad,
-  type PropiedadConPropietario,
   type TipoPropiedad,
 } from '../lib/api/propiedades'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
@@ -151,49 +148,6 @@ export default function Flyers() {
         </>
       )}
     </div>
-  )
-}
-
-function TarjetaFlyer({ propiedad: p }: { propiedad: PropiedadConPropietario }) {
-  const fotos = p.fotos_urls ?? []
-  const alcanza = fotos.length >= FOTOS_PARA_FLYER
-
-  const contenido = (
-    <>
-      <div className="aspect-[4/5] w-full overflow-hidden bg-surface-2">
-        {fotos[0] && (
-          <img src={fotos[0]} alt="" loading="lazy" className="size-full object-cover" />
-        )}
-      </div>
-      <div className="px-3.5 py-3">
-        <p className="m-0 truncate text-[0.88rem] font-bold text-ink">
-          {etiquetaTipo(p.tipo)}
-          {p.zona ? ` · ${p.zona}` : ''}
-        </p>
-        <p className="m-0 mt-0.5 text-[0.88rem] text-ink-2 tabular-nums">
-          {p.precio == null ? 'Precio a consultar' : formatearPrecio(p.precio, p.moneda)}
-        </p>
-        {!alcanza && (
-          <p className="m-0 mt-1.5 text-[0.78rem] text-ink-3">
-            Cargá al menos {FOTOS_PARA_FLYER} fotos para crear el flyer
-          </p>
-        )}
-      </div>
-    </>
-  )
-
-  const clases = 'block overflow-hidden rounded-[16px] border border-border bg-surface'
-
-  // Sin fotos suficientes no es un link: se ve, pero no lleva a ningún lado.
-  if (!alcanza) return <div className={`${clases} opacity-60`}>{contenido}</div>
-
-  return (
-    <Link
-      to={`/flyers/${p.id}`}
-      className={`${clases} transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none`}
-    >
-      {contenido}
-    </Link>
   )
 }
 

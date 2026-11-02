@@ -13,11 +13,17 @@ export const MAX_FOTOS = 10
  */
 export class ErrorStorage extends Error {
   readonly esFaltaBucket: boolean
+  /**
+   * La base o el bucket rechazaron la operación por permisos. Quien sube en lote
+   * corta ahí: seguir con más archivos sólo dejaría más objetos huérfanos.
+   */
+  readonly esPermiso: boolean
 
-  constructor(mensaje: string, esFaltaBucket = false) {
+  constructor(mensaje: string, esFaltaBucket = false, esPermiso = false) {
     super(mensaje)
     this.name = 'ErrorStorage'
     this.esFaltaBucket = esFaltaBucket
+    this.esPermiso = esPermiso
   }
 }
 
@@ -31,6 +37,7 @@ function traducirError(mensaje: string): ErrorStorage {
   if (/row-level security|not authorized|permission/i.test(mensaje)) {
     return new ErrorStorage(
       `El bucket "${BUCKET_FOTOS}" existe pero no tenés permiso para subir. Faltan las políticas de Storage.`,
+      true,
       true,
     )
   }
@@ -79,7 +86,7 @@ async function escribirFotos(propiedadId: string, urls: string[]): Promise<void>
     .maybeSingle()
 
   if (error) throw new ErrorStorage(interpretarErrorSupabase(error, 'No se pudo guardar la foto.'))
-  if (!data) throw new ErrorStorage('No tenés permiso para editar esta propiedad.')
+  if (!data) throw new ErrorStorage('No tenés permiso para editar esta propiedad.', false, true)
 }
 
 /**

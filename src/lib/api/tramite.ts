@@ -2,7 +2,7 @@ import { supabase } from '../supabase'
 import type { Database } from '../../types/database'
 import { interpretarErrorSupabase } from '../errores'
 import { hoyEnArgentina } from '../ritmoSemanal'
-import type { PasoTramite } from '../tramite'
+import type { DatosEscribania, PasoTramite } from '../tramite'
 import { tareasDePostventa } from '../postventa'
 import { llevaEscritura, nombreCompleto } from './operaciones'
 
@@ -13,7 +13,13 @@ type TramitePasoInsert = Database['public']['Tables']['operacion_tramite_pasos']
 export type CambiosPaso = Partial<
   Pick<
     TramitePasoInsert,
-    'fecha_completado' | 'no_aplica' | 'completado_por' | 'fecha_prevista'
+    | 'fecha_completado'
+    | 'no_aplica'
+    | 'completado_por'
+    | 'fecha_prevista'
+    | 'escribania_nombre'
+    | 'presupuesto_monto'
+    | 'presupuesto_moneda'
   >
 >
 
@@ -28,6 +34,9 @@ export const MENSAJE_POSTVENTA_FALLIDA =
 
 export const MENSAJE_POSTVENTA_SIN_REGISTRAR =
   'Se agendaron las tareas de postventa, pero no se pudo dejar registrado. No vuelvas a marcar la escritura: se duplicarían.'
+
+export const MENSAJE_DATOS_ESCRIBANIA_INVALIDOS =
+  'Los datos de la escribanía no son válidos. Revisá el nombre, el monto y la moneda.'
 
 export const MENSAJE_TRAMITE_NO_APLICA =
   'El trámite de escritura solo aplica a las operaciones de compra y venta.'
@@ -63,6 +72,20 @@ export function cambiosDeFechaPrevista(fecha: string | null): CambiosPaso {
 }
 
 /**
+ * Los datos de la escribanía elegida. Las TRES columnas van siempre, con `null`
+ * cuando no hay valor: borrar un campo es mandar `null`, no omitirlo (el upsert
+ * conserva lo que no se manda). No toca `fecha_completado` ni `no_aplica`: cargar
+ * estos datos no completa el paso.
+ */
+export function cambiosDeEscribania(datos: DatosEscribania): CambiosPaso {
+  return {
+    escribania_nombre: datos.escribania_nombre ?? null,
+    presupuesto_monto: datos.presupuesto_monto ?? null,
+    presupuesto_moneda: datos.presupuesto_moneda ?? null,
+  }
+}
+
+/**
  * Traduce un error de Supabase. Que la RLS rechace es lo mismo que en el resto
  * de la ficha de operación y lleva el mismo mensaje; el resto va por
  * `interpretarErrorSupabase`.
@@ -73,6 +96,8 @@ export function mensajeDeErrorTramite(error: unknown): string {
   if (codigo === '42501' || /row-level security/i.test(texto)) {
     return MENSAJE_SIN_PERMISO_TRAMITE
   }
+  // CHECK de la base: monto negativo, moneda inválida, nombre fuera de largo.
+  if (codigo === '23514') return MENSAJE_DATOS_ESCRIBANIA_INVALIDOS
   return interpretarErrorSupabase(error, 'No se pudo guardar el paso del trámite.')
 }
 
@@ -179,6 +204,18 @@ export async function fijarFechaPrevistaEscritura(
   fecha: string | null,
 ): Promise<TramitePaso> {
   return guardarPaso(operacionId, 'ESCRITURA', cambiosDeFechaPrevista(fecha))
+}
+
+/**
+ * Guarda el nombre de la escribanía y su presupuesto en la fila del paso
+ * ESCRIBANIA_ELEGIDA (la crea si no existe). Pisa las tres columnas con lo que
+ * llega; el paso NO se completa. Devuelve la fila guardada.
+ */
+export async function guardarDatosEscribania(
+  operacionId: string,
+  datos: DatosEscribania,
+): Promise<TramitePaso> {
+  return guardarPaso(operacionId, 'ESCRIBANIA_ELEGIDA', cambiosDeEscribania(datos))
 }
 
 // ---------------------------------------------------------------------------

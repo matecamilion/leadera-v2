@@ -875,6 +875,7 @@ export type Database = {
         Row: {
           completado_por: string | null
           created_at: string
+          escribania_nombre: string | null
           fecha_completado: string | null
           fecha_prevista: string | null
           id: string
@@ -883,11 +884,14 @@ export type Database = {
           operacion_id: string
           paso: string
           postventa_generada_at: string | null
+          presupuesto_moneda: string | null
+          presupuesto_monto: number | null
           updated_at: string
         }
         Insert: {
           completado_por?: string | null
           created_at?: string
+          escribania_nombre?: string | null
           fecha_completado?: string | null
           fecha_prevista?: string | null
           id?: string
@@ -896,11 +900,14 @@ export type Database = {
           operacion_id: string
           paso: string
           postventa_generada_at?: string | null
+          presupuesto_moneda?: string | null
+          presupuesto_monto?: number | null
           updated_at?: string
         }
         Update: {
           completado_por?: string | null
           created_at?: string
+          escribania_nombre?: string | null
           fecha_completado?: string | null
           fecha_prevista?: string | null
           id?: string
@@ -909,6 +916,8 @@ export type Database = {
           operacion_id?: string
           paso?: string
           postventa_generada_at?: string | null
+          presupuesto_moneda?: string | null
+          presupuesto_monto?: number | null
           updated_at?: string
         }
         Relationships: [

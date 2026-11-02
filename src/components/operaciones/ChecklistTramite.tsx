@@ -1,22 +1,29 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { MenuDesplegable } from '../comunes/MenuDesplegable'
 import { ModalFechaEscritura } from './ModalFechaEscritura'
 import {
   useDesmarcarPaso,
   useFijarFechaPrevistaEscritura,
+  useGuardarDatosEscribania,
   useMarcarNoAplica,
   useMarcarPaso,
   useTramiteOperacion,
 } from '../../hooks/useTramite'
 import type { TramitePaso } from '../../lib/api/tramite'
 import { mensajeDeGuardado } from '../../lib/mensajesDeError'
+import { esMoneda, MONEDA_POR_DEFECTO, MONEDAS, type Moneda } from '../../lib/moneda'
 import { avisoDePostventa } from '../../lib/postventa'
 import { hoyEnArgentina } from '../../lib/ritmoSemanal'
 import {
   fechaInicialEscritura,
+  formatearPresupuesto,
+  MAX_NOMBRE_ESCRIBANIA,
+  normalizarDatosEscribania,
+  parsearMonto,
   PASOS_TRAMITE,
   pasosResueltos,
   textoEstadoTramite,
+  type EntradaEscribania,
   type PasoTramite,
 } from '../../lib/tramite'
 import { useUiStore } from '../../stores/ui'
@@ -25,6 +32,11 @@ const CLASE_TARJETA = 'mb-4 rounded-[14px] border border-border bg-surface px-4 
 
 const CLASE_FECHA =
   'w-full max-w-[11rem] rounded-lg border border-border bg-surface px-2.5 py-1.5 text-[0.85rem] text-ink focus:border-primary focus:outline-none focus:[box-shadow:var(--shadow-focus)] disabled:opacity-60'
+
+// Altura fija (34px): el select y el input miden distinto por defecto, y cuando la
+// fila del presupuesto se apila se nota.
+const CLASE_TEXTO =
+  'h-[2.125rem] rounded-lg border border-border bg-surface px-2.5 py-1.5 text-[0.85rem] text-ink placeholder:text-ink-4 focus:border-primary focus:outline-none focus:[box-shadow:var(--shadow-focus)] disabled:opacity-60 aria-[invalid=true]:border-peligro-ink'
 
 const CLASE_ACCION =
   'inline-flex min-h-10 items-center rounded-lg px-3 text-[0.8rem] font-semibold whitespace-nowrap text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60 motion-reduce:transition-none'
@@ -141,6 +153,7 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
         {PASOS_TRAMITE.map((paso) => (
           <FilaPaso
             key={paso.clave}
+            operacionId={operacionId}
             clave={paso.clave}
             etiqueta={paso.etiqueta}
             fila={filas.find((f) => f.paso === paso.clave)}
@@ -188,6 +201,7 @@ export function ChecklistTramite({ operacionId }: { operacionId: string }) {
 }
 
 interface FilaPasoProps {
+  operacionId: string
   clave: PasoTramite
   etiqueta: string
   fila: TramitePaso | undefined
@@ -203,6 +217,7 @@ interface FilaPasoProps {
 }
 
 function FilaPaso({
+  operacionId,
   clave,
   etiqueta,
   fila,
@@ -261,6 +276,12 @@ function FilaPaso({
             deshabilitado={deshabilitado}
             onGuardar={(nueva) => onMarcar(nueva ?? undefined)}
           />
+        )}
+
+        {/* Visible siempre (también con el paso sin completar) y editable con la
+            operación cerrada. Con "no aplica" se oculta, sin borrar lo cargado. */}
+        {clave === 'ESCRIBANIA_ELEGIDA' && !sinAplicar && (
+          <DatosEscribania operacionId={operacionId} fila={fila} deshabilitado={deshabilitado} />
         )}
 
         {mostrarPrevista && (
@@ -383,5 +404,221 @@ function CampoFecha({
         </span>
       )}
     </label>
+  )
+}
+
+/** Cuánto se queda el "Guardado" antes de apagarse. */
+const MS_GUARDADO = 3000
+
+/** Un monto guardado, escrito como lo escribiría una persona (se vuelve a parsear igual). */
+function textoDeMonto(monto: number | null): string {
+  return monto === null ? '' : new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(monto)
+}
+
+interface DatosEscribaniaProps {
+  operacionId: string
+  fila: TramitePaso | undefined
+  deshabilitado: boolean
+}
+
+/**
+ * El nombre de la escribanía y su presupuesto, dentro del paso "Escribanía
+ * elegida". Son opcionales y se pueden cargar por separado.
+ *
+ * Guardar NO completa el paso: la casilla sigue siendo manual. Se guarda al
+ * salir del campo (o con Enter) y solo si algo cambió; debajo hay una línea de
+ * estado ("Guardando…", "Guardado", o el error).
+ *
+ * Cada campo guarda lo suyo junto con lo ya guardado de los demás: el nombre se
+ * guarda aunque el monto que se está tipeando todavía esté mal escrito. Lo que se
+ * escribe vive en un borrador (`null` = sin tocar, se ve lo guardado) que se
+ * suelta al guardar.
+ */
+function DatosEscribania({ operacionId, fila, deshabilitado }: DatosEscribaniaProps) {
+  const guardar = useGuardarDatosEscribania(operacionId)
+  const idNombre = useId()
+  const idMonto = useId()
+  const idMoneda = useId()
+  const idErrorNombre = useId()
+  const idErrorMonto = useId()
+
+  const nombreGuardado = fila?.escribania_nombre ?? null
+  const montoGuardado = fila?.presupuesto_monto ?? null
+  const monedaGuardada: Moneda | null = esMoneda(fila?.presupuesto_moneda)
+    ? fila.presupuesto_moneda
+    : null
+
+  const [nombre, setNombre] = useState<string | null>(null)
+  const [monto, setMonto] = useState<string | null>(null)
+  const [moneda, setMoneda] = useState<Moneda | null>(null)
+  const [errores, setErrores] = useState<{ nombre?: string; monto?: string }>({})
+
+  const nombreActual = nombre ?? nombreGuardado ?? ''
+  const montoActual = monto ?? textoDeMonto(montoGuardado)
+  const monedaActual = moneda ?? monedaGuardada ?? MONEDA_POR_DEFECTO
+
+  // El "Guardado" se apaga solo.
+  const { isSuccess, reset } = guardar
+  useEffect(() => {
+    if (!isSuccess) return
+    const id = window.setTimeout(reset, MS_GUARDADO)
+    return () => window.clearTimeout(id)
+  }, [isSuccess, reset])
+
+  /** Guarda lo que cambió de `parte`, con lo ya guardado del resto. */
+  function guardarParte(parte: 'nombre' | 'presupuesto', cambio: Partial<EntradaEscribania> = {}) {
+    const entrada: EntradaEscribania =
+      parte === 'nombre'
+        ? { nombre: nombreActual, monto: montoGuardado, moneda: monedaGuardada, ...cambio }
+        : {
+            nombre: nombreGuardado,
+            monto: montoActual,
+            moneda: monedaActual,
+            ...cambio,
+          }
+
+    const resultado = normalizarDatosEscribania(entrada)
+    if (!resultado.ok) {
+      setErrores({ nombre: resultado.errores.nombre, monto: resultado.errores.monto })
+      return
+    }
+    setErrores({})
+
+    const { datos } = resultado
+    const sinCambios =
+      datos.escribania_nombre === nombreGuardado &&
+      datos.presupuesto_monto === montoGuardado &&
+      datos.presupuesto_moneda === monedaGuardada
+    const soltar = () => {
+      if (parte === 'nombre') setNombre(null)
+      else {
+        setMonto(null)
+        setMoneda(null)
+      }
+    }
+    if (sinCambios) {
+      soltar()
+      return
+    }
+
+    guardar.mutate(datos, { onSuccess: soltar })
+  }
+
+  // El presupuesto se guarda al salir del monto, no al elegir la moneda sin monto:
+  // la moneda sola no se guarda (la base la exige nula sin monto).
+  function alElegirMoneda(nueva: Moneda) {
+    setMoneda(nueva)
+    if (montoActual.trim() !== '') guardarParte('presupuesto', { moneda: nueva })
+  }
+
+  // Enter equivale a salir del campo: una sola vía de guardado.
+  function alTeclear(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.currentTarget.blur()
+    }
+  }
+
+  const interpretado = parsearMonto(montoActual)
+  const errorMonto = errores.monto ?? (interpretado.ok ? undefined : interpretado.error)
+  const hayMontoLeido = interpretado.ok && interpretado.monto !== null && !errorMonto
+
+  return (
+    <div className="mt-2 flex flex-col gap-2.5">
+      <div>
+        <label htmlFor={idNombre} className="text-xs font-semibold text-ink-3 uppercase">
+          Escribanía
+        </label>
+        <input
+          id={idNombre}
+          type="text"
+          value={nombreActual}
+          maxLength={MAX_NOMBRE_ESCRIBANIA}
+          placeholder="Nombre de la escribanía"
+          disabled={deshabilitado}
+          aria-invalid={errores.nombre ? true : undefined}
+          aria-describedby={errores.nombre ? idErrorNombre : undefined}
+          onChange={(e) => setNombre(e.target.value)}
+          onBlur={() => {
+            if (nombre !== null) guardarParte('nombre')
+          }}
+          onKeyDown={alTeclear}
+          className={`mt-1 w-full ${CLASE_TEXTO}`}
+        />
+        {errores.nombre && (
+          <p id={idErrorNombre} role="alert" className="mt-1 mb-0 text-[0.78rem] text-peligro-ink">
+            {errores.nombre}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor={idMonto} className="text-xs font-semibold text-ink-3 uppercase">
+          Presupuesto de la escribanía
+        </label>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <select
+            id={idMoneda}
+            aria-label="Moneda del presupuesto"
+            value={monedaActual}
+            disabled={deshabilitado}
+            onChange={(e) => alElegirMoneda(e.target.value === 'ARS' ? 'ARS' : 'USD')}
+            className={`${CLASE_TEXTO} w-24 shrink-0`}
+          >
+            {MONEDAS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <input
+            id={idMonto}
+            type="text"
+            inputMode="decimal"
+            value={montoActual}
+            placeholder="Monto"
+            aria-label="Monto del presupuesto de la escribanía"
+            disabled={deshabilitado}
+            aria-invalid={errorMonto ? true : undefined}
+            aria-describedby={errorMonto ? idErrorMonto : undefined}
+            onChange={(e) => {
+              setMonto(e.target.value)
+              setErrores((previos) => ({ ...previos, monto: undefined }))
+            }}
+            onBlur={() => {
+              if (monto !== null) guardarParte('presupuesto')
+            }}
+            onKeyDown={alTeclear}
+            className={`${CLASE_TEXTO} min-w-[10rem] flex-1`}
+          />
+        </div>
+        {errorMonto && (
+          <p id={idErrorMonto} role="alert" className="mt-1 mb-0 text-[0.78rem] text-peligro-ink">
+            {errorMonto}
+          </p>
+        )}
+        {hayMontoLeido && (
+          <p className="mt-1 mb-0 text-[0.78rem] text-ink-3 tabular-nums">
+            Se lee: {formatearPresupuesto(interpretado.monto as number, monedaActual)}
+          </p>
+        )}
+      </div>
+
+      <p
+        role="status"
+        aria-live="polite"
+        className={`m-0 min-h-[1.1rem] text-[0.78rem] ${
+          guardar.isError ? 'text-peligro-ink' : 'text-ink-3'
+        }`}
+      >
+        {guardar.isPending
+          ? 'Guardando…'
+          : guardar.isError
+            ? mensajeDeGuardado(guardar.error, 'No se pudieron guardar los datos de la escribanía.')
+            : guardar.isSuccess
+              ? 'Guardado'
+              : ''}
+      </p>
+    </div>
   )
 }

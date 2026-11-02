@@ -14,3 +14,12 @@ export function mismaMoneda(
 ): boolean {
   return (a ?? MONEDA_POR_DEFECTO) === (b ?? MONEDA_POR_DEFECTO)
 }
+
+/** Las monedas con las que se carga un monto en LeadEra. */
+export const MONEDAS = ['USD', 'ARS'] as const
+
+export type Moneda = (typeof MONEDAS)[number]
+
+export function esMoneda(valor: unknown): valor is Moneda {
+  return valor === 'USD' || valor === 'ARS'
+}

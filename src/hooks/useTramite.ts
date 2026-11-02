@@ -3,13 +3,14 @@ import {
   desmarcarPaso,
   fijarFechaPrevistaEscritura,
   generarPostventaSiCorresponde,
+  guardarDatosEscribania,
   marcarNoAplica,
   marcarPaso,
   obtenerPasosTramite,
   type TramitePaso,
 } from '../lib/api/tramite'
 import { claves } from '../lib/queryKeys'
-import type { PasoTramite } from '../lib/tramite'
+import type { DatosEscribania, PasoTramite } from '../lib/tramite'
 import { useUid } from './useUid'
 
 /**
@@ -79,4 +80,28 @@ export function useFijarFechaPrevistaEscritura(operacionId: string) {
   return useMutacionTramite(operacionId, (fecha: string | null) =>
     fijarFechaPrevistaEscritura(operacionId, fecha),
   )
+}
+
+/**
+ * Guarda el nombre de la escribanía y el presupuesto. No toca el estado del paso.
+ *
+ * Al volver, la fila guardada se escribe en el cache de inmediato: el campo que
+ * muestra el valor guardado no parpadea con el viejo mientras se refresca. Igual
+ * se invalida al terminar, como el resto del trámite.
+ */
+export function useGuardarDatosEscribania(operacionId: string) {
+  const queryClient = useQueryClient()
+  const uid = useUid()
+
+  return useMutation<TramitePaso, Error, DatosEscribania>({
+    mutationFn: (datos) => guardarDatosEscribania(operacionId, datos),
+    onSuccess: (fila) => {
+      queryClient.setQueryData<TramitePaso[]>(
+        claves.operaciones.tramite(uid, operacionId),
+        (previas) => [...(previas ?? []).filter((f) => f.paso !== fila.paso), fila],
+      )
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: claves.operaciones.tramite(uid, operacionId) }),
+  })
 }

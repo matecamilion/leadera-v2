@@ -1,0 +1,4 @@
+node_modules
+capturas/
+out/
+.env.local

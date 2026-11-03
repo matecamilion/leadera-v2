@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual de uso · LeadEra</title>
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<!-- Isotipo "Cuadrante" de public/favicon.svg, con currentColor como en Marca.tsx. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="isotipo" viewBox="0 0 48 48">
+    <g transform="rotate(45 24 24)" fill="currentColor">
+      <path d="M9 12.5 A3.5 3.5 0 0 1 12.5 9 H22 V22 H9 Z"/>
+      <path d="M9 26 H22 V39 H12.5 A3.5 3.5 0 0 1 9 35.5 Z"/>
+      <path d="M26 26 H35.5 A3.5 3.5 0 0 1 39 29.5 V39 H26 Z"/>
+      <path d="M26 9 H35.5 A3.5 3.5 0 0 1 39 12.5 V22 H26 Z" opacity="0.32"/>
+    </g>
+  </symbol>
+
+  <!-- Íconos del menú lateral de la app (src/components/AppLayout.tsx), trazo de 1,5. -->
+  <symbol id="ic-midia" viewBox="0 0 24 24">
+    <rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/>
+    <rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>
+  </symbol>
+  <symbol id="ic-calendario" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/>
+  </symbol>
+  <symbol id="ic-leads" viewBox="0 0 24 24">
+    <path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7" r="3.5"/><path d="M18 8h4M20 6v4"/>
+  </symbol>
+  <symbol id="ic-propiedades" viewBox="0 0 24 24">
+    <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/>
+  </symbol>
+  <symbol id="ic-flyers" viewBox="0 0 24 24">
+    <rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 12h14"/><circle cx="9.5" cy="7.5" r="1.2"/><path d="M8.5 16h7M8.5 18.5h4"/>
+  </symbol>
+  <symbol id="ic-operaciones" viewBox="0 0 24 24">
+    <path d="M3 7h13l-3-3M21 17H8l3 3"/><path d="M3 7l3 3M21 17l-3-3"/>
+  </symbol>
+  <symbol id="ic-estadisticas" viewBox="0 0 24 24">
+    <path d="M3 3v16.5a1.5 1.5 0 0 0 1.5 1.5H21"/><path d="M7.5 16.5v-4M12 16.5v-8M16.5 16.5v-6"/>
+  </symbol>
+</svg>
+
+<!-- ===================== 1 · PORTADA ===================== -->
+<section class="hoja portada" id="s-portada">
+  <svg class="marca-agua" viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg>
+
+  <div class="portada-cuerpo">
+    <span class="marca grande"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span>
+    <h1>Manual de uso</h1>
+    <p class="subtitulo">Guía para agentes que empiezan en LeadEra</p>
+    <p class="frase">Abrís LeadEra y sabés <span class="resaltado">a quién llamar hoy.</span></p>
+  </div>
+
+  <figure class="cap portada-captura">
+    <img src="capturas/mi-dia.png" alt="Mi día: la pantalla de inicio de LeadEra">
+  </figure>
+
+  <div class="portada-pie">
+    <div class="fila">
+      <strong>14 días gratis, sin tarjeta</strong>
+      <span>app.leadera.com.ar</span>
+    </div>
+    <a class="wa-linea" href="https://wa.me/5492235827465?text=Hola%20Mateo%2C%20estoy%20probando%20LeadEra%20y%20necesito%20una%20mano%20para%20empezar.">¿Dudas? Escribime por WhatsApp · 223 582-7465</a>
+  </div>
+</section>
+
+<!-- ===================== 2 · CÓMO USAR ESTE MANUAL + ÍNDICE ===================== -->
+<section class="hoja" id="s-indice">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Cómo usar este manual</span></header>
+  <div class="banda">
+    <div>
+      <p class="sobretitulo">Antes de empezar</p>
+      <h1>Cómo usar este manual</h1>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <div class="trio">
+      <div class="tarjeta">
+        <h3>Qué es LeadEra</h3>
+        <p>Un CRM para agentes inmobiliarios. Junta tus leads, propiedades y operaciones en un solo lugar, y cada mañana te muestra a quién contactar.</p>
+      </div>
+      <div class="tarjeta">
+        <h3>Para quién es</h3>
+        <p>Para agentes, dueños de inmobiliaria y asistentes que nunca vieron LeadEra y quieren empezar a usarlo ya.</p>
+      </div>
+      <div class="tarjeta">
+        <h3>Cómo leerlo</h3>
+        <p>En 5 minutos, con las hojas marcadas en teal. El resto es de consulta: abrí la hoja del módulo cuando lo necesites.</p>
+      </div>
+    </div>
+
+    <h2 class="titulo-bloque">Índice</h2>
+    <nav class="indice" aria-label="Índice">
+      <a class="fila-indice rapida" href="#s-empezar"><span class="n">3</span><span>Empezá hoy</span><span class="etq">5 minutos</span></a>
+      <a class="fila-indice rapida" href="#s-ideas"><span class="n">4</span><span>Las 3 ideas base y glosario</span><span class="etq">5 minutos</span></a>
+      <a class="fila-indice" href="#s-midia"><span class="n">5</span><span>Mi día</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-leads"><span class="n">6</span><span>Leads e importar desde Excel</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-ficha"><span class="n">7</span><span>Ficha del lead, interacciones y seguimientos</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-propiedades"><span class="n">8</span><span>Propiedades y coincidencias</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-operaciones"><span class="n">9</span><span>Operaciones: tablero, trámite y postventa</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-calendario"><span class="n">10</span><span>Calendario y visitas</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-flyers"><span class="n">11</span><span>Flyers y ficha en PDF</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice" href="#s-estadisticas"><span class="n">12</span><span>Estadísticas, reporte semanal y equipo</span><span class="etq">Consulta</span></a>
+      <a class="fila-indice rapida" href="#s-rutina"><span class="n">13</span><span>Tu primera semana y tu rutina de 5 minutos</span><span class="etq">5 minutos</span></a>
+      <a class="fila-indice rapida" href="#s-faq"><span class="n">14</span><span>Preguntas frecuentes y cierre</span><span class="etq">5 minutos</span></a>
+    </nav>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 3 · EMPEZÁ HOY ===================== -->
+<section class="hoja" id="s-empezar">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Empezá hoy</span></header>
+  <div class="banda">
+    <div>
+      <p class="sobretitulo">Lectura de 5 minutos</p>
+      <h1>Empezá hoy</h1>
+      <p class="para-que">Tres pasos, con tres leads, para ver LeadEra trabajando.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <div class="empezar-layout">
+      <ol class="empezar">
+        <li>
+          <h2>Cargá 3 leads: el que hablaste hoy y dos más que tengas a mano</h2>
+          <p class="donde-mini"><span class="etq-paso">En qué pantalla:</span> Leads › Nuevo Lead.</p>
+          <p class="ves"><span class="etq-paso">Qué vas a ver:</span> tus 3 leads en el listado de Leads.</p>
+        </li>
+        <li>
+          <h2>Registrá ese contacto y agendá el próximo seguimiento</h2>
+          <p class="donde-mini"><span class="etq-paso">En qué pantalla:</span> la ficha del lead › + Interacción, y ¿Cuándo volvemos a contactar? (Mañana, En 3 días, 1 semana o una fecha).</p>
+          <p class="ves"><span class="etq-paso">Qué vas a ver:</span> la interacción en el historial del lead, y el lead agendado para esa fecha.</p>
+        </li>
+        <li>
+          <h2>Abrí Mi día</h2>
+          <p class="ves"><span class="etq-paso">Qué vas a ver:</span> los dos leads que todavía no contactaste aparecen en <b>Nuevos</b>. El que contactaste hoy no cuenta como pendiente y lo encontrás en <b>Ver contactados hoy</b>. Tu seguimiento aparece en la Agenda de hoy el día que lo agendaste.</p>
+        </li>
+      </ol>
+
+      <figure class="fig">
+        <div class="cap c-modal"><img src="capturas/registrar-contacto.png" alt="Formulario para registrar una interacción"></div>
+        <figcaption class="leyenda">Paso 2: registrar el contacto</figcaption>
+      </figure>
+    </div>
+
+    <div class="bloques-dos">
+      <div class="bloque-excel">
+        <h3>Si ya tenés un Excel</h3>
+        <p>En <b>Leads</b>, tocá <b>Importar</b>. Podés descargar la plantilla o subir tu archivo tal cual: en el paso Columnas relacionás cada columna con su dato.</p>
+        <p>Después de importar: <b>elegí 5 leads de la lista, llamalos hoy y registrá cada contacto.</b></p>
+      </div>
+      <div class="bloque-wa">
+        <h3>¿Te trabás con algo?</h3>
+        <p>Escribime por WhatsApp y te guío.</p>
+        <a class="wa-btn" href="https://wa.me/5492235827465?text=Hola%20Mateo%2C%20estoy%20probando%20LeadEra%20y%20necesito%20una%20mano%20para%20empezar.">Escribime por WhatsApp<br><b>223 582-7465</b></a>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 4 · LAS 3 IDEAS BASE + GLOSARIO ===================== -->
+<section class="hoja" id="s-ideas">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Las 3 ideas base</span></header>
+  <div class="banda">
+    <div>
+      <p class="sobretitulo">Lectura de 5 minutos</p>
+      <h1>Las 3 ideas base de LeadEra</h1>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <div class="ideas-base">
+      <div class="idea">
+        <span class="idea-n">1</span>
+        <div>
+          <h2>Un lead nuevo es un lead sin contacto real</h2>
+          <p>Cuentan la llamada, el WhatsApp, el email, la visita y la reunión. Una nota interna no cuenta. Al registrar el primer contacto, el lead deja de ser nuevo.</p>
+        </div>
+      </div>
+      <div class="idea">
+        <span class="idea-n">2</span>
+        <div>
+          <h2>La temperatura la definís vos</h2>
+          <p>La cambiás a mano, desde la ficha del lead. LeadEra no la reclasifica sola.</p>
+          <div class="temperaturas">
+            <span class="temp caliente">Caliente</span>
+            <span class="temp tibio">Tibio</span>
+            <span class="temp frio">Frío</span>
+            <span class="temp sin-clasificar">Sin clasificar</span>
+          </div>
+        </div>
+      </div>
+      <div class="idea">
+        <span class="idea-n">3</span>
+        <div>
+          <h2>Por enfriarse: retomalos antes de perderlos</h2>
+          <p>Son los leads con 21 días o más sin contacto y sin seguimiento agendado. Los ves en Mi día.</p>
+        </div>
+      </div>
+    </div>
+
+    <figure class="cap c-tarjeta">
+      <img src="capturas/por-enfriarse.png" alt="Tarjeta Por enfriarse de Mi día">
+    </figure>
+
+    <h2 class="titulo-bloque">Glosario</h2>
+    <dl class="glosario">
+      <div><dt>Lead</dt><dd>Una persona interesada en comprar, vender o alquilar. Cada lead tiene su ficha.</dd></div>
+      <div><dt>Interacción</dt><dd>Cada contacto que registrás con un lead: llamada, WhatsApp, email, visita, reunión o nota interna.</dd></div>
+      <div><dt>Seguimiento</dt><dd>La fecha en que vas a volver a contactar a un lead. Aparece en tu agenda.</dd></div>
+      <div><dt>Operación</dt><dd>Una compra, venta, alquiler o búsqueda de alquiler en curso, con su estado.</dd></div>
+      <div><dt>Comprador</dt><dd>El lead que busca comprar. En una operación de compra figura como Comprador.</dd></div>
+      <div><dt>Búsqueda</dt><dd>Lo que busca un comprador: tipo de vivienda, zona, precio, ambientes. Coincidencias la cruza con tus propiedades.</dd></div>
+    </dl>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 5 · MI DÍA ===================== -->
+<section class="hoja" id="s-midia">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Mi día</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-midia"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Mi día</h1>
+      <p class="para-que">Tu jornada en una pantalla: a quién contactar hoy y qué tenés agendado.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Día a día › <b>Mi día</b></span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>Empezá por <b>Leads prioritarios</b>: los calientes o con el seguimiento vencido.</li>
+      <li>Seguí con <b>Nuevos leads</b>: los que todavía no tuvieron un primer contacto.</li>
+      <li>Mirá la <b>Agenda de hoy</b>: tareas, seguimientos y visitas del día, ordenados por hora.</li>
+      <li>En <b>Por enfriarse</b>, tocá <b>Registrar contacto</b> en cada lead que retomes.</li>
+    </ol>
+
+    <figure class="fig">
+      <div class="cap sin-menu corta v-midia"><img src="capturas/mi-dia.png" alt="Mi día con sus tarjetas"></div>
+    </figure>
+
+    <p class="tip"><b>Tip</b> Si ya registraste una interacción hoy con un lead, sale de Prioritarios.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 6 · LEADS E IMPORTAR ===================== -->
+<section class="hoja" id="s-leads">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Leads e importar desde Excel</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-leads"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Leads e importar desde Excel</h1>
+      <p class="para-que">Todos tus leads en una lista, filtrables por temperatura, y la forma de traer los que ya tenés en un Excel.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Cartera › <b>Leads</b> (el botón <b>Importar</b> está arriba, en la misma pantalla)</span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>Filtrá la lista por temperatura: <b>Todos</b>, <b>Calientes</b>, <b>Tibios</b>, <b>Fríos</b>, <b>Inactivos</b> o <b>Sin clasificar</b>.</li>
+      <li>Para cargar uno solo, tocá <b>Nuevo Lead</b>.</li>
+      <li>Para cargar muchos, tocá <b>Importar</b>: subí tu .xlsx o .csv, relacioná tus columnas, revisá y confirmá con <b>Importar</b>.</li>
+      <li>LeadEra revisa los duplicados por teléfono y email: los que ya están en tu cuenta no se cargan de nuevo.</li>
+    </ol>
+
+    <figure class="fig">
+      <div class="cap sin-menu corta v-leads"><img src="capturas/leads-listado.png" alt="Listado de leads con filtros por temperatura"></div>
+      <figcaption class="leyenda">Leads, con sus filtros por temperatura</figcaption>
+    </figure>
+
+    <div class="captura-y-tip">
+      <figure>
+        <div class="cap sin-menu corta v-import"><img src="capturas/importar-excel.png" alt="Primer paso de la importación: elegir el archivo"></div>
+        <figcaption class="leyenda">Importar: paso Archivo</figcaption>
+      </figure>
+      <p class="tip"><b>Tip</b> Si te equivocás con el archivo, al terminar la importación, en la pantalla <b>Resultado</b>, aparece el botón <b>Deshacer importación</b>. Lo ven el dueño y el agente.</p>
+    </div>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 7 · FICHA DEL LEAD ===================== -->
+<section class="hoja" id="s-ficha">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Ficha del lead</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-leads"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Ficha del lead, interacciones y seguimientos</h1>
+      <p class="para-que">Todo sobre un lead en un lugar: sus datos, qué busca, el historial de contactos y lo que viene.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Cartera › Leads › <b>tocá el nombre de un lead</b></span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>Tocá <b>+ Interacción</b> para registrar lo que pasó: Tipo, Detalle y, si querés, ¿Cuándo volvemos a contactar?</li>
+      <li>Guardá con <b>Guardar interacción</b>. El historial queda en la pestaña <b>Interacciones</b>.</li>
+      <li>Cambiá la temperatura desde el estado del lead, arriba: la definís vos.</li>
+      <li>Desde la misma ficha podés sumar una <b>+ Propiedad</b>, una <b>+ Operación</b> o una <b>+ Tarea</b>.</li>
+    </ol>
+
+    <div class="metricas">
+      <p class="metricas-titulo">Las 4 tarjetas de arriba</p>
+      <div class="metricas-grid">
+        <div><b>Contactos</b><span>Cuántos contactos reales tuviste y cuándo fue el último.</span></div>
+        <div><b>Interacciones</b><span>El total, con el desglose en llamadas, WhatsApp, emails y reuniones.</span></div>
+        <div><b>Visitas</b><span>Cuántas hiciste y cuál es la próxima agendada.</span></div>
+        <div><b>En cartera</b><span>Cuántos días lleva el lead y cuánto tardaste en el primer contacto.</span></div>
+      </div>
+    </div>
+
+    <div class="par-capturas ficha-par">
+      <figure>
+        <div class="cap sin-menu v-ficha"><img src="capturas/ficha-lead.png" alt="Ficha de un lead con su historial"></div>
+        <figcaption class="leyenda">La ficha del lead</figcaption>
+      </figure>
+      <figure>
+        <div class="cap c-modal"><img src="capturas/registrar-contacto.png" alt="Formulario para registrar una interacción"></div>
+        <figcaption class="leyenda">Registrar una interacción</figcaption>
+      </figure>
+    </div>
+
+    <p class="tip"><b>Tip</b> Un contacto real cumple el seguimiento pendiente: no hace falta marcarlo a mano.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 8 · PROPIEDADES Y COINCIDENCIAS ===================== -->
+<section class="hoja" id="s-propiedades">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Propiedades y coincidencias</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-propiedades"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Propiedades y coincidencias</h1>
+      <p class="para-que">Tu cartera con fotos y datos, y el cruce con lo que busca cada comprador.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Negocio › <b>Propiedades</b> y Cartera › <b>Coincidencias</b></span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <div class="pasos-y-captura">
+      <ol class="como">
+      <li>En Propiedades, tocá <b>+ Nueva Propiedad</b> y cargá sus datos.</li>
+      <li>En la ficha, sumá las fotos con <b>Agregar fotos</b>: son hasta 10 por propiedad.</li>
+      <li>En <b>Compartir</b> elegí <b>Exportar ficha</b> para descargar la ficha en PDF.</li>
+      <li>En Coincidencias, cargá qué tenés para ofrecer y tocá <b>Buscar</b>: ves a qué compradores les sirve.</li>
+    </ol>
+      <figure>
+        <div class="cap c-propiedad"><img src="capturas/propiedad-detalle.png" alt="Ficha de una propiedad con su galería y sus datos"></div>
+        <figcaption class="leyenda">La ficha de una propiedad</figcaption>
+      </figure>
+    </div>
+
+    <figure class="fig">
+      <div class="cap sin-menu corta v-coinc"><img src="capturas/coincidencias.png" alt="Coincidencias: formulario y compradores con su porcentaje"></div>
+    </figure>
+
+    <p class="tip"><b>Tip</b> En la ficha de cada propiedad también ves los interesados de tu inmobiliaria que coinciden con ella.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 9 · OPERACIONES ===================== -->
+<section class="hoja" id="s-operaciones">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Operaciones</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-operaciones"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Operaciones: tablero, trámite y postventa</h1>
+      <p class="para-que">Seguí cada compra, venta o alquiler hasta cerrarlo, y llevá el trámite de la escritura paso a paso.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Negocio › <b>Operaciones</b> › Tablero</span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>Creá una operación con <b>+ Nueva Operación</b>: Venta, Compra, Alquiler o Búsqueda de alquiler.</li>
+      <li>En el <b>Tablero</b>, arrastrala entre columnas: Publicada, Reservada, En negociación, Cerrada ganada y Cancelada.</li>
+      <li>En ventas y compras reservadas aparece el <b>Trámite de escritura</b>: seis pasos que tildás a medida que ocurren.</li>
+      <li>Al marcar la <b>Escritura</b>, LeadEra agenda tareas de postventa: al día siguiente, a la semana, al mes, a los 6 meses y al año.</li>
+    </ol>
+
+    <figure class="fig">
+      <div class="cap sin-menu corta v-tablero"><img src="capturas/tablero-operaciones.png" alt="Tablero de operaciones por estado"></div>
+    </figure>
+
+    <div class="captura-y-tip tramite">
+      <figure>
+        <div class="cap c-tramite"><img src="capturas/tramite-operacion.png" alt="Checklist del trámite de escritura"></div>
+      </figure>
+      <p class="tip"><b>Tip</b> El tablero se alterna entre <b>Ofertas</b> (ventas y alquileres) y <b>Compradores</b>. Las tareas de postventa que ya vencieron no se agendan.</p>
+    </div>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 10 · CALENDARIO Y VISITAS ===================== -->
+<section class="hoja" id="s-calendario">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Calendario y visitas</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-calendario"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Calendario y visitas</h1>
+      <p class="para-que">Tu agenda del mes con tareas, seguimientos y visitas, y su sincronización con Google Calendar.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Día a día › <b>Calendario</b></span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>Tocá un día del mes para ver lo que tenés: tareas, seguimientos de leads y visitas.</li>
+      <li>Para algo propio, tocá <b>Nueva tarea</b>.</li>
+      <li>Para mostrar una propiedad a un lead, tocá <b>Agendar visita</b>.</li>
+      <li>Con Google conectado, tus tareas y visitas aparecen en tu Google Calendar.</li>
+    </ol>
+
+    <figure class="fig">
+      <div class="cap sin-menu v-calendario"><img src="capturas/calendario.png" alt="Calendario del mes"></div>
+    </figure>
+
+    <p class="tip"><b>Tip</b> Si activás la importación en Configuración › Integraciones, los eventos de tu Google Calendar también entran, y el botón <b>Actualizar</b> los trae al instante.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 11 · FLYERS Y FICHA EN PDF ===================== -->
+<section class="hoja" id="s-flyers">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Flyers y ficha en PDF</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-flyers"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Flyers y ficha en PDF</h1>
+      <p class="para-que">Material listo para compartir de cada propiedad: una imagen para Instagram y una ficha en PDF.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <p class="donde"><span class="etq-donde">Dónde lo encontrás</span><span class="ruta">Menú lateral › Negocio › <b>Flyers</b>, o el botón <b>Crear flyer</b> en la ficha de la propiedad</span></p>
+
+    <h2 class="titulo-bloque">Cómo se usa</h2>
+    <ol class="como">
+      <li>En Flyers, elegí la propiedad.</li>
+      <li>Elegí una plantilla y ajustá el título, el subtítulo, los datos y las fotos.</li>
+      <li>Tocá <b>Descargar flyer</b>: sale listo para Instagram.</li>
+      <li>Para la ficha en PDF, abrí la propiedad y en <b>Compartir</b> elegí <b>Exportar ficha</b>.</li>
+    </ol>
+
+    <figure class="fig">
+      <div class="cap sin-menu-1905 v-flyers"><img src="capturas/flyers.png" alt="El editor de flyers con una plantilla armada"></div>
+      <figcaption class="leyenda">El editor de flyers: elegís la plantilla, ajustás los textos y descargás</figcaption>
+    </figure>
+
+    <p class="tip"><b>Tip</b> El flyer no se guarda en LeadEra: lo descargás y listo.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 12 · ESTADÍSTICAS, REPORTE SEMANAL Y EQUIPO ===================== -->
+<section class="hoja" id="s-estadisticas">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Estadísticas, reporte semanal y equipo</span></header>
+  <div class="banda">
+    <span class="icono-grande"><svg class="icono" aria-hidden="true"><use href="#ic-estadisticas"/></svg></span>
+    <div>
+      <p class="sobretitulo">Para qué sirve</p>
+      <h1>Estadísticas, reporte semanal y equipo</h1>
+      <p class="para-que">Cómo viene tu cartera, el resumen por mail de los lunes y el trabajo con asistentes.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+        <div class="minis">
+        <div class="mini">
+          <h3>Estadísticas</h3>
+          <p class="donde-chico">Menú lateral › Equipo y análisis › <b>Estadísticas</b></p>
+          <ol class="como-chico">
+            <li>Mirá <b>Requiere tu atención</b>: los leads calientes y dónde más se cae el embudo.</li>
+            <li>Seguí tus <b>Ganados del mes</b> contra tu meta.</li>
+            <li>Revisá la <b>Temperatura de leads</b>, el <b>Embudo de conversión</b> y el <b>Origen de tus leads</b>.</li>
+          </ol>
+        </div>
+        <div class="mini">
+          <h3>Reporte semanal</h3>
+          <p class="donde-chico">Menú de tu cuenta › Configuración › Notificaciones › <b>Recibir el reporte semanal</b></p>
+          <ol class="como-chico">
+            <li>Activá el interruptor y confirmá.</li>
+            <li>Te llega a tu email todos los lunes a las 9 de la mañana. Podés desactivarlo cuando quieras.</li>
+          </ol>
+        </div>
+        <div class="mini">
+          <h3>Equipo y asistentes</h3>
+          <p class="donde-chico">Menú lateral › Equipo y análisis › <b>Equipo</b> (agentes y dueños)</p>
+          <ol class="como-chico">
+            <li>Tocá <b>Invitar</b> y elegí el rol: Agente o Asistente.</li>
+            <li>El asistente trabaja sobre los leads de su agente y, en Leads, arranca con el filtro <b>Míos</b>.</li>
+          </ol>
+        </div>
+    </div>
+
+    <figure class="fig">
+      <div class="cap sin-menu v-estad"><img src="capturas/estadisticas.png" alt="Pantalla de Estadísticas"></div>
+    </figure>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 13 · RUTINA DE 5 MINUTOS ===================== -->
+<section class="hoja" id="s-rutina">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Tu primera semana</span></header>
+  <div class="banda">
+    <div>
+      <p class="sobretitulo">Lectura de 5 minutos</p>
+      <h1>Tu primera semana</h1>
+      <p class="para-que">Un paso por día para que LeadEra quede andando.</p>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <div class="dias">
+      <div class="dia"><span class="dia-n">Día 1</span><p>Los 3 pasos de <b>Empezá hoy</b>: cargá un lead, registrá el contacto y abrí Mi día.</p></div>
+      <div class="dia"><span class="dia-n">Día 2</span><p>Cargá una propiedad y lo que busca un comprador. Después mirá <b>Coincidencias</b>.</p></div>
+      <div class="dia"><span class="dia-n">Día 3</span><p>Conectá tu Google Calendar en <b>Configuración › Integraciones</b>. Lo conecta el agente o el dueño.</p></div>
+      <div class="dia"><span class="dia-n">Antes del fin de semana</span><p>Activá el reporte semanal en <b>Configuración › Notificaciones</b> y te llega todos los lunes a las 9.</p></div>
+    </div>
+
+    <h2 class="titulo-bloque">Tu rutina de 5 minutos</h2>
+    <div class="habitos">
+      <div class="habito"><span class="cuando">A la mañana</span><p>Abrí <b>Mi día</b> y empezá por los prioritarios.</p></div>
+      <div class="habito"><span class="cuando">Después de cada contacto</span><p><b>Registralo</b> y dejá agendada la próxima fecha.</p></div>
+      <div class="habito"><span class="cuando">Una vez por semana</span><p>Mirá <b>Estadísticas</b> y el reporte semanal.</p></div>
+    </div>
+
+    <p class="cierre-rutina">Con esto, Mi día te muestra cada mañana lo que tenés pendiente.</p>
+  </div>
+
+  <footer class="pie"><span>LeadEra · Manual de uso</span></footer>
+</section>
+
+<!-- ===================== 14 · PREGUNTAS FRECUENTES Y CIERRE ===================== -->
+<section class="hoja" id="s-faq">
+  <header class="tope"><span class="marca chica"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span><span>Preguntas frecuentes</span></header>
+  <div class="banda">
+    <div>
+      <p class="sobretitulo">Lectura de 5 minutos</p>
+      <h1>Preguntas frecuentes</h1>
+    </div>
+  </div>
+
+  <div class="cuerpo">
+    <div class="faq-layout">
+      <div>
+        <div class="pregunta">
+          <h3>¿Puedo probarlo gratis?</h3>
+          <p>Sí: 14 días gratis y sin tarjeta.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Tengo que cargar todo mi historial?</h3>
+          <p>No. Empezá con tus leads activos y sumá el resto cuando puedas.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Mis datos son privados?</h3>
+          <p>Cada cuenta es un espacio privado y separado: nadie de otra cuenta ve tus leads.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Funciona desde el celular?</h3>
+          <p>Sí. Abrís app.leadera.com.ar desde el navegador del teléfono.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Puedo trabajar con asistentes?</h3>
+          <p>Sí. Cada agente puede sumar asistentes, que trabajan sobre sus leads.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Y si cargo algo mal?</h3>
+          <p>Podés editar o eliminar leads, propiedades y operaciones. Una operación cerrada ya no se puede eliminar.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Y si mi Excel tiene otro formato?</h3>
+          <p>Sirve cualquier archivo .xlsx o .csv con sus propias columnas: al importar, LeadEra propone cómo relacionarlas y vos corregís lo que haga falta.</p>
+        </div>
+        <div class="pregunta">
+          <h3>¿Necesito ayuda para empezar?</h3>
+          <p>Escribime por WhatsApp y te guío.</p>
+        </div>
+      </div>
+
+      <div class="telefono">
+        <div class="pantalla"><img src="capturas/mi-dia-mobile.png" alt="Mi día en el celular"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <svg class="marca-agua" viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg>
+    <span class="marca grande"><svg viewBox="0 0 48 48" aria-hidden="true"><use href="#isotipo"/></svg><span>LeadEra</span></span>
+    <div class="cta-fila">
+      <h2>¿Te trabás con algo? Escribime por WhatsApp y te guío.</h2>
+      <a class="wa-btn" href="https://wa.me/5492235827465?text=Hola%20Mateo%2C%20estoy%20probando%20LeadEra%20y%20necesito%20una%20mano%20para%20empezar.">Escribime por WhatsApp<br><b>223 582-7465</b></a>
+    </div>
+    <p>app.leadera.com.ar</p>
+  </div>
+</section>
+
+</body>
+</html>

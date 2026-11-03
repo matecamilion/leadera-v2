@@ -1,0 +1,12 @@
+{
+  "name": "leadera-manual",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "capturas": "node capturar.mjs",
+    "pdf": "node generar-pdf.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.64.1"
+  }
+}

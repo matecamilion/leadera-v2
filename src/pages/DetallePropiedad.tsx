@@ -12,6 +12,7 @@ import { SeccionCoincidenciasInternas } from '../components/propiedades/SeccionC
 import { SeccionActividadVisitas } from '../components/propiedades/SeccionActividadVisitas'
 import { SeccionLeadPropietario } from '../components/propiedades/SeccionLeadPropietario'
 import { SeccionOperacionesVinculadas } from '../components/propiedades/SeccionOperacionesVinculadas'
+import { datosParaFicha } from '../components/propiedades/ficha/datos'
 import { useCoincidenciasInternas } from '../hooks/useCoincidenciasInternas'
 import {
   useActualizarEstadoPropiedad,
@@ -19,6 +20,7 @@ import {
   useDetallePropiedad,
   useEliminarPropiedad,
 } from '../hooks/useDetallePropiedad'
+import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
 import { etiquetaDisposicion, etiquetaTipo, formatearExpensas } from '../lib/api/propiedades'
 import { claveDia } from '../lib/calendario'
 import { mensajeDeGuardado } from '../lib/mensajesDeError'
@@ -44,6 +46,8 @@ export default function DetallePropiedad() {
 
   const { data: propiedad, isPending, isError, error } = useDetallePropiedad(id)
   const mostrarAviso = useUiStore((s) => s.mostrarAviso)
+  // El nombre de la inmobiliaria va en el pie de la ficha; sale de la misma lectura que el sidebar.
+  const nombreInmobiliaria = useEstadoSuscripcion().data?.nombre ?? null
   const [modal, setModal] = useState<ModalAbierto>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
   // El link de consultas se crea recién la primera vez que se abre el panel.
@@ -124,21 +128,10 @@ export default function DetallePropiedad() {
 
         {exportando && (
           <Suspense fallback={null}>
-            {/* Se pasan sólo los campos de la propiedad: el tipo DatosFicha
-                no acepta lead_propietario ni agente_id, así que la ficha no
-                puede terminar con datos de contacto de nadie. */}
+            {/* datosParaFicha copia solo los campos permitidos: ni
+                lead_propietario ni agente_id ni link_portal llegan al PDF. */}
             <BotonExportarFicha
-              propiedad={{
-                direccion: propiedad.direccion,
-                zona: propiedad.zona,
-                tipo: propiedad.tipo,
-                precio: propiedad.precio,
-                moneda: propiedad.moneda,
-                ambientes: propiedad.ambientes,
-                metros_cuadrados: propiedad.metros_cuadrados,
-                descripcion: propiedad.descripcion,
-                fotos_urls: propiedad.fotos_urls ?? [],
-              }}
+              propiedad={datosParaFicha(propiedad, nombreInmobiliaria)}
               onTerminado={() => setExportando(false)}
               onError={() => {
                 setExportando(false)

@@ -1,6 +1,10 @@
-import { useEffect, useRef } from 'react'
-import { usePDF } from '@react-pdf/renderer'
-import { FichaPropiedadPDF, type DatosFicha } from './FichaPropiedadPDF'
+import { useEffect } from 'react'
+import { pdf } from '@react-pdf/renderer'
+import { FichaPropiedadPDF } from './FichaPropiedadPDF'
+import type { DatosFicha } from './ficha/datos'
+import { resolverAcento } from './ficha/diseno'
+import { registrarFuentes } from './ficha/fuentes'
+import { prepararFotosFicha } from './ficha/fotos'
 
 /** "Av. Colón 1234, Mar del Plata" -> "av-colon-1234-mar-del-plata" */
 function slugificar(texto: string): string {
@@ -25,36 +29,50 @@ interface Props {
  * Arma y descarga la ficha en PDF. No dibuja nada: el botón vive en el menú
  * "Compartir" de la cabecera.
  *
- * Se monta recién cuando alguien pide la ficha, y `usePDF` arranca con el
- * documento al montar: así no se genera nada hasta ese momento, y el chunk
- * de @react-pdf/renderer se baja sólo entonces. Cada pedido es un montaje
- * nuevo, así que la ficha sale con los datos de ahora.
+ * Se monta recién cuando alguien pide la ficha, así que no se genera nada
+ * hasta ese momento y el chunk de @react-pdf/renderer se baja sólo entonces.
+ * Cada pedido es un montaje nuevo: la ficha sale con los datos de ahora.
+ *
+ * Antes de armar el PDF se bajan y reducen las fotos (una foto rota se
+ * descarta sin cancelar nada); recién con ellas listas se genera el documento.
  */
 export function BotonExportarFicha({ propiedad, onTerminado, onError }: Props) {
-  const [instancia] = usePDF({ document: <FichaPropiedadPDF propiedad={propiedad} /> })
-  // La URL que ya se descargó, para no volver a disparar la bajada en cada
-  // re-render mientras la instancia siga viva.
-  const descargada = useRef<string | null>(null)
-
-  const nombreArchivo = `ficha-${slugificar(propiedad.direccion)}.pdf`
-
   useEffect(() => {
-    if (instancia.error) {
-      onError()
-      return
-    }
-    if (instancia.loading || !instancia.url) return
-    if (descargada.current === instancia.url) return
+    let cancelado = false
 
-    descargada.current = instancia.url
-    const ancla = document.createElement('a')
-    ancla.href = instancia.url
-    ancla.download = nombreArchivo
-    document.body.appendChild(ancla)
-    ancla.click()
-    ancla.remove()
-    onTerminado()
-  }, [instancia.error, instancia.loading, instancia.url, nombreArchivo, onError, onTerminado])
+    async function exportar() {
+      try {
+        registrarFuentes()
+        const fotos = await prepararFotosFicha(propiedad.fotos_urls)
+        if (cancelado) return
+
+        const blob = await pdf(
+          <FichaPropiedadPDF propiedad={propiedad} fotos={fotos} acento={resolverAcento()} />,
+        ).toBlob()
+        if (cancelado) return
+
+        const url = URL.createObjectURL(blob)
+        const ancla = document.createElement('a')
+        ancla.href = url
+        ancla.download = `ficha-${slugificar(propiedad.direccion)}.pdf`
+        document.body.appendChild(ancla)
+        ancla.click()
+        ancla.remove()
+        // El navegador ya tomó el archivo; se suelta un poco después por si el click es asíncrono.
+        setTimeout(() => URL.revokeObjectURL(url), 10_000)
+        onTerminado()
+      } catch {
+        if (!cancelado) onError()
+      }
+    }
+
+    void exportar()
+    return () => {
+      cancelado = true
+    }
+    // Un montaje, un pedido: los datos no cambian mientras la ficha se arma.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return null
 }

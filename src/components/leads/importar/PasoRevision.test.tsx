@@ -74,39 +74,14 @@ describe('PasoRevision: conteos', () => {
   })
 })
 
-describe('PasoRevision: cupo', () => {
-  const dosFilas = [conTelefono(2), conTelefono(3)]
+describe('PasoRevision: botón de importar', () => {
+  it('entran todos los que pasan la revisión y no se habla del plan', () => {
+    mostrar(revisionDe({ filas: [conTelefono(2), conTelefono(3)] }))
 
-  it('con tope que no alcanza: avisa cuántos entran y cuántos quedan afuera, y ofrece los planes', () => {
-    mostrar(revisionDe({ filas: dosFilas, cupo: { limite: 3, usados: 2 } }))
-
-    const aviso = screen.getByRole('alert')
-    expect(aviso.textContent).toContain('Tu plan permite cargar 1 lead más.')
-    expect(aviso.textContent).toContain('Van a entrar los primeros 1 y los otros 1 quedan afuera.')
-    expect(within(aviso).getByRole('link', { name: /Ver planes/ })).toBeTruthy()
-
-    expect(within(tarjeta('Se importan')).getByText('1')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Importar 1 lead' })).toBeTruthy()
-  })
-
-  it('sin tope no muestra nada de cupo', () => {
-    mostrar(revisionDe({ filas: dosFilas, cupo: { limite: null, usados: 500 } }))
     expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByText(/plan/i)).toBeNull()
+    expect(within(tarjeta('Se importan')).getByText('2')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Importar 2 leads' })).toBeTruthy()
-  })
-
-  it('con tope que alcanza no muestra nada de cupo', () => {
-    mostrar(revisionDe({ filas: dosFilas, cupo: { limite: 200, usados: 10 } }))
-    expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.queryByText(/Ver planes/)).toBeNull()
-  })
-
-  it('agotado: lo explica y el botón de importar queda deshabilitado', () => {
-    mostrar(revisionDe({ filas: dosFilas, cupo: { limite: 10, usados: 10 } }))
-
-    expect(screen.getByRole('alert').textContent).toContain('no tiene lugar')
-    const boton = screen.getByRole('button', { name: 'No hay leads para importar' }) as HTMLButtonElement
-    expect(boton.disabled).toBe(true)
   })
 
   it('sin nada para importar el botón también queda deshabilitado', () => {
@@ -310,17 +285,6 @@ describe('PasoRevision: resumen de contacto', () => {
 
   it('sin ninguno con contacto no se muestra', () => {
     mostrar(revisionDe({ filas: [dePersona(1, 2), dePersona(2, 3)] }))
-    expect(resumen()).toBeNull()
-  })
-
-  it('cuenta solo los que el plan deja entrar', () => {
-    // Entran 2 de 3: el tercero, que es el único con contacto, queda afuera.
-    mostrar(
-      revisionDe({
-        filas: [dePersona(1, 2), dePersona(2, 3), dePersona(3, 4, contacto(5))],
-        cupo: { limite: 2, usados: 0 },
-      }),
-    )
     expect(resumen()).toBeNull()
   })
 

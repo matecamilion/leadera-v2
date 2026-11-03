@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
 import { ModalConfirmarEliminar } from '../components/comunes/ModalConfirmarEliminar'
 import { Spinner } from '../components/Spinner'
-import { IndicadorUso } from '../components/suscripcion/IndicadorUso'
+import { CuentaSuspendida } from '../components/suscripcion/CuentaSuspendida'
 import { useAuth } from '../contexts/AuthContext'
 import {
   useCancelarSuscripcion,
@@ -12,13 +12,14 @@ import {
   usePagos,
   usePreciosPlanes,
 } from '../hooks/useSuscripcion'
-import { useUsoRecursos } from '../hooks/useUsoRecursos'
 import { linkDeCobros, mensajeDeActivacion, mensajeDeRenovacion } from '../lib/config'
 import { formatearFecha } from '../lib/formatoFecha'
 import { mensajeDeListado } from '../lib/mensajesDeError'
 import {
   DETALLE_PLAN,
+  estaSuspendida,
   ETIQUETA_RESULTADO,
+  INCLUIDO_EN_TODOS_LOS_PLANES,
   interpretarVuelta,
   type EstadoDeMiSuscripcion,
   type PagoDelHistorial,
@@ -51,12 +52,6 @@ interface DistintivoEstado {
  * fecha de corte, pero para quien la mira lo que importa es que ya dio de baja.
  */
 function distintivoDeEstado(estado: EstadoDeMiSuscripcion): DistintivoEstado {
-  // En una cuenta manual, GRACIA no es un cobro que falló: es un plan que se
-  // venció y todavía no se renovó.
-  if (estado.metodoCobro === 'MANUAL' && estado.estado === 'GRACIA') {
-    return { texto: 'Vencido', clases: 'bg-warm-soft text-badge-tibio-ink' }
-  }
-
   if (estado.cancelacionSolicitada) {
     return { texto: 'Cancelada', clases: 'bg-surface-2 text-ink-2' }
   }
@@ -81,8 +76,6 @@ function explicacionDeEstado(estado: EstadoDeMiSuscripcion): string {
     switch (estado.estado) {
       case 'ACTIVA':
         return 'Tu plan está al día. Lo renovás por transferencia cuando se acerque el vencimiento.'
-      case 'GRACIA':
-        return 'Se te venció el plan. Renovalo por transferencia para no perder el acceso.'
       default:
         return 'Se te terminó el acceso. Escribinos para renovar por transferencia.'
     }
@@ -115,7 +108,6 @@ const TONOS: Record<TonoVuelta, string> = {
 export default function Suscripcion() {
   const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const location = useLocation()
 
   const precios = usePreciosPlanes()
   const estado = useEstadoSuscripcion()
@@ -127,14 +119,7 @@ export default function Suscripcion() {
   // se resuelve abajo con los datos ya cargados: guardar acá el default llevaría
   // a sincronizarlo con una query que todavía está en vuelo cuando esto se
   // inicializa.
-  //
-  // Se puede llegar pidiendo el catálogo desde afuera: es lo que hace el link
-  // de los formularios cuando una cuota del plan frena un alta, donde mostrar
-  // el estado de la cuenta sería llevar al usuario un paso más lejos de lo que
-  // vino a resolver.
-  const [vistaManual, setVistaManual] = useState<Vista | null>(() =>
-    (location.state as { vista?: Vista } | null)?.vista === 'elegir' ? 'elegir' : null,
-  )
+  const [vistaManual, setVistaManual] = useState<Vista | null>(null)
 
   // Se lee una sola vez, al montar: después los parámetros se limpian de la URL
   // y no queremos que el cartel desaparezca por eso.
@@ -160,6 +145,14 @@ export default function Suscripcion() {
       },
       onError: (e) => setError(e.message),
     })
+  }
+
+  // Una cuenta suspendida por el administrador no tiene planes que elegir ni una
+  // cuenta que mirar: se corta antes de pedir los precios, y gana sobre
+  // cualquier vista pedida desde afuera (`vistaManual`). Contratar por acá no
+  // la reactivaría.
+  if (estado.data && estaSuspendida(estado.data)) {
+    return <CuentaSuspendida estado={estado.data} rol={profile?.rol} />
   }
 
   // `estado` con `isLoading`: sin `inmobiliaria_id` en el profile la query queda
@@ -217,7 +210,7 @@ export default function Suscripcion() {
         <p className="mt-1 text-[0.9rem] text-ink-3">
           {vista === 'elegir'
             ? 'Elegí el plan que le sirve a tu inmobiliaria. Se cobra por mes y lo cancelás cuando quieras.'
-            : 'El estado de tu plan, cuánto lo estás usando y tus cobros.'}
+            : 'El estado de tu plan y tus cobros.'}
         </p>
       </header>
 
@@ -287,7 +280,11 @@ export default function Suscripcion() {
             ))}
           </ul>
 
-          <p className="mt-5 text-[0.8rem] text-ink-3">
+          <p className="mt-5 text-[0.9rem] font-semibold text-ink-2">
+            En todos los planes: {INCLUIDO_EN_TODOS_LOS_PLANES.toLowerCase()}.
+          </p>
+
+          <p className="mt-2 text-[0.8rem] text-ink-3">
             Los precios están fijados en dólares y se convierten a pesos con la cotización del
             dólar MEP, que se actualiza una vez por semana.
           </p>
@@ -315,34 +312,6 @@ export default function Suscripcion() {
         </>
       )}
     </div>
-  )
-}
-
-function UsoDelPlan({ plan }: { plan: Plan }) {
-  const uso = useUsoRecursos(plan)
-
-  // Ni skeleton ni cartel de error: es información de apoyo, y que aparezca
-  // cuando está lista molesta menos que un hueco anunciándose en una pantalla
-  // que se entra a mirar por otra cosa.
-  if (uso.isPending || uso.isError) return null
-
-  return (
-    <section className="mt-8">
-      <h2 className="m-0 text-[1.05rem] font-bold text-ink">Uso de tu plan</h2>
-      <p className="mt-1 mb-4 text-[0.85rem] text-ink-3">
-        Cuánto llevás cargado de lo que incluye el plan {DETALLE_PLAN[plan].nombre}.
-      </p>
-
-      <div className="grid grid-cols-1 gap-6 rounded-[16px] border border-border bg-surface px-6 py-5 shadow-md sm:grid-cols-3">
-        <IndicadorUso etiqueta="Leads" unidad="leads" uso={uso.data.leads} />
-        <IndicadorUso etiqueta="Propiedades" unidad="propiedades" uso={uso.data.propiedades} />
-        <IndicadorUso
-          etiqueta="Operaciones activas"
-          unidad="operaciones activas"
-          uso={uso.data.operacionesActivas}
-        />
-      </div>
-    </section>
   )
 }
 
@@ -412,8 +381,8 @@ interface VistaCuentaProps {
 }
 
 /**
- * El estado de la suscripción propia: qué plan se tiene, cómo viene la cuenta,
- * cuánto se está usando y qué se cobró.
+ * El estado de la suscripción propia: qué plan se tiene, cómo viene la cuenta
+ * y qué se cobró.
  *
  * Es la entrada por defecto en cuanto hay un plan asignado —incluido el trial,
  * que desde que el alta lo pregunta también tiene uno—. El catálogo de planes
@@ -522,9 +491,6 @@ function VistaCuenta({ estado, precios, esDueno, onCambiarPlan }: VistaCuentaPro
         )}
       </div>
 
-      {/* Los dos reusados tal cual: el trial ya tiene topes que rigen, y los
-          cobros viejos siguen explicando por qué la cuenta está donde está. */}
-      {estado.plan && <UsoDelPlan plan={estado.plan} />}
       {estado.estado !== 'TRIAL' && <HistorialDePagos />}
 
       {/* Las dos salidas de la pantalla, juntas y al pie: cambiar de plan es

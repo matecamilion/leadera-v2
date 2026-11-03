@@ -1,6 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { InputTelefono } from '../components/comunes/InputTelefono'
 import { IconoPersonaMas } from '../components/leads/Iconos'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,7 +15,7 @@ import { opcionesDeAsignacion } from '../lib/opcionesAsignacion'
 import { telefonoInvalido } from '../lib/telefono'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
 import { etiquetaRol } from '../lib/api/equipo'
-import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
+import { mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -144,7 +143,6 @@ export default function NuevoLead() {
           className="mb-5 rounded-lg border border-peligro-borde bg-peligro-soft px-4 py-3 text-[0.9rem] text-peligro-ink"
         >
           <p className="m-0">{mensajeDeGuardado(errorGeneral, 'No se pudo crear el lead.')}</p>
-          {esLimiteDePlan(errorGeneral) && <EnlaceAPlanes />}
         </div>
       )}
 

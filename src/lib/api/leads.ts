@@ -538,8 +538,8 @@ export async function crearLead(input: CrearLeadInput): Promise<Lead> {
     // 23505 = unique_violation. Si hay índice único por email, este es el caso.
     if (error.code === '23505') throw new Error('Ya existe un lead con ese email.')
     // El trigger de asignación levanta una excepción (P0001) si el elegido no es
-    // el agente ni un asistente activo suyo. Los topes del plan también son
-    // P0001, pero traen un texto que el catálogo reconoce: esos siguen su camino.
+    // el agente ni un asistente activo suyo. Otros P0001 de negocio traen un
+    // texto que el catálogo reconoce: esos siguen su camino.
     if (error.code === 'P0001' && input.asignadoA && !mensajeDeNegocio(error.message ?? '')) {
       console.error('[crearLead]', error)
       throw new Error(MENSAJE_ASIGNACION_RECHAZADA)

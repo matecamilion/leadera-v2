@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { Campo, ErrorCampo, Input } from '../components/comunes/CampoFormulario'
 import { ComboboxLead } from '../components/comunes/ComboboxLead'
 import { ComboboxPropiedad } from '../components/comunes/ComboboxPropiedad'
@@ -10,7 +9,7 @@ import { IconoCajas } from '../components/leads/Iconos'
 import { useBusquedaLibreDeLead, useCrearOperacion } from '../hooks/useOperaciones'
 import { useCriteriosBusqueda, useGuardarBusqueda } from '../hooks/useBusqueda'
 import { usePropietarioSugerido } from '../hooks/usePropietarioSugerido'
-import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
+import { mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
 import {
   cantidadInvalida,
@@ -352,7 +351,6 @@ export default function NuevaOperacion() {
             <p className="m-0">
               {mensajeDeGuardado(crear.error, 'No se pudo crear la operación.')}
             </p>
-            {esLimiteDePlan(crear.error) && <EnlaceAPlanes />}
           </div>
         )}
 

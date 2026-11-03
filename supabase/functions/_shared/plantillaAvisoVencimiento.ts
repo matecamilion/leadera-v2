@@ -1,6 +1,11 @@
 import { ALIAS_TRANSFERENCIA, TITULAR_TRANSFERENCIA } from './cobro.ts'
 
-export type TipoAviso = 'PREVIO' | 'DIA_VENCIMIENTO' | 'ULTIMO_DIA_GRACIA'
+/**
+ * `ULTIMO_DIA_GRACIA` ya no se manda (las cuentas manuales no tienen gracia),
+ * pero el CHECK de `avisos_vencimiento` lo sigue admitiendo por los registros
+ * históricos.
+ */
+export type TipoAviso = 'PREVIO' | 'DIA_VENCIMIENTO'
 
 export interface DatosAviso {
   tipo: TipoAviso
@@ -10,12 +15,8 @@ export interface DatosAviso {
   plan: string
   /** Ya formateado, con símbolo; null si el plan no tiene precio cargado. */
   monto: string | null
-  /** Fecha de vencimiento, `DD/MM/AAAA`. */
+  /** Último día con acceso, `DD/MM/AAAA`. */
   vencimiento: string
-  /** Fecha en que el cron suspende el acceso, `DD/MM/AAAA`. */
-  corte: string
-  /** true si hoy es el día del vencimiento: cambia "vence" por "vence hoy". */
-  venceHoy: boolean
 }
 
 export interface MailAviso {
@@ -110,37 +111,18 @@ function copy(d: DatosAviso): { asunto: string; titulo: string; intro: string } 
         asunto: `Tu plan de LeadEra vence el ${d.vencimiento}`,
         titulo: 'Tu plan está por vencer',
         intro:
-          `Tu plan ${d.plan} de LeadEra vence el ${d.vencimiento}. ` +
+          `Tu plan ${d.plan} de LeadEra vence el ${d.vencimiento}, y ese es el último día en que vas a tener acceso. ` +
           'Para seguir usándolo sin cortes, podés renovarlo por transferencia con estos datos:',
       }
 
     case 'DIA_VENCIMIENTO':
-      return d.venceHoy
-        ? {
-            asunto: 'Tu plan de LeadEra vence hoy',
-            titulo: 'Tu plan vence hoy',
-            intro:
-              `Tu plan ${d.plan} de LeadEra vence hoy, ${d.vencimiento}. ` +
-              `Seguís teniendo acceso unos días más, pero si no se renueva, tu acceso se suspende el ${d.corte}. ` +
-              'Podés renovarlo por transferencia con estos datos:',
-          }
-        : {
-            asunto: `Tu plan de LeadEra venció el ${d.vencimiento}`,
-            titulo: 'Tu plan está vencido',
-            intro:
-              `Tu plan ${d.plan} de LeadEra venció el ${d.vencimiento}. ` +
-              `Seguís teniendo acceso unos días más, pero si no se renueva, tu acceso se suspende el ${d.corte}. ` +
-              'Podés renovarlo por transferencia con estos datos:',
-          }
-
-    case 'ULTIMO_DIA_GRACIA':
       return {
-        asunto: `Último aviso: tu acceso a LeadEra se suspende el ${d.corte}`,
-        titulo: 'Último aviso antes de la suspensión',
+        asunto: 'Tu plan de LeadEra vence hoy',
+        titulo: 'Hoy es tu último día de acceso',
         intro:
-          `Tu plan ${d.plan} de LeadEra venció el ${d.vencimiento} y hoy es el último día de gracia: ` +
-          `tu acceso se suspende el ${d.corte}. Para seguir usando LeadEra, ` +
-          'renová por transferencia con estos datos:',
+          `Tu plan ${d.plan} de LeadEra vence hoy, ${d.vencimiento}, y hoy es el último día de acceso: ` +
+          'mañana se suspende tu cuenta si no registramos el pago. ' +
+          'Para evitarlo, renová por transferencia con estos datos:',
       }
   }
 }

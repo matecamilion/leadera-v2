@@ -15,7 +15,7 @@ import { mensajeDeNegocio } from './mensajesDeError'
  * el código se pierde y sólo queda el texto, que es más frágil de matchear.
  *
  * No inventa un catálogo nuevo: los mensajes que la base ya redacta para
- * leerse —las cuotas de plan, los triggers de cierre de operación, las
+ * leerse —los triggers de cierre de operación, las
  * validaciones de fecha— los sigue resolviendo `mensajesDeError.ts`, que es
  * donde viven. Acá sólo se agrega lo que necesita el `code` y el respaldo
  * seguro.
@@ -54,7 +54,7 @@ export function interpretarErrorSupabase(error: unknown, respaldo = GENERICO): s
   const texto = (error as { message?: string } | null)?.message ?? ''
 
   // 1. Los mensajes que la base redacta para el usuario ganan sobre el código:
-  //    un `raise exception` de una cuota de plan llega con código P0001, pero
+  //    un `raise exception` de un trigger de negocio llega con código P0001, pero
   //    su texto es exactamente lo que hay que mostrar.
   const deNegocio = mensajeDeNegocio(texto)
   if (deNegocio) return deNegocio

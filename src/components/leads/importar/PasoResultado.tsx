@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { EnlaceAPlanes } from '../../comunes/EnlaceAPlanes'
 import type { ResultadoDeImportacion } from '../../../lib/api/importarLeads'
 import type { ResultadoDeReversion } from '../../../lib/api/revertirImportacion'
 import { DeshacerImportacion } from './DeshacerImportacion'
@@ -132,21 +131,7 @@ export function PasoResultado({ revision, importando, progreso, resultado, onVer
           )}
           <TarjetaConteo valor={r.omitidosPorDuplicado} titulo="Omitidos por duplicado" />
           <TarjetaConteo valor={r.conError} titulo="Con error" tono="error" />
-          <TarjetaConteo valor={r.fueraPorLimite} titulo="Fuera por el límite del plan" tono="aviso" />
         </div>
-
-        {r.fueraPorLimite > 0 && (
-          <div
-            role="alert"
-            className="mt-4 rounded-lg border border-tibio/40 bg-warm-soft px-4 py-3 text-[0.9rem] text-badge-tibio-ink"
-          >
-            <p className="m-0">
-              {r.fueraPorLimite} {plural(r.fueraPorLimite, 'lead quedó', 'leads quedaron')} afuera porque tu plan llegó
-              a su límite.
-            </p>
-            <EnlaceAPlanes />
-          </div>
-        )}
 
         {corte && (
           <div

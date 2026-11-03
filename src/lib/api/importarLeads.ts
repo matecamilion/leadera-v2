@@ -22,15 +22,8 @@ export const TAMANO_LOTE = 200
 
 export type DuplicadoEnBase = 'telefono' | 'email'
 
-/** Cuántos leads usa la cuenta y cuántos admite su plan (null = sin tope). */
-export interface CupoDeLeads {
-  limite: number | null
-  usados: number
-}
-
 export interface VerificacionDeDuplicados {
   duplicados: Map<number, DuplicadoEnBase | null>
-  cupo: CupoDeLeads
 }
 
 export interface FilaAVerificar {
@@ -47,28 +40,26 @@ export function armarPedidoDeVerificacion(filas: FilaNormalizada[]): FilaAVerifi
 /**
  * Qué filas ya existen en los leads de la cuenta (de cualquier agente).
  *
- * Devuelve `duplicados`, un mapa fila → cómo coincidió (o null si no existe), y
- * el `cupo` de leads de la cuenta. La función no dice de quién es el lead:
- * solo si hay uno con ese teléfono o ese email.
+ * Devuelve `duplicados`, un mapa fila → cómo coincidió (o null si no existe). La
+ * función no dice de quién es el lead: solo si hay uno con ese teléfono o ese
+ * email.
  *
- * Se llama también sin filas: el cupo se necesita igual.
+ * Sin filas no llama a la función: no hay nada que comparar.
+ *
+ * Si la respuesta trae un `cupo` (versiones anteriores de la función) se ignora:
+ * no se lee ni se exige, así front y función se pueden desplegar en cualquier orden.
  */
 export async function verificarDuplicados(filas: FilaAVerificar[]): Promise<VerificacionDeDuplicados> {
+  if (filas.length === 0) return { duplicados: new Map() }
+
   const { data, error } = await supabase.functions.invoke<{
     resultados?: { fila: number; duplicado: DuplicadoEnBase | null }[]
-    cupo?: { limite?: unknown; usados?: unknown }
   }>('verificar-duplicados-importacion', { body: { filas } })
 
   if (error) {
     throw new Error(await mensajeDeFuncion(error, 'No se pudo verificar si los leads ya existen.'))
   }
-  const cupo = data?.cupo
-  if (
-    !data ||
-    !Array.isArray(data.resultados) ||
-    typeof cupo?.usados !== 'number' ||
-    (cupo.limite !== null && typeof cupo.limite !== 'number')
-  ) {
+  if (!data || !Array.isArray(data.resultados)) {
     throw new Error('No se pudo verificar si los leads ya existen.')
   }
 
@@ -76,7 +67,7 @@ export async function verificarDuplicados(filas: FilaAVerificar[]): Promise<Veri
   for (const r of data.resultados) {
     duplicados.set(r.fila, r.duplicado === 'telefono' || r.duplicado === 'email' ? r.duplicado : null)
   }
-  return { duplicados, cupo: { limite: cupo.limite, usados: cupo.usados } }
+  return { duplicados }
 }
 
 // ---------------------------------------------------------------------------

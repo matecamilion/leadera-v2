@@ -6,7 +6,6 @@ import type { Consulta, ResultadoAceptar } from '../../lib/api/consultas'
 import { tiempoTranscurrido } from '../../lib/formatoFecha'
 import { linkTelefono, linkWhatsApp } from '../../lib/telefono'
 import { useUiStore } from '../../stores/ui'
-import { EnlaceAPlanes } from '../comunes/EnlaceAPlanes'
 import { IconoChat, IconoCerrar } from '../leads/Iconos'
 import { BloquePuntaje, ChipEspera, RespuestasConsulta, Senal } from './RespuestasConsulta'
 import { resumenCorto } from './respuestas'
@@ -211,8 +210,8 @@ export function FilaConsulta({
             {(c.volvio_a_consultar || c.posible_captacion || c.duplicado_otro_agente || hayAviso || c.estado === 'AUTO_ACEPTADA') && (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {hayAviso && (
-                  <Senal tipo="limite" titulo="El plan llegó a su límite de leads">
-                    Límite del plan
+                  <Senal tipo="limite" titulo="No se pudo pasar a leads: probá de nuevo">
+                    Sin resolver
                   </Senal>
                 )}
                 {c.duplicado_otro_agente && (
@@ -317,12 +316,9 @@ export function FilaConsulta({
 
             {hayAviso && (
               <div role="status" className="mt-2.5 rounded-lg bg-warm-soft px-3.5 py-2.5 text-[0.82rem] text-badge-tibio-ink">
-                <p className="m-0">{c.aviso_pendiente}</p>
-                {esDueno ? (
-                  <EnlaceAPlanes />
-                ) : (
-                  <p className="mt-1 mb-0">Pedile al dueño de la inmobiliaria que amplíe el plan.</p>
-                )}
+                {/* Texto fijo: el de `aviso_pendiente` lo redacta la base y puede
+                    nombrar topes que ya no existen. */}
+                <p className="m-0">No pudimos pasar esta consulta a leads. Probá de nuevo en unos minutos.</p>
               </div>
             )}
 

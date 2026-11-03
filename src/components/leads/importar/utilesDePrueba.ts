@@ -2,7 +2,7 @@
  * Armadores de datos para los tests del flujo de importación. Todo inventado.
  * Quien los importa tiene que mockear `lib/supabase` (la capa de API lo carga).
  */
-import { clasificarFilas, type CupoDeLeads, type DuplicadoEnBase } from '../../../lib/api/importarLeads'
+import { clasificarFilas, type DuplicadoEnBase } from '../../../lib/api/importarLeads'
 import { marcarDuplicadosEnArchivo } from '../../../lib/importarLeads/duplicadosEnArchivo'
 import type { FilaNormalizada } from '../../../lib/importarLeads/normalizarFilas'
 import type { Revision } from './revisar'
@@ -39,12 +39,10 @@ export function conTelefono(n: number, cambios: Partial<FilaNormalizada> = {}): 
 export function revisionDe({
   filas,
   base = new Map<number, DuplicadoEnBase | null>(),
-  cupo = { limite: null, usados: 0 },
 }: {
   filas: FilaNormalizada[]
   base?: Map<number, DuplicadoEnBase | null>
-  cupo?: CupoDeLeads
 }): Revision {
   const marcadas = marcarDuplicadosEnArchivo(filas)
-  return { filas: marcadas, clasificacion: clasificarFilas(marcadas, base), cupo }
+  return { filas: marcadas, clasificacion: clasificarFilas(marcadas, base) }
 }

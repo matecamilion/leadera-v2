@@ -14,8 +14,7 @@ import { useUid } from './useUid'
  * Solo `confirmar` invalida el cache, y lo hace entre en lo que entre y también
  * si falla (una falla de red no dice si llegó a borrar). Mismas claves que
  * `useImportarLeads`, más lo que cambia al desaparecer leads: la carga por
- * miembro del equipo, las métricas del perfil y el dashboard. Los leads
- * eliminados además liberan cupo del plan (`usoRecursos`).
+ * miembro del equipo, las métricas del perfil y el dashboard.
  */
 export function useRevertirImportacion() {
   const queryClient = useQueryClient()
@@ -30,7 +29,6 @@ export function useRevertirImportacion() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
       queryClient.invalidateQueries({ queryKey: claves.leadsCombobox.raiz })
-      queryClient.invalidateQueries({ queryKey: claves.usoRecursos.raiz })
       queryClient.invalidateQueries({ queryKey: claves.modeloGestion.resumen(uid) })
       queryClient.invalidateQueries({ queryKey: claves.tareas.raiz })
       queryClient.invalidateQueries({ queryKey: claves.equipo.raiz })

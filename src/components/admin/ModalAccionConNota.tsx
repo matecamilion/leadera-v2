@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
+import { AvisoSuspendida } from './AvisoSuspendida'
+import { AVISO_NOTA_VISIBLE } from './textosAdmin'
 
 /**
  * Molde de las acciones de gestión del panel: una nota obligatoria, tal vez un
@@ -16,6 +18,11 @@ import { CLASES_CONTROL } from '../comunes/estilosFormulario'
  *
  * Mismo shell que el resto: <dialog> nativo, `onCancel` interceptado y el
  * error de la mutación mostrado tal cual lo redactó el RPC.
+ *
+ * Qué dice la ayuda de la nota importa: la de la mayoría de las acciones va a
+ * `eventos_facturacion.detalle`, que el cliente puede leer, y por defecto lo
+ * avisa. Las acciones cuya nota es interna (suspender, reactivar) lo aclaran
+ * con `ayudaNota`.
  */
 export function ModalAccionConNota({
   abierto,
@@ -23,7 +30,9 @@ export function ModalAccionConNota({
   subtitulo,
   descripcion,
   etiquetaNota = 'Nota *',
-  ayudaNota = 'Queda registrada en el historial de cobros.',
+  ayudaNota = AVISO_NOTA_VISIBLE,
+  notaObligatoria = true,
+  cuentaSuspendida = false,
   placeholderNota,
   textoConfirmar,
   textoConfirmando,
@@ -42,6 +51,10 @@ export function ModalAccionConNota({
   descripcion?: ReactNode
   etiquetaNota?: string
   ayudaNota?: string
+  /** false para una nota opcional: la etiqueta tiene que dejar de decir "*". */
+  notaObligatoria?: boolean
+  /** Avisa que lo que se hace acá no levanta la suspensión de la cuenta. */
+  cuentaSuspendida?: boolean
   placeholderNota?: string
   textoConfirmar: string
   textoConfirmando: string
@@ -73,12 +86,12 @@ export function ModalAccionConNota({
     if (!abierto && dialog.open) dialog.close()
   }, [abierto])
 
-  const errorNota = tocado && !nota.trim() ? 'La nota es obligatoria.' : null
+  const errorNota = notaObligatoria && tocado && !nota.trim() ? 'La nota es obligatoria.' : null
 
   function manejarSubmit(e: FormEvent) {
     e.preventDefault()
     setTocado(true)
-    if (!nota.trim() || !puedeConfirmar || guardando) return
+    if ((notaObligatoria && !nota.trim()) || !puedeConfirmar || guardando) return
     onConfirmar(nota.trim())
   }
 
@@ -101,6 +114,8 @@ export function ModalAccionConNota({
         {subtitulo && (
           <p className="mb-4 text-center text-[0.85rem] text-ink-3">{subtitulo}</p>
         )}
+
+        {cuentaSuspendida && <AvisoSuspendida />}
 
         {descripcion && (
           <p className="mb-4 rounded-xl border border-border bg-background px-4 py-3 text-[0.85rem] text-ink-2">

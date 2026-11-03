@@ -3,6 +3,8 @@ import { useAjustarVencimiento } from '../../hooks/useAdmin'
 import type { CuentaAdmin } from '../../lib/api/admin'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
+import { AvisoSuspendida } from './AvisoSuspendida'
+import { AVISO_NOTA_VISIBLE } from './textosAdmin'
 
 /** `YYYY-MM-DDTHH:mm` local, que es lo que espera <input type="datetime-local">. */
 function comoValorLocal(iso: string | null): string {
@@ -19,9 +21,9 @@ function comoValorLocal(iso: string | null): string {
  * obligatoria también acá, no sólo en el RPC: pedirla recién en el error del
  * servidor haría escribir el formulario dos veces.
  *
- * Adelantar la fecha reactiva la cuenta si estaba en gracia o vencida.
- * Atrasarla no la vence en el momento: de eso se encarga el cron diario, con
- * las mismas reglas para todos.
+ * Adelantar la fecha reactiva la cuenta si estaba vencida.
+ * Atrasarla no la vence en el momento: de eso se encarga el cron diario, que
+ * corta al día siguiente del vencimiento.
  */
 export function ModalAjustarVencimiento({
   abierto,
@@ -57,6 +59,9 @@ export function ModalAjustarVencimiento({
 
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, cuenta.id, cuenta.accesoPagadoHasta, resetMutacion])
+
+  // Una suspensión abierta no se levanta moviendo la fecha: hay que reactivar.
+  const suspendida = cuenta.bloqueoMotivo !== null
 
   const errorNota = tocado && !nota.trim() ? 'La nota es obligatoria.' : null
   const errorFecha = tocado && !nuevoHasta ? 'Elegí la fecha nueva.' : null
@@ -96,10 +101,16 @@ export function ModalAjustarVencimiento({
         <h3 className="mb-1 text-center text-lg font-bold text-ink">Ajustar vencimiento</h3>
         <p className="mb-5 text-center text-[0.85rem] text-ink-3">{cuenta.nombre}</p>
 
+        {suspendida && <AvisoSuspendida />}
+
         <div className="flex flex-col gap-4">
           <Campo
             label="Nuevo vencimiento *"
-            ayuda="Si es una fecha futura y la cuenta estaba en gracia o vencida, vuelve a quedar activa."
+            ayuda={
+              suspendida
+                ? 'La fecha se actualiza, pero la cuenta sigue suspendida.'
+                : 'Si es una fecha futura y la cuenta estaba vencida, vuelve a quedar activa.'
+            }
           >
             <input
               type="datetime-local"
@@ -112,7 +123,7 @@ export function ModalAjustarVencimiento({
             {errorFecha && <ErrorCampo>{errorFecha}</ErrorCampo>}
           </Campo>
 
-          <Campo label="Nota *" ayuda="Queda registrada en el historial de cobros.">
+          <Campo label="Nota *" ayuda={AVISO_NOTA_VISIBLE}>
             <textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}

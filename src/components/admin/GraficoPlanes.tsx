@@ -5,8 +5,9 @@ import { DETALLE_PLAN, PLANES, type Plan } from '../../lib/api/suscripcion'
  * cuatro categorías de tamaños parecidos, los largos se comparan a ojo y los
  * ángulos no.
  *
- * Cuenta todas las cuentas, en cualquier estado. "Sin plan" sólo aparece si
- * hay alguna: es la que se registró sin elegir uno.
+ * Cuenta las cuentas de clientes, en cualquier estado. El largo de cada barra y
+ * el porcentaje que se muestra son lo mismo: la parte del total. "Sin plan"
+ * sólo aparece si hay alguna: es la que se registró sin elegir uno.
  */
 export function GraficoPlanes({ conteo }: { conteo: Map<Plan | null, number> }) {
   const filas: { clave: string; label: string; cantidad: number }[] = PLANES.map((p) => ({
@@ -18,7 +19,7 @@ export function GraficoPlanes({ conteo }: { conteo: Map<Plan | null, number> }) 
   if (sinPlan > 0) filas.push({ clave: 'sin-plan', label: 'Sin plan', cantidad: sinPlan })
 
   const total = filas.reduce((s, f) => s + f.cantidad, 0)
-  const maximo = Math.max(1, ...filas.map((f) => f.cantidad))
+  const parte = (cantidad: number) => (total > 0 ? cantidad / total : 0)
 
   return (
     <section
@@ -28,7 +29,7 @@ export function GraficoPlanes({ conteo }: { conteo: Map<Plan | null, number> }) 
       <h2 id="titulo-planes" className="m-0 text-[0.95rem] font-bold text-ink">
         Cuentas por plan
       </h2>
-      <p className="mt-0.5 mb-4 text-[0.78rem] text-ink-3">Todas las cuentas, en cualquier estado.</p>
+      <p className="mt-0.5 mb-4 text-[0.78rem] text-ink-3">Cuentas de clientes, en cualquier estado.</p>
 
       <ul className="m-0 flex list-none flex-col gap-4 p-0">
         {filas.map((f) => (
@@ -39,13 +40,13 @@ export function GraficoPlanes({ conteo }: { conteo: Map<Plan | null, number> }) 
               </span>
               <span className="text-ink-3 tabular-nums">
                 <strong className="text-ink">{f.cantidad}</strong>
-                {total > 0 && ` · ${Math.round((f.cantidad / total) * 100)}%`}
+                {total > 0 && ` · ${Math.round(parte(f.cantidad) * 100)}%`}
               </span>
             </div>
             <div aria-hidden className="h-2.5 overflow-hidden rounded-full bg-surface-2">
               <div
                 className={`h-full rounded-full ${f.clave === 'sin-plan' ? 'bg-ink-4' : 'bg-primary'}`}
-                style={{ width: `${(f.cantidad / maximo) * 100}%` }}
+                style={{ width: `${parte(f.cantidad) * 100}%` }}
               />
             </div>
           </li>

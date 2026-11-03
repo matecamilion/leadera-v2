@@ -11,6 +11,8 @@ import { hoyComoClave } from '../../lib/calendario'
 import { formatearFecha } from '../../lib/formatoFecha'
 import { Campo, ErrorCampo } from '../comunes/CampoFormulario'
 import { CLASES_CONTROL } from '../comunes/estilosFormulario'
+import { AvisoSuspendida } from './AvisoSuspendida'
+import { AVISO_NOTA_VISIBLE } from './textosAdmin'
 
 /**
  * Registrar un pago por transferencia y extender el acceso de la cuenta.
@@ -84,6 +86,10 @@ export function ModalRegistrarPago({
     if (!abierto && dialog.open) dialog.close()
   }, [abierto, cuenta.id, cuenta.plan, resetMutacion])
 
+  // Una suspensión abierta no se levanta pagando: el pago se registra y el acceso
+  // pago se extiende, pero la cuenta sigue como está hasta reactivarla.
+  const suspendida = cuenta.bloqueoMotivo !== null
+
   const montoNumero = Number(monto)
   const errorMonto =
     !tocado || (Number.isFinite(montoNumero) && montoNumero > 0)
@@ -150,6 +156,8 @@ export function ModalRegistrarPago({
       >
         <h3 className="mb-1 text-center text-lg font-bold text-ink">Registrar pago</h3>
         <p className="mb-5 text-center text-[0.85rem] text-ink-3">{cuenta.nombre}</p>
+
+        {suspendida && <AvisoSuspendida />}
 
         <div className="flex flex-col gap-4">
           <Campo label="Plan">
@@ -232,7 +240,7 @@ export function ModalRegistrarPago({
             </select>
           </Campo>
 
-          <Campo label="Nota">
+          <Campo label="Nota" ayuda={AVISO_NOTA_VISIBLE}>
             <textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}
@@ -245,8 +253,9 @@ export function ModalRegistrarPago({
         </div>
 
         <p className="mt-4 rounded-xl border border-border bg-background px-4 py-3 text-[0.85rem] text-ink-2">
-          La cuenta quedará activa hasta{' '}
-          <b className="text-ink tabular-nums">{formatearFecha(quedaActivaHasta)}</b>.
+          {suspendida ? 'El acceso pago llegará hasta' : 'La cuenta quedará activa hasta'}{' '}
+          <b className="text-ink tabular-nums">{formatearFecha(quedaActivaHasta)}</b>.{' '}
+          {suspendida && 'Sigue suspendida hasta que se la reactive.'}
         </p>
 
         {registrar.isError && (

@@ -20,9 +20,8 @@ import { formatearFecha } from '../lib/formatoFecha'
  * aviso de cobro, no una preferencia; que se pueda sacar de encima para leer la
  * pantalla no es lo mismo que poder silenciarlo.
  *
- * El aviso de una cuenta manual ya vencida no se puede cerrar: ahí el acceso se
- * corta en tres días y no hay reintento automático que lo salve, así que el
- * único camino es escribir y renovar.
+ * Una cuenta manual vencida no llega acá: no tiene gracia y la ataja
+ * `SuscripcionGuard`.
  */
 export function BannerSuscripcion() {
   const { profile } = useAuth()
@@ -34,23 +33,19 @@ export function BannerSuscripcion() {
   const aviso = avisoDeSuscripcion(estado.data)
   if (!aviso) return null
 
-  const urgente = aviso.tipo === 'gracia' || aviso.tipo === 'manual_vencido'
-  // El único que no se deja cerrar: sin renovación no hay acceso.
-  const puedeCerrarse = aviso.tipo !== 'manual_vencido'
-  if (cerrado && puedeCerrarse) return null
+  const urgente = aviso.tipo === 'gracia'
+  if (cerrado) return null
 
   const mensaje =
     aviso.tipo === 'gracia'
       ? 'Tu último pago no pudo procesarse. Actualizá tu medio de pago antes de que se te venza el acceso.'
       : aviso.tipo === 'manual_por_vencer'
         ? `Tu plan vence el ${formatearFecha(aviso.vence)}. Para renovarlo, escribinos y te pasamos los datos de transferencia.`
-        : aviso.tipo === 'manual_vencido'
-          ? `Tu plan venció el ${formatearFecha(aviso.vencio)}. Renovalo antes del ${formatearFecha(aviso.limite)} para no perder el acceso.`
-          : `Te ${aviso.dias === 1 ? 'queda' : 'quedan'} ${aviso.dias} ${
-              aviso.dias === 1 ? 'día' : 'días'
-            } de prueba gratis.`
+        : `Te ${aviso.dias === 1 ? 'queda' : 'quedan'} ${aviso.dias} ${
+            aviso.dias === 1 ? 'día' : 'días'
+          } de prueba gratis.`
 
-  const esManual = aviso.tipo === 'manual_por_vencer' || aviso.tipo === 'manual_vencido'
+  const esManual = aviso.tipo === 'manual_por_vencer'
   const plan = estado.data?.plan
   const whatsapp = esManual
     ? linkDeCobros(
@@ -88,27 +83,25 @@ export function BannerSuscripcion() {
         )}
       </p>
 
-      {puedeCerrarse && (
-        <button
-          type="button"
-          onClick={() => setCerrado(true)}
-          aria-label="Cerrar el aviso"
-          className="ml-auto -mr-1 shrink-0 rounded-md p-1.5 transition-colors hover:bg-ink/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current motion-reduce:transition-none"
+      <button
+        type="button"
+        onClick={() => setCerrado(true)}
+        aria-label="Cerrar el aviso"
+        className="ml-auto -mr-1 shrink-0 rounded-md p-1.5 transition-colors hover:bg-ink/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current motion-reduce:transition-none"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
-      )}
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   )
 }

@@ -69,8 +69,7 @@ describe('PasoResultado: éxito total', () => {
     expect(within(tarjeta('Importados')).getByText('3')).toBeTruthy()
     expect(tarjeta('Omitidos por duplicado').className).toContain('opacity-60')
     expect(tarjeta('Con error').className).toContain('opacity-60')
-    expect(tarjeta('Fuera por el límite del plan').className).toContain('opacity-60')
-    expect(screen.queryByText(/Ver planes/)).toBeNull()
+    expect(screen.queryByText(/límite del plan/)).toBeNull()
     expect(screen.queryByText(/Se interrumpió/)).toBeNull()
   })
 
@@ -115,18 +114,17 @@ describe('PasoResultado: omitidos', () => {
   })
 })
 
-describe('PasoResultado: tope del plan', () => {
-  it('cuenta los LIMITE_ALCANZADO, lo explica y ofrece los planes', () => {
+describe('PasoResultado: LIMITE_ALCANZADO de la base', () => {
+  it('si llegara a aparecer se cuenta como error, con un texto neutro y sin hablar de planes', () => {
     mostrar(REVISION, {
       insertados: 1,
       resultados: [ok(2), { fila: 3, resultado: 'LIMITE_ALCANZADO' }, { fila: 4, resultado: 'LIMITE_ALCANZADO' }],
       corte: null,
     })
 
-    expect(within(tarjeta('Fuera por el límite del plan')).getByText('2')).toBeTruthy()
-    const aviso = screen.getByRole('alert')
-    expect(aviso.textContent).toContain('2 leads quedaron afuera porque tu plan llegó a su límite')
-    expect(within(aviso).getByRole('link', { name: /Ver planes/ })).toBeTruthy()
+    expect(within(tarjeta('Con error')).getByText('2')).toBeTruthy()
+    expect(screen.queryByText(/plan/i)).toBeNull()
+    expect(screen.queryByRole('link', { name: /Ver planes/ })).toBeNull()
   })
 })
 
@@ -174,7 +172,7 @@ describe('PasoResultado: 0 insertados', () => {
     expect(screen.getByText(/ya estaban en tu cuenta o se repetían/)).toBeTruthy()
   })
 
-  it('el motivo principal puede ser el límite del plan', () => {
+  it('si todo vuelve como LIMITE_ALCANZADO el motivo principal son los errores, sin hablar del plan', () => {
     mostrar(REVISION, {
       insertados: 0,
       resultados: [
@@ -184,7 +182,8 @@ describe('PasoResultado: 0 insertados', () => {
       ],
       corte: null,
     })
-    expect(screen.getByText(/tu plan no tiene lugar para más leads/)).toBeTruthy()
+    expect(screen.getByText(/las filas tenían errores/)).toBeTruthy()
+    expect(screen.queryByText(/tu plan/)).toBeNull()
   })
 
   it('el motivo principal puede ser que las filas tenían errores', () => {

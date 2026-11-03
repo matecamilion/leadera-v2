@@ -1,7 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
-import { estaBloqueada } from '../lib/api/suscripcion'
+import { estaBloqueada, estaSuspendida, textoDeBloqueo, type TextoDeBloqueo } from '../lib/api/suscripcion'
+import { linkDeCobros, mensajeDeSuspension } from '../lib/config'
 import { Spinner } from './Spinner'
 
 /** La única pantalla que sigue accesible con la cuenta vencida. */
@@ -54,15 +55,40 @@ export function SuscripcionGuard() {
 
   // A esta altura el profile ya volvió: sólo se llega acá con el estado leído,
   // y para leerlo hizo falta su `inmobiliaria_id`.
-  return <PantallaCuentaVencida onCerrarSesion={signOut} />
+  //
+  // El dueño de una cuenta suspendida también cae en /suscripcion (arriba), que
+  // tiene su propia variante. Acá el contacto sólo se ofrece si la cuenta está
+  // suspendida: a un vencimiento se lo resuelve el dueño, no LeadEra.
+  return (
+    <PantallaCuentaBloqueada
+      texto={textoDeBloqueo(estado.data, profile?.rol)}
+      contacto={
+        estaSuspendida(estado.data)
+          ? linkDeCobros(mensajeDeSuspension(estado.data?.nombre ?? null))
+          : null
+      }
+      onCerrarSesion={signOut}
+    />
+  )
 }
 
 /**
  * El final del camino para un agente o asistente: no puede pagar ni seguir
  * usando la app, así que no se le muestra una navegación que no lleva a ningún
  * lado. Sólo el motivo y la salida.
+ *
+ * El texto depende de por qué está bloqueada la cuenta (ver `textoDeBloqueo`).
+ * `contacto` es el link para escribirle a LeadEra, si corresponde.
  */
-function PantallaCuentaVencida({ onCerrarSesion }: { onCerrarSesion: () => void }) {
+function PantallaCuentaBloqueada({
+  texto,
+  contacto,
+  onCerrarSesion,
+}: {
+  texto: TextoDeBloqueo
+  contacto: string | null
+  onCerrarSesion: () => void
+}) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-4 py-10">
       <div className="w-full max-w-md rounded-[16px] border border-border bg-surface px-7 py-8 text-center shadow-md">
@@ -86,18 +112,25 @@ function PantallaCuentaVencida({ onCerrarSesion }: { onCerrarSesion: () => void 
           </svg>
         </span>
 
-        <h1 className="mt-4 mb-0 text-[1.25rem] font-bold text-ink">
-          Esta cuenta está vencida
-        </h1>
+        <h1 className="mt-4 mb-0 text-[1.25rem] font-bold text-ink">{texto.titulo}</h1>
 
-        <p className="mt-2 text-[0.9rem] text-ink-3">
-          Contactá al dueño de tu inmobiliaria para reactivarla.
-        </p>
+        <p className="mt-2 text-[0.9rem] text-ink-3">{texto.mensaje}</p>
+
+        {contacto && (
+          <a
+            href={contacto}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-cuerpo font-semibold text-primary-contrast transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          >
+            Escribinos por WhatsApp
+          </a>
+        )}
 
         <button
           type="button"
           onClick={onCerrarSesion}
-          className="mt-6 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9rem] font-semibold text-ink-2 transition-colors hover:border-ink-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          className={`${contacto ? 'mt-3' : 'mt-6'} w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9rem] font-semibold text-ink-2 transition-colors hover:border-ink-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none`}
         >
           Cerrar sesión
         </button>

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ArchivoLeido } from '../../../lib/importarLeads/leerArchivo'
-import { entradaSegunCupo } from './cupoImportacion'
 import { INICIAL, reducir, type Estado } from './estadoImportacion'
 import { conTelefono, revisionDe } from './utilesDePrueba'
 
@@ -143,38 +142,5 @@ describe('reducer: volver y confirmar', () => {
     let e = reducir(enRevision(), { tipo: 'importar', total: 2 })
     e = reducir(e, { tipo: 'terminado', resultado: { insertados: 2, resultados: [], corte: null } })
     expect(reducir(e, { tipo: 'reiniciar' })).toEqual(INICIAL)
-  })
-})
-
-describe('entradaSegunCupo', () => {
-  it('sin tope entra todo', () => {
-    expect(entradaSegunCupo(500, { limite: null, usados: 9999 })).toEqual({
-      entran: 500,
-      quedanAfuera: 0,
-      lugares: null,
-      agotado: false,
-    })
-  })
-
-  it('con lugar de sobra', () => {
-    expect(entradaSegunCupo(30, { limite: 200, usados: 100 })).toMatchObject({ entran: 30, quedanAfuera: 0, lugares: 100 })
-  })
-
-  it('justo', () => {
-    expect(entradaSegunCupo(100, { limite: 200, usados: 100 })).toMatchObject({ entran: 100, quedanAfuera: 0, agotado: false })
-  })
-
-  it('no alcanza: entran los primeros que caben', () => {
-    expect(entradaSegunCupo(150, { limite: 200, usados: 180 })).toEqual({
-      entran: 20,
-      quedanAfuera: 130,
-      lugares: 20,
-      agotado: false,
-    })
-  })
-
-  it('agotado, incluso si ya hay más usados que el límite', () => {
-    expect(entradaSegunCupo(10, { limite: 200, usados: 200 })).toMatchObject({ entran: 0, quedanAfuera: 10, agotado: true })
-    expect(entradaSegunCupo(10, { limite: 200, usados: 230 })).toMatchObject({ entran: 0, lugares: 0, agotado: true })
   })
 })

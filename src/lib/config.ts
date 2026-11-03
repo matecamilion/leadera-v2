@@ -39,6 +39,12 @@ export function mensajeDeRenovacion(inmobiliaria: string | null, plan: string | 
   return `Hola! Quiero renovar mi suscripción a LeadEra${cual}.${quien}. ¿Me pasan los datos para la transferencia?`
 }
 
+/** El mensaje de quien tiene la cuenta suspendida y quiere resolverlo. */
+export function mensajeDeSuspension(inmobiliaria: string | null): string {
+  const cual = inmobiliaria ? ` de ${inmobiliaria}` : ''
+  return `Hola! La cuenta${cual} en LeadEra figura suspendida. ¿Me ayudan a resolverlo?`
+}
+
 /**
  * El mensaje de quien todavía no contrató y quiere pagar por transferencia.
  *

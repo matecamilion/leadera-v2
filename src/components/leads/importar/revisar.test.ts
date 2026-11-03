@@ -31,7 +31,6 @@ describe('prepararRevision', () => {
           { fila: 4, duplicado: 'email' },
           { fila: 6, duplicado: null },
         ],
-        cupo: { limite: 200, usados: 50 },
       },
       error: null,
     })
@@ -43,11 +42,11 @@ describe('prepararRevision', () => {
     expect(r.clasificacion.duplicadasEnArchivo.map((f) => f.fila)).toEqual([3])
     expect(r.clasificacion.duplicadasEnBase.porEmail.map((f) => f.fila)).toEqual([4])
     expect(r.clasificacion.conError.map((f) => f.fila)).toEqual([5])
-    expect(r.cupo).toEqual({ limite: 200, usados: 50 })
+    expect(r).not.toHaveProperty('cupo')
   })
 
   it('a la función solo le manda lo que hay que comparar: sin errores ni repetidos del archivo', async () => {
-    invoke.mockResolvedValueOnce({ data: { resultados: [], cupo: { limite: null, usados: 0 } }, error: null })
+    invoke.mockResolvedValueOnce({ data: { resultados: [] }, error: null })
 
     await prepararRevision(ARCHIVO, MAPEO)
 
@@ -56,18 +55,15 @@ describe('prepararRevision', () => {
     expect(Object.keys(filas[0]).sort()).toEqual(['email', 'fila', 'telefono'])
   })
 
-  it('si no queda nada para comparar llama igual: el cupo se necesita', async () => {
-    invoke.mockResolvedValueOnce({ data: { resultados: [], cupo: { limite: 10, usados: 10 } }, error: null })
-
+  it('si no queda nada para comparar no llama a la función', async () => {
     const soloErrores: ArchivoLeido = {
       ...ARCHIVO,
       filas: [{ numeroFilaOriginal: 2, celdas: { 0: null, 1: '223 555-0101', 2: null } }],
     }
     const r = await prepararRevision(soloErrores, MAPEO)
 
-    expect(invoke).toHaveBeenCalledOnce()
-    expect(invoke.mock.calls[0][1].body.filas).toEqual([])
-    expect(r.cupo).toEqual({ limite: 10, usados: 10 })
+    expect(invoke).not.toHaveBeenCalled()
+    expect(r.clasificacion.aImportar).toEqual([])
   })
 
   it('si la verificación falla, lanza: no se avanza sin respuesta', async () => {

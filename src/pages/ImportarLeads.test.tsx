@@ -59,7 +59,7 @@ async function llegarAlPaso2() {
   await screen.findByText('Relacioná tus columnas')
 }
 
-const CUENTA = { duplicados: new Map([[4, null]]), cupo: { limite: null, usados: 12 } }
+const CUENTA = { duplicados: new Map([[4, null]]) }
 
 beforeEach(() => {
   leerArchivo.mockReset()

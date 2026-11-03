@@ -24,11 +24,15 @@ function cuenta(id: string, horas: number, tipo: TipoCuenta = 'CLIENTE'): Cuenta
     metodoCobro: 'MERCADO_PAGO',
     accesoPagadoHasta: null,
     creadaEl: haceHoras(horas),
+    inicioTrial: haceHoras(24 * 14),
     finTrial: haceHoras(-24 * 14),
     proximoCobro: null,
     ultimoPagoFallido: null,
     cancelacionSolicitada: false,
     dueno: { nombre: 'Ana Pérez', email: 'ana@example.com', telefono: '+5492235550101' },
+    limiteUsuarios: null,
+    bloqueoMotivo: null,
+    tieneSuscripcionMp: false,
     ultimoPagoAprobado: null,
   }
 }

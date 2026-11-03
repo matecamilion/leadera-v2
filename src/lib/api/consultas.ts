@@ -72,7 +72,7 @@ export interface PaginaConsultas {
  * Una página de la bandeja.
  *
  * Pendientes: primero lo que solo el dueño puede resolver (duplicado de otro
- * agente) y lo que quedó trabado con aviso (límite del plan); después las de
+ * agente) y lo que quedó trabado con aviso; después las de
  * más puntaje.
  */
 export async function listarConsultas(
@@ -217,7 +217,7 @@ export async function listarConsultasDeLead(leadId: string): Promise<Consulta[]>
 
 export type ResultadoAceptar =
   | { tipo: 'ok'; leadId: string }
-  /** El trigger del plan rechazó el alta; el motivo queda en `aviso_pendiente`. */
+  /** La base no dejó dar el alta; la consulta queda con `aviso_pendiente` y se puede reintentar. */
   | { tipo: 'limite' }
   | { tipo: 'ya_resuelta' }
   /** Ya hay un lead con ese email. `lead` es null si la RLS no deja verlo. */

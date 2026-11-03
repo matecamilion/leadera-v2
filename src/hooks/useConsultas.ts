@@ -78,7 +78,7 @@ export function useResumenConsultas() {
 
 /**
  * Después de cualquier acción: la bandeja, el badge y Mi día (`consultas`), y
- * si entró un lead, todo lo que cuelga de `leads` y el uso del plan.
+ * si entró un lead, todo lo que cuelga de `leads`.
  */
 function useInvalidarConsultas() {
   const queryClient = useQueryClient()
@@ -86,7 +86,6 @@ function useInvalidarConsultas() {
     queryClient.invalidateQueries({ queryKey: claves.consultas.raiz })
     if (entroUnLead) {
       queryClient.invalidateQueries({ queryKey: claves.leads.raiz })
-      queryClient.invalidateQueries({ queryKey: claves.usoRecursos.raiz })
     }
   }
 }

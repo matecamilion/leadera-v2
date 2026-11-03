@@ -4,18 +4,17 @@
  * Le escribe al dueño de cada cuenta de cobro manual cuando se acerca o pasa
  * su vencimiento. La dispara el cron todos los días a las 10:00 de Argentina.
  *
- * Tres avisos por vencimiento, y cada día sale como mucho uno por cuenta —el
- * más avanzado que corresponda—:
+ * Dos avisos por vencimiento, y cada día sale como mucho uno por cuenta:
  *   PREVIO             de D−3 a D−1
- *   DIA_VENCIMIENTO    de D a C−2
- *   ULTIMO_DIA_GRACIA  el día C−1
- * donde D es el día del vencimiento (`acceso_pagado_hasta`) y C el día en que
- * `procesar_transiciones_suscripcion()` pasa la cuenta a VENCIDA. Las ventanas
- * son de varios días para que un envío que falló se reintente al día
- * siguiente; si para entonces ya corresponde el aviso siguiente, el viejo se
- * descarta en vez de mandarse desactualizado.
+ *   DIA_VENCIMIENTO    el día D
+ * donde D es el último día con acceso (`acceso_pagado_hasta`, en hora de
+ * Argentina). No hay gracia: `procesar_transiciones_suscripcion()` pasa la
+ * cuenta a VENCIDA en la corrida de las 05:00 UTC del día D+1. La ventana del
+ * PREVIO es de varios días para que un envío que falló se reintente al día
+ * siguiente; el DIA_VENCIMIENTO no tiene reintento, porque al día siguiente la
+ * cuenta ya no está ACTIVA.
  *
- * Qué cuentas: MANUAL, CLIENTE, ACTIVA o GRACIA y sin baja pedida. TRIAL,
+ * Qué cuentas: MANUAL, CLIENTE, ACTIVA y sin baja pedida. TRIAL, GRACIA,
  * VENCIDA (suspendida) y CANCELADA quedan afuera, igual que las de Mercado
  * Pago y las INTERNA/TESTING.
  *
@@ -115,7 +114,7 @@ Deno.serve(async (req) => {
     .select('id, nombre, plan, acceso_pagado_hasta')
     .eq('metodo_cobro', 'MANUAL')
     .eq('tipo_cuenta', 'CLIENTE')
-    .in('estado_suscripcion', ['ACTIVA', 'GRACIA'])
+    .eq('estado_suscripcion', 'ACTIVA')
     .eq('cancelacion_solicitada', false)
     .not('acceso_pagado_hasta', 'is', null)
   if (entrada.inmobiliaria_id) query = query.eq('id', entrada.inmobiliaria_id)
@@ -200,8 +199,6 @@ async function procesar(
     plan: cuenta.plan ? (NOMBRE_PLAN[cuenta.plan] ?? cuenta.plan) : 'sin plan',
     monto: ctx.precio === null ? null : formatearArs(ctx.precio),
     vencimiento: formatearFecha(aviso.vencimiento),
-    corte: formatearFecha(aviso.corte),
-    venceHoy: ctx.hoy === aviso.vencimiento,
   })
 
   const base = {

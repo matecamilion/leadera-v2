@@ -20,7 +20,6 @@ export interface ResumenDeResultado {
   consultasFusionadas: number
   /** Errores de validación del front + ERROR de la base. */
   conError: number
-  fueraPorLimite: number
   /** Filas que no se llegaron a procesar por un corte. */
   sinProcesar: number
   detalleDeErrores: FilaDetalle[]
@@ -38,8 +37,9 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
   const cuenta = (tipo: string) => resultado.resultados.filter((r) => r.resultado === tipo)
 
   const duplicadasPorCarrera = cuenta('EMAIL_DUPLICADO').length
-  const erroresDeLaBase = cuenta('ERROR')
-  const fueraPorLimite = cuenta('LIMITE_ALCANZADO').length
+  // LIMITE_ALCANZADO ya no lo produce ninguna regla, pero si la base llegara a
+  // devolverlo la fila se cuenta como un error más, con un texto neutro.
+  const erroresDeLaBase = [...cuenta('ERROR'), ...cuenta('LIMITE_ALCANZADO')].sort((a, b) => a.fila - b.fila)
 
   const omitidosPorDuplicado =
     clasificacion.conteos.duplicadasEnBasePorTelefono +
@@ -51,7 +51,7 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
     ...erroresDeLaBase.map((r) => ({
       fila: r.fila,
       nombre: nombres.get(r.fila) ?? '',
-      motivo: r.mensaje ?? 'No se pudo guardar esta fila.',
+      motivo: r.resultado === 'LIMITE_ALCANZADO' ? 'No se pudo importar esta fila.' : (r.mensaje ?? 'No se pudo guardar esta fila.'),
     })),
   ]
 
@@ -60,7 +60,6 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
     omitidosPorDuplicado,
     consultasFusionadas: clasificacion.conteos.duplicadasEnArchivo,
     conError: detalleDeErrores.length,
-    fueraPorLimite,
     sinProcesar: resultado.corte?.filasSinProcesar.length ?? 0,
     detalleDeErrores,
     motivoPrincipal: null,
@@ -74,7 +73,6 @@ export function resumirResultado(revision: Revision, resultado: ResultadoDeImpor
 
 function motivoDeCeroImportados(r: ResumenDeResultado): string {
   const causas: [number, string][] = [
-    [r.fueraPorLimite, 'tu plan no tiene lugar para más leads'],
     [r.omitidosPorDuplicado + r.consultasFusionadas, 'todas las filas ya estaban en tu cuenta o se repetían en el archivo'],
     [r.conError, 'las filas tenían errores'],
   ]

@@ -6,13 +6,17 @@ import {
   setTipoCuenta,
   suspenderCuenta,
   historialCobros,
+  marcarVencida,
+  obtenerBloqueosCuenta,
   obtenerMetricasCuenta,
   obtenerPanelAdmin,
+  reactivarCuenta,
   registrarPagoManual,
   type AjusteVencimientoInput,
+  type BloqueoCuenta,
   type DatosPanelAdmin,
   type MetricasUsoCuenta,
-  type MovimientoCobro,
+  type EventoCuenta,
   type PagoManualInput,
   type TipoCuenta,
 } from '../lib/api/admin'
@@ -48,10 +52,20 @@ export function useMetricasCuenta(inmobiliariaId: string | undefined) {
 /** Los movimientos de cobro de una cuenta: pagos manuales, de MP y ajustes. */
 export function useHistorialCobros(inmobiliariaId: string | undefined) {
   const uid = useUid()
-  return useQuery<MovimientoCobro[]>({
+  return useQuery<EventoCuenta[]>({
     queryKey: claves.admin.cobros(uid, inmobiliariaId),
     queryFn: () => historialCobros(inmobiliariaId as string),
     enabled: !!uid && !!inmobiliariaId,
+  })
+}
+
+/** El historial de suspensiones de una cuenta; el que no tiene fecha de levantamiento es el vigente. */
+export function useBloqueosCuenta(inmobiliariaId: string | undefined, habilitado = true) {
+  const uid = useUid()
+  return useQuery<BloqueoCuenta[]>({
+    queryKey: claves.admin.bloqueos(uid, inmobiliariaId),
+    queryFn: () => obtenerBloqueosCuenta(inmobiliariaId as string),
+    enabled: habilitado && !!uid && !!inmobiliariaId,
   })
 }
 
@@ -129,6 +143,26 @@ export function useSuspenderCuenta() {
   return useMutation({
     mutationFn: ({ inmobiliariaId, nota }: { inmobiliariaId: string; nota: string }) =>
       suspenderCuenta(inmobiliariaId, nota),
+    onSuccess: invalidar,
+  })
+}
+
+export function useMarcarVencida() {
+  const invalidar = useInvalidarAdmin()
+
+  return useMutation({
+    mutationFn: ({ inmobiliariaId, nota }: { inmobiliariaId: string; nota?: string }) =>
+      marcarVencida(inmobiliariaId, nota),
+    onSuccess: invalidar,
+  })
+}
+
+export function useReactivarCuenta() {
+  const invalidar = useInvalidarAdmin()
+
+  return useMutation({
+    mutationFn: ({ inmobiliariaId, nota }: { inmobiliariaId: string; nota: string }) =>
+      reactivarCuenta(inmobiliariaId, nota),
     onSuccess: invalidar,
   })
 }

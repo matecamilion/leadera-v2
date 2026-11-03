@@ -74,6 +74,74 @@ export type Database = {
           },
         ]
       }
+      bloqueos_cuenta: {
+        Row: {
+          bloqueado_at: string
+          bloqueado_por: string | null
+          estado_anterior: Database["public"]["Enums"]["estado_suscripcion"]
+          id: string
+          inmobiliaria_id: string
+          levantado_at: string | null
+          levantado_por: string | null
+          motivo: string
+          nota: string
+          nota_reactivacion: string | null
+        }
+        Insert: {
+          bloqueado_at?: string
+          bloqueado_por?: string | null
+          estado_anterior: Database["public"]["Enums"]["estado_suscripcion"]
+          id?: string
+          inmobiliaria_id: string
+          levantado_at?: string | null
+          levantado_por?: string | null
+          motivo: string
+          nota: string
+          nota_reactivacion?: string | null
+        }
+        Update: {
+          bloqueado_at?: string
+          bloqueado_por?: string | null
+          estado_anterior?: Database["public"]["Enums"]["estado_suscripcion"]
+          id?: string
+          inmobiliaria_id?: string
+          levantado_at?: string | null
+          levantado_por?: string | null
+          motivo?: string
+          nota?: string
+          nota_reactivacion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bloqueos_cuenta_bloqueado_por_fkey"
+            columns: ["bloqueado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bloqueos_cuenta_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bloqueos_cuenta_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bloqueos_cuenta_levantado_por_fkey"
+            columns: ["levantado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       busquedas: {
         Row: {
           activa: boolean
@@ -496,6 +564,7 @@ export type Database = {
       inmobiliarias: {
         Row: {
           acceso_pagado_hasta: string | null
+          bloqueo_motivo: string | null
           cancelacion_solicitada: boolean
           created_at: string
           estado_suscripcion: Database["public"]["Enums"]["estado_suscripcion"]
@@ -514,6 +583,7 @@ export type Database = {
         }
         Insert: {
           acceso_pagado_hasta?: string | null
+          bloqueo_motivo?: string | null
           cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
@@ -532,6 +602,7 @@ export type Database = {
         }
         Update: {
           acceso_pagado_hasta?: string | null
+          bloqueo_motivo?: string | null
           cancelacion_solicitada?: boolean
           created_at?: string
           estado_suscripcion?: Database["public"]["Enums"]["estado_suscripcion"]
@@ -1698,9 +1769,29 @@ export type Database = {
         Args: { p_evento_id: string; p_nota: string }
         Returns: undefined
       }
+      admin_bloqueos_cuenta: {
+        Args: { p_inmobiliaria_id: string }
+        Returns: {
+          bloqueado_at: string
+          bloqueado_por: string | null
+          bloqueado_por_nombre: string | null
+          estado_anterior: Database["public"]["Enums"]["estado_suscripcion"]
+          id: string
+          levantado_at: string | null
+          levantado_por: string | null
+          levantado_por_nombre: string | null
+          motivo: string
+          nota: string
+          nota_reactivacion: string | null
+        }[]
+      }
       admin_extender_trial: {
         Args: { p_dias: number; p_inmobiliaria_id: string; p_nota: string }
         Returns: string
+      }
+      admin_marcar_vencida: {
+        Args: { p_inmobiliaria_id: string; p_nota?: string }
+        Returns: undefined
       }
       admin_metricas_inmobiliaria: {
         Args: { p_inmobiliaria_id: string }
@@ -1715,6 +1806,10 @@ export type Database = {
           propiedades_total: number
           ultima_actividad: string | null
         }[]
+      }
+      admin_reactivar_cuenta: {
+        Args: { p_inmobiliaria_id: string; p_nota: string }
+        Returns: Database["public"]["Enums"]["estado_suscripcion"]
       }
       admin_registrar_pago_manual: {
         Args: {

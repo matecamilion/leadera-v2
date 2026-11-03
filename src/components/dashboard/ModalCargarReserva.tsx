@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
 import { ComboboxLead } from '../comunes/ComboboxLead'
-import { EnlaceAPlanes } from '../comunes/EnlaceAPlanes'
 import { useCrearReserva, useOperacionesParecidas } from '../../hooks/useOperaciones'
 import {
   etiquetaEstadoOperacion,
@@ -11,7 +10,6 @@ import {
   type ClaseOperacionReserva,
   type PuntaReserva,
 } from '../../lib/api/operaciones'
-import { esLimiteDePlan } from '../../lib/mensajesDeError'
 import { hoyEnArgentina } from '../../lib/ritmoSemanal'
 import {
   cantidadInvalida,
@@ -334,7 +332,6 @@ export function ModalCargarReserva({ onCerrar }: ModalCargarReservaProps) {
             className="mt-4 rounded-lg border border-peligro-borde bg-peligro-soft px-3 py-2.5 text-[0.82rem] text-peligro-ink"
           >
             <p className="m-0">{crear.error.message}</p>
-            {esLimiteDePlan(crear.error) && <EnlaceAPlanes />}
           </div>
         )}
 

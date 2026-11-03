@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { EnlaceAPlanes } from '../components/comunes/EnlaceAPlanes'
 import { Campo, ErrorCampo, Input } from '../components/comunes/CampoFormulario'
 import { CLASES_CONTROL, CLASES_CONTROL_SIN_ANCHO } from '../components/comunes/estilosFormulario'
 import { ComboboxLead } from '../components/comunes/ComboboxLead'
@@ -20,7 +19,7 @@ import {
 } from '../lib/api/propiedades'
 import { subirFotoPropiedad } from '../lib/api/storage'
 import { claves } from '../lib/queryKeys'
-import { esLimiteDePlan, mensajeDeGuardado } from '../lib/mensajesDeError'
+import { mensajeDeGuardado } from '../lib/mensajesDeError'
 import {
   cantidadInvalida,
   excedeTope,
@@ -532,8 +531,6 @@ export default function NuevaPropiedad() {
             <p className="m-0">
               {mensajeDeGuardado(crear.error, 'No se pudo crear la propiedad.')}
             </p>
-
-            {esLimiteDePlan(crear.error) && <EnlaceAPlanes />}
 
             {/* Sin aclaración de "la propiedad ya quedó guardada": con la
                 transacción, un fallo no deja nada creado y el reintento es el

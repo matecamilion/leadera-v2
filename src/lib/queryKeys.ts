@@ -45,6 +45,8 @@ export const claves = {
       ['admin', 'metricas', uid, inmobiliariaId] as const,
     cobros: (uid: Uid, inmobiliariaId: string | undefined) =>
       ['admin', 'cobros', uid, inmobiliariaId] as const,
+    bloqueos: (uid: Uid, inmobiliariaId: string | undefined) =>
+      ['admin', 'bloqueos', uid, inmobiliariaId] as const,
   },
 
   /** Clave propia y no colgada del lead: el perfil no cambia cuando cambia el lead. */
@@ -364,11 +366,6 @@ export const claves = {
     eventos: (uid: Uid, equipo: string, desde: string, hasta: string) =>
       ['tareas', 'eventos', uid, equipo, desde, hasta] as const,
     porLead: (uid: Uid, leadId: string) => ['tareas', 'por-lead', uid, leadId] as const,
-  },
-
-  usoRecursos: {
-    raiz: ['uso-recursos'] as const,
-    dePlan: (uid: Uid, plan: string | null) => ['uso-recursos', uid, plan] as const,
   },
 
   /**

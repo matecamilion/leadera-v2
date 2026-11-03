@@ -1,6 +1,4 @@
 import { useRef, useState } from 'react'
-import { EnlaceAPlanes } from '../../comunes/EnlaceAPlanes'
-import { entradaSegunCupo } from './cupoImportacion'
 import { leadsConFusiones, listarFilas } from './fusiones'
 import { ListaDetalle } from './ListaDetalle'
 import type { FilaDetalle } from './resumenResultado'
@@ -23,11 +21,11 @@ const plural = (n: number, uno: string, varios: string) => (n === 1 ? uno : vari
 
 /** Paso 3: qué se va a importar y qué no, antes de tocar la base. */
 export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionProps) {
-  const { clasificacion: c, cupo } = revision
+  const { clasificacion: c } = revision
   const { conteos } = c
 
-  const entrada = entradaSegunCupo(c.aImportar.length, cupo)
-  const sinLugar = entrada.entran === 0
+  const entran = c.aImportar.length
+  const sinLeads = entran === 0
 
   // Un solo disparo: el padre cambia de paso, pero entre el clic y ese render
   // llega un segundo toque. El ref lo frena en el mismo tick.
@@ -35,7 +33,7 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
   const [confirmado, setConfirmado] = useState(false)
 
   function importar() {
-    if (confirmadoRef.current || sinLugar) return
+    if (confirmadoRef.current || sinLeads) return
     confirmadoRef.current = true
     setConfirmado(true)
     onImportar()
@@ -50,10 +48,10 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
   // Consultas repetidas del archivo: no se descartan, se juntan en un solo lead.
   const conFusion = leadsConFusiones(revision.filas)
 
-  // De los leads que entran (el plan puede dejar afuera los últimos), cuántos ya
-  // vienen con contacto cargado. Sale de lo que ya calculó la normalización.
-  const conContacto = c.aImportar.slice(0, entrada.entran).filter((f) => f.primerContacto !== null).length
-  const comoNuevos = entrada.entran - conContacto
+  // De los leads que entran, cuántos ya vienen con contacto cargado. Sale de lo
+  // que ya calculó la normalización.
+  const conContacto = c.aImportar.filter((f) => f.primerContacto !== null).length
+  const comoNuevos = entran - conContacto
 
   const detalle = {
     fusionados: conFusion.map<FilaDetalle>((l) => ({
@@ -90,12 +88,7 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
         </p>
 
         <div className="mt-4 grid grid-cols-1 gap-3 @[28rem]:grid-cols-2 @[48rem]:grid-cols-4">
-          <TarjetaConteo
-            valor={entrada.entran}
-            titulo="Se importan"
-            tono="brand"
-            subtexto={entrada.quedanAfuera > 0 ? `${entrada.quedanAfuera} quedan afuera por el plan` : undefined}
-          />
+          <TarjetaConteo valor={entran} titulo="Se importan" tono="brand" />
           <TarjetaConteo
             valor={conteos.duplicadasEnArchivo}
             titulo="Consultas fusionadas"
@@ -125,20 +118,6 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
             <strong className="font-semibold tabular-nums">{comoNuevos.toLocaleString('es-AR')}</strong>{' '}
             {plural(comoNuevos, 'entra', 'entran')} como {plural(comoNuevos, 'nuevo', 'nuevos')}
           </p>
-        )}
-
-        {entrada.quedanAfuera > 0 && (
-          <div
-            role="alert"
-            className="mt-4 rounded-lg border border-tibio/40 bg-warm-soft px-4 py-3 text-[0.9rem] text-badge-tibio-ink"
-          >
-            <p className="m-0">
-              {entrada.agotado
-                ? 'Tu plan ya no tiene lugar para más leads, así que no se puede importar nada.'
-                : `Tu plan permite cargar ${entrada.lugares} ${plural(entrada.lugares ?? 0, 'lead más', 'leads más')}. Van a entrar los primeros ${entrada.entran} y los otros ${entrada.quedanAfuera} quedan afuera.`}
-            </p>
-            <EnlaceAPlanes />
-          </div>
         )}
 
         {(sinForma > 0 || dudosos > 0) && (
@@ -176,8 +155,8 @@ export function PasoRevision({ revision, onVolver, onImportar }: PasoRevisionPro
           <button type="button" onClick={onVolver} disabled={confirmado} className={BOTON_SECUNDARIO}>
             Volver
           </button>
-          <button type="button" onClick={importar} disabled={sinLugar || confirmado} className={BOTON_PRIMARIO}>
-            {sinLugar ? 'No hay leads para importar' : `Importar ${entrada.entran} ${plural(entrada.entran, 'lead', 'leads')}`}
+          <button type="button" onClick={importar} disabled={sinLeads || confirmado} className={BOTON_PRIMARIO}>
+            {sinLeads ? 'No hay leads para importar' : `Importar ${entran} ${plural(entran, 'lead', 'leads')}`}
           </button>
         </div>
       </div>

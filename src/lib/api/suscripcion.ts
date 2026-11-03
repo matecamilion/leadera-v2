@@ -24,14 +24,6 @@ export const ETIQUETA_METODO: Record<MetodoCobro, string> = {
   MANUAL: 'Manual',
 }
 
-/**
- * Días que una cuenta manual sigue entrando después de que se le venció el
- * acceso. Es la regla 5 de `procesar_transiciones_suscripcion()` (migración
- * 20260923120000): si acá dijera otro número, el aviso prometería un plazo
- * que la base no respeta.
- */
-export const DIAS_GRACIA_MANUAL = 3
-
 /** Desde acá se avisa que el vencimiento de una cuenta manual está cerca. */
 export const DIAS_AVISO_VENCIMIENTO_MANUAL = 7
 
@@ -49,6 +41,9 @@ interface DetallePlan {
    */
   destacado?: boolean
 }
+
+/** Lo que incluyen los tres planes por igual. Se muestra una vez, debajo de las tarjetas. */
+export const INCLUIDO_EN_TODOS_LOS_PLANES = 'Leads, propiedades y operaciones sin límite'
 
 /**
  * El texto comercial de cada plan.
@@ -69,12 +64,10 @@ interface DetallePlan {
  * viñetas dicen "1 agente + hasta 2 asistentes" y no "3 usuarios": el total
  * coincide, pero la forma de repartirlo no es libre.
  *
- * Lo mismo vale para los topes de leads, propiedades y operaciones activas:
- * están en `planes_limites_recursos` y los hacen cumplir triggers que abortan
- * el INSERT con "Llegaste al límite de…". Estas viñetas decían "sin límite"
- * para Solo —y Agencia Chica lo heredaba con "Todo lo del plan Solo"—, lo que
- * contradecía a los indicadores de uso de la misma pantalla, que siempre
- * mostraron el tope real. Si los números de la tabla cambian, cambian acá.
+ * Leads, propiedades y operaciones no tienen tope en ningún plan: no se
+ * diferencian por plan, así que no van como viñeta de cada uno sino una sola vez,
+ * en `INCLUIDO_EN_TODOS_LOS_PLANES`. Si algún día un plan vuelve a limitarlos,
+ * ese tope va en las viñetas de ese plan.
  */
 export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
   SOLO: {
@@ -82,7 +75,6 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para el agente que trabaja por su cuenta.',
     incluye: [
       '1 agente + hasta 2 asistentes',
-      'Hasta 200 leads, 60 propiedades y 100 operaciones activas',
       'Agenda sincronizada con Google Calendar',
       'Matching automático entre compradores y propiedades',
       'Reporte semanal por email para arrancar la semana ordenado',
@@ -93,7 +85,6 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para el equipo que recién arranca.',
     incluye: [
       'Hasta 5 agentes, con hasta 2 asistentes cada uno',
-      'Hasta 1.000 leads, 300 propiedades y 300 operaciones activas',
       'Estadísticas de rendimiento por agente',
       'Cada agente con su propia carga de trabajo, ordenada',
       'Reporte semanal por email para arrancar la semana ordenado',
@@ -105,10 +96,9 @@ export const DETALLE_PLAN: Record<Plan, DetallePlan> = {
     bajada: 'Para la inmobiliaria con varios agentes.',
     incluye: [
       'Agentes y asistentes sin límite',
-      'Leads, propiedades y operaciones sin límite',
       'Todo lo de Agencia Chica',
       'Soporte prioritario',
-      'Pensado para equipos con alto volumen de operaciones',
+      'Sumás agentes y asistentes cuando quieras, sin cambiar de plan',
     ],
   },
 }
@@ -153,11 +143,19 @@ export async function listarPreciosPlanes(): Promise<PrecioPlan[]> {
   return PLANES.map((plan) => porPlan.get(plan)).filter((p): p is PrecioPlan => !!p)
 }
 
+/**
+ * Por qué una cuenta VENCIDA no tiene acceso, cuando no es un vencimiento
+ * natural. `null` es "no hay suspensión manual".
+ */
+export type BloqueoMotivo = 'SUSPENSION_ADMIN'
+
 export interface EstadoDeMiSuscripcion {
   /** Para el mensaje de WhatsApp: de qué inmobiliaria escribe el dueño. */
   nombre: string | null
   plan: Plan | null
   estado: EstadoSuscripcion
+  /** El motivo de la suspensión, si el administrador suspendió la cuenta. */
+  bloqueoMotivo: BloqueoMotivo | null
   metodoCobro: MetodoCobro
   /** Sólo en cuentas manuales: hasta cuándo cubre el último pago. */
   accesoPagadoHasta: string | null
@@ -192,7 +190,7 @@ export async function obtenerEstadoSuscripcion(
   const { data, error } = await supabase
     .from('inmobiliarias')
     .select(
-      'nombre, plan, estado_suscripcion, metodo_cobro, acceso_pagado_hasta, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
+      'nombre, plan, estado_suscripcion, bloqueo_motivo, metodo_cobro, acceso_pagado_hasta, mp_preapproval_id, fecha_fin_trial, fecha_proximo_cobro, cancelacion_solicitada',
     )
     .eq('id', inmobiliariaId)
     .maybeSingle()
@@ -207,6 +205,7 @@ export async function obtenerEstadoSuscripcion(
     nombre: data.nombre,
     plan: data.plan,
     estado: data.estado_suscripcion,
+    bloqueoMotivo: data.bloqueo_motivo === 'SUSPENSION_ADMIN' ? 'SUSPENSION_ADMIN' : null,
     metodoCobro: data.metodo_cobro === 'MANUAL' ? 'MANUAL' : 'MERCADO_PAGO',
     accesoPagadoHasta: data.acceso_pagado_hasta,
     tieneSuscripcionEnMp: data.mp_preapproval_id !== null,
@@ -377,6 +376,47 @@ export function estaBloqueada(estado: EstadoDeMiSuscripcion | null | undefined):
   return ESTADOS_BLOQUEANTES.includes(estado.estado)
 }
 
+/**
+ * Si la cuenta está suspendida por el administrador: VENCIDA con motivo.
+ *
+ * Es un subconjunto de `estaBloqueada`, que no cambia: una suspendida está
+ * bloqueada igual que una vencida. Esto sólo decide qué se le dice a quien
+ * tiene la cuenta bloqueada. Un VENCIDA sin motivo sigue siendo un vencimiento.
+ */
+export function estaSuspendida(estado: EstadoDeMiSuscripcion | null | undefined): boolean {
+  return estado?.estado === 'VENCIDA' && estado.bloqueoMotivo === 'SUSPENSION_ADMIN'
+}
+
+export interface TextoDeBloqueo {
+  titulo: string
+  mensaje: string
+}
+
+/**
+ * Lo que dice la pantalla de una cuenta bloqueada, según el motivo y quién mira.
+ *
+ * El dueño de una cuenta vencida no pasa por acá —lo manda el guard a
+ * /suscripcion, que tiene sus propios textos—; sí pasa el de una suspendida, y
+ * todo el equipo. Por eso el texto "contactá al dueño" es sólo para el
+ * vencimiento: para una suspensión no es el dueño quien la puede resolver.
+ *
+ * Nunca lleva el motivo interno de la suspensión: el cliente no lo conoce.
+ */
+export function textoDeBloqueo(
+  estado: EstadoDeMiSuscripcion | null | undefined,
+  rol: string | null | undefined,
+): TextoDeBloqueo {
+  if (estaSuspendida(estado)) {
+    return rol === 'DUENO'
+      ? { titulo: 'Tu cuenta está suspendida', mensaje: 'Escribinos para resolverlo.' }
+      : { titulo: 'Esta cuenta está suspendida', mensaje: 'Escribinos para más información.' }
+  }
+  return {
+    titulo: 'Esta cuenta está vencida',
+    mensaje: 'Contactá al dueño de tu inmobiliaria para reactivarla.',
+  }
+}
+
 /** Umbral a partir del cual se avisa que el trial se termina. */
 const DIAS_DE_AVISO_TRIAL = 7
 
@@ -405,8 +445,6 @@ export type AvisoSuscripcion =
   | { tipo: 'gracia' }
   /** Cuenta manual a la que le quedan pocos días de acceso pagado. */
   | { tipo: 'manual_por_vencer'; vence: string }
-  /** Cuenta manual ya vencida, dentro de los días de gracia. */
-  | { tipo: 'manual_vencido'; vencio: string; limite: string }
 
 /**
  * Qué avisarle al dueño sobre su suscripción.
@@ -421,17 +459,14 @@ export function avisoDeSuscripcion(
   if (!estado) return null
 
   // Las cuentas manuales tienen sus propios avisos: no hay medio de pago que
-  // arreglar ni reintento de Mercado Pago, hay que renovar escribiendo. El
-  // trial se deja afuera de esta rama a propósito: una cuenta manual en trial
-  // todavía no pagó nada y le sirve el aviso de siempre.
+  // arreglar ni reintento de Mercado Pago, hay que renovar escribiendo. No
+  // tienen gracia: pasado el día del vencimiento la cuenta queda VENCIDA y la
+  // ataja `SuscripcionGuard`. El trial se deja afuera de esta rama a propósito:
+  // una cuenta manual en trial todavía no pagó nada y le sirve el aviso de
+  // siempre.
   if (estado.metodoCobro === 'MANUAL' && estado.estado !== 'TRIAL') {
     const vence = estado.accesoPagadoHasta
     if (!vence) return null
-
-    if (estado.estado === 'GRACIA') {
-      const limite = new Date(new Date(vence).getTime() + DIAS_GRACIA_MANUAL * UN_DIA_EN_MS)
-      return { tipo: 'manual_vencido', vencio: vence, limite: limite.toISOString() }
-    }
 
     if (estado.estado === 'ACTIVA') {
       const dias = Math.ceil((new Date(vence).getTime() - ahora.getTime()) / UN_DIA_EN_MS)

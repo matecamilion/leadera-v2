@@ -349,7 +349,6 @@ describe('Deshacer importación: la confirmación', () => {
     for (const clave of [
       claves.leads.raiz,
       claves.leadsCombobox.raiz,
-      claves.usoRecursos.raiz,
       claves.tareas.raiz,
       claves.equipo.raiz,
       claves.perfil.raiz,

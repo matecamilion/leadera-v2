@@ -416,7 +416,7 @@ describe('prepararRevision con consultas repetidas', () => {
 
   it('a la función le llegan las filas ya fusionadas, con el teléfono y el email de la persona', async () => {
     invoke.mockResolvedValueOnce({
-      data: { resultados: [], cupo: { limite: null, usados: 0 } },
+      data: { resultados: [] },
       error: null,
     })
 
@@ -438,7 +438,6 @@ describe('prepararRevision con consultas repetidas', () => {
           { fila: 2, duplicado: null },
           { fila: 6, duplicado: 'telefono' },
         ],
-        cupo: { limite: null, usados: 0 },
       },
       error: null,
     })
@@ -453,7 +452,7 @@ describe('prepararRevision con consultas repetidas', () => {
     expect(r.importados).toBe(1)
     expect(r.consultasFusionadas).toBe(3)
     expect(r.omitidosPorDuplicado).toBe(1)
-    expect(r.importados + r.consultasFusionadas + r.omitidosPorDuplicado + r.conError + r.fueraPorLimite).toBe(
+    expect(r.importados + r.consultasFusionadas + r.omitidosPorDuplicado + r.conError).toBe(
       archivo.filas.length,
     )
   })

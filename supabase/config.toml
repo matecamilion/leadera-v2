@@ -533,3 +533,11 @@ verify_jwt = false
 [functions.verificar-duplicados-importacion]
 enabled = true
 verify_jwt = true
+
+# enviar-push es interna: la llaman otras Edge Functions y crons con la service
+# role key para mandar un Web Push a una lista de usuarios. verify_jwt frena a
+# los anónimos; adentro se exige además rol service_role, porque recibe los
+# user_ids por parámetro y ningún usuario logueado puede disparar avisos a otro.
+[functions.enviar-push]
+enabled = true
+verify_jwt = true

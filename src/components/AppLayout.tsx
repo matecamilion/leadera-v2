@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { usePendientesConsultas } from '../hooks/useConsultas'
 import { useResumenCupo } from '../hooks/useEquipo'
+import { useInstalarApp } from '../hooks/useInstalarApp'
 import { useLeadsNuevos } from '../hooks/useLeads'
 import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
 import { etiquetaRol } from '../lib/api/equipo'
@@ -17,6 +18,7 @@ import { MenuDesplegable, type ItemMenu } from './comunes/MenuDesplegable'
 import { ModalCargarReserva } from './dashboard/ModalCargarReserva'
 import { Marca } from './Marca'
 import { Spinner } from './Spinner'
+import { GuiaInstalarIos } from './instalar/GuiaInstalarIos'
 import { ModalNuevaTarea } from './tareas/ModalNuevaTarea'
 
 type RolAgente = 'DUENO' | 'AGENTE' | 'ASISTENTE'
@@ -227,6 +229,7 @@ export function AppLayout() {
   const location = useLocation()
   const [creandoTarea, setCreandoTarea] = useState(false)
   const [creandoReserva, setCreandoReserva] = useState(false)
+  const instalacion = useInstalarApp()
 
   // En mobile el drawer queda abierto al navegar si no lo cerramos a mano.
   useEffect(() => {
@@ -300,6 +303,9 @@ export function AppLayout() {
 
   const itemsUsuario: ItemMenu[] = [
     { label: 'Configuración', to: '/perfil' },
+    ...(instalacion.estado === 'instalable' || instalacion.estado === 'guia_ios'
+      ? [{ label: 'Instalar app', onSelect: instalacion.instalar }]
+      : []),
     ...(esDueno ? [{ label: 'Suscripción', to: '/suscripcion' }] : []),
     { label: 'Cerrar sesión', onSelect: signOut },
   ]
@@ -500,6 +506,8 @@ export function AppLayout() {
       {/* "Nueva reserva" desde el menú Crear: mismo modal que Mi día y que la vista
           de Reservas, que son otros dos puntos de entrada. */}
       {creandoReserva && <ModalCargarReserva onCerrar={() => setCreandoReserva(false)} />}
+
+      {instalacion.guiaAbierta && <GuiaInstalarIos onCerrar={instalacion.cerrarGuia} />}
 
       {/* Va acá arriba de todo, fuera del <main>: tiene que poder sobrevivir a
           la navegación que lo disparó. */}

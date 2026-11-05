@@ -1,4 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
+import { capturarInstalacion } from './lib/instalarApp'
 
 /**
  * El link público de consultas (`/c/:slug`) lo abre gente que no usa la app,
@@ -17,3 +18,7 @@ function esConsultaPublica(): boolean {
  * módulo en vez de esperar al evento `load`.
  */
 export const updateSW = esConsultaPublica() ? null : registerSW({ immediate: true })
+
+// `beforeinstallprompt` se dispara una sola vez y temprano: se captura acá, al
+// arrancar, para tenerlo cuando el usuario abra el menú. Mismo criterio que el SW.
+if (!esConsultaPublica()) capturarInstalacion()

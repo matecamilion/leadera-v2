@@ -18,10 +18,10 @@ export default defineConfig({
         short_name: 'LeadEra',
         description: 'CRM inmobiliario LeadEra',
         lang: 'es',
+        id: '/',
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        orientation: 'portrait',
         background_color: '#F7F8FA',
         theme_color: '#0F6E5C',
         icons: [

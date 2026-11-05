@@ -1381,6 +1381,64 @@ export type Database = {
           },
         ]
       }
+      push_suscripciones: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          inmobiliaria_id: string
+          last_seen_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          inmobiliaria_id: string
+          last_seen_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          inmobiliaria_id?: string
+          last_seen_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_suscripciones_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "inmobiliarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_suscripciones_inmobiliaria_id_fkey"
+            columns: ["inmobiliaria_id"]
+            isOneToOne: false
+            referencedRelation: "vista_cuentas_en_riesgo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_suscripciones_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tareas: {
         Row: {
           asignado_a: string
@@ -2173,6 +2231,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      registrar_push_suscripcion: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       resumen_gestion: {
         Args: { p_periodo?: string; p_referencia?: string }

@@ -35,9 +35,14 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // App shell: precacheamos todo el bundle estático y servimos index.html
-        // para cualquier ruta del SPA que no matchee un archivo.
+      // El service worker es src/sw.ts (ver ahí qué hace). El plugin sólo le
+      // inyecta la lista de precache y lo publica como /sw.js, la misma URL de
+      // siempre: así quienes tienen el worker anterior se actualizan en el lugar.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        // App shell: precacheamos todo el bundle estático.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         // El chunk de la ficha PDF pesa ~1.2 MB: precachearlo haría que TODOS
         // se lo bajen en la primera visita, que es justo lo que el React.lazy
@@ -45,14 +50,6 @@ export default defineConfig({
         // alguien abre el detalle de una propiedad.
         // La serif de "Crear imagen" tampoco: sólo la usa ese panel.
         globIgnores: ['**/BotonExportarFicha-*.js', '**/exceljs*.js', '**/playfair-display-*.woff2', '**/email/**'],
-        navigateFallback: '/index.html',
-        // Nunca devolver el shell cacheado para llamadas a la API.
-        navigateFallbackDenylist: [/^\/api\//, /\/auth\//],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
-        // Deliberadamente NO cacheamos respuestas de Supabase: son datos de CRM
-        // por usuario y autenticados. Se resuelve con cache en memoria (Fase 1+).
       },
       devOptions: {
         // Habilitar sólo para depurar el SW en local; ver README.

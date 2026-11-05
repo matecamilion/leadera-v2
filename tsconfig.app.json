@@ -23,5 +23,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // El service worker usa la lib WebWorker, que choca con DOM: tiene su propio tsconfig.
+  "exclude": ["src/sw.ts"]
 }

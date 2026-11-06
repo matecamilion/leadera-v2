@@ -541,3 +541,12 @@ verify_jwt = true
 [functions.enviar-push]
 enabled = true
 verify_jwt = true
+
+# resumen-diario la dispara el cron diario (9:05 de Argentina) con la service
+# role key. Le manda a cada usuario con notificaciones activadas el resumen de
+# su día, llamando a enviar-push. verify_jwt frena a los anónimos; adentro se
+# exige además rol service_role, porque recibe el destinatario por parámetro y
+# ningún usuario logueado puede disparar avisos a otro.
+[functions.resumen-diario]
+enabled = true
+verify_jwt = true

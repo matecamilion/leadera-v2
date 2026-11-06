@@ -9,6 +9,7 @@ import { useEstadoSuscripcion } from '../hooks/useSuscripcion'
 import { etiquetaRol } from '../lib/api/equipo'
 import { DETALLE_PLAN } from '../lib/api/suscripcion'
 import { claveDia } from '../lib/calendario'
+import { sincronizarPush } from '../lib/push'
 import { useUiStore } from '../stores/ui'
 import { CLAVE_FLYER_VISTO, guardar, leerGuardado } from './propiedades/imagen/almacenamiento'
 import { AvisoFlash } from './AvisoFlash'
@@ -230,6 +231,11 @@ export function AppLayout() {
   const [creandoTarea, setCreandoTarea] = useState(false)
   const [creandoReserva, setCreandoReserva] = useState(false)
   const instalacion = useInstalarApp()
+
+  // Re-sincroniza la suscripción push de este dispositivo (una vez por carga).
+  useEffect(() => {
+    void sincronizarPush()
+  }, [])
 
   // En mobile el drawer queda abierto al navegar si no lo cerramos a mano.
   useEffect(() => {

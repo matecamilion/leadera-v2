@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
+import { bajaPushAlCerrarSesion } from '../lib/push'
 import { supabase } from '../lib/supabase'
 import type { Database } from '../types/database'
 
@@ -145,6 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const profile = perfilListo ? perfilCargado.profile : null
 
   const signOut = useCallback(async () => {
+    // Antes del signOut: con la sesión cerrada la RLS no deja borrar la fila.
+    await bajaPushAlCerrarSesion()
     await supabase.auth.signOut()
     // El SIGNED_OUT de onAuthStateChange ya limpia; se repite acá para no
     // depender de que el evento llegue antes de que la app siga.

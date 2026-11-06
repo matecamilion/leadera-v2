@@ -10,6 +10,7 @@ import {
   limpiarRecuperacion,
   suscribirRecuperacion,
 } from '../lib/recuperacion'
+import { bajaPushAlCerrarSesion } from '../lib/push'
 import { supabase } from '../lib/supabase'
 import { PASSWORD_MINIMO } from '../lib/validaciones'
 
@@ -121,6 +122,8 @@ function FormularioNuevaContrasena({ onListo }: { onListo: () => void }) {
     }
 
     limpiarRecuperacion()
+
+    await bajaPushAlCerrarSesion()
 
     // Cierra todas las sesiones, ésta incluida. Hay que esperar a que termine
     // antes de navegar: con la sesión todavía viva, Login rebota a /mi-dia.

@@ -66,7 +66,7 @@ function unir(partes: string[]): string {
  * números reales nunca se llega al tope; es la garantía de que un valor
  * desmesurado no rompe la notificación.
  */
-function recortar(texto: string, max: number): string {
+export function recortar(texto: string, max: number): string {
   if (texto.length <= max) return texto
   const corte = texto.slice(0, max - 1)
   const ultimoEspacio = corte.lastIndexOf(' ')

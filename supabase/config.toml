@@ -550,3 +550,11 @@ verify_jwt = true
 [functions.resumen-diario]
 enabled = true
 verify_jwt = true
+
+# avisos-visitas la dispara el cron cada 10 minutos con la service role key.
+# Avisa de las visitas próximas y pregunta cómo salieron las que pasaron,
+# llamando a enviar-push. verify_jwt frena a los anónimos; adentro se exige
+# además rol service_role.
+[functions.avisos-visitas]
+enabled = true
+verify_jwt = true

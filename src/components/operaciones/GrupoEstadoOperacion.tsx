@@ -51,6 +51,9 @@ export function GrupoEstadoOperacion({
       setAConfirmar(estado)
       return
     }
+    // Un cambio sin confirmación descarta cualquier cierre ya resuelto: si no,
+    // el estado viejo reaparecía como pendiente apenas `actual` dejaba de coincidir.
+    setAConfirmar(null)
     onCambiar({ estado })
   }
 
@@ -66,6 +69,12 @@ export function GrupoEstadoOperacion({
    * mirado en el momento del render, no un estado aparte que sincronizar.
    */
   const pendiente = aConfirmar !== actual ? aConfirmar : null
+
+  // Una vez resuelto, el pedido se descarta. Sin esto quedaba guardado y volvía a
+  // ser pendiente cuando `actual` cambiaba por cualquier motivo (reabrir la
+  // operación, un refetch, otra pestaña). Es el ajuste de estado durante el render
+  // que React indica para derivar estado de props, no un efecto.
+  if (aConfirmar !== null && aConfirmar === actual) setAConfirmar(null)
 
   function confirmar(montoCierre: number | null) {
     if (pendiente === 'CERRADA_GANADA') {

@@ -22,7 +22,8 @@ import {
   useEliminarVisita,
   useMarcarRealizada,
 } from '../hooks/useVisitas'
-import { claveDia, diasDeLaGrilla } from '../lib/calendario'
+import { claveDia, hoyComoClave } from '../lib/calendario'
+import { mesDeAncla, rangoVisible, sumarMeses } from '../lib/vistaCalendario'
 import type { VisitaConContexto } from '../lib/api/visitas'
 import type { Tarea } from '../types/database'
 
@@ -30,8 +31,11 @@ export default function Tareas() {
   const { profile } = useAuth()
   const hoy = useMemo(() => new Date(), [])
 
-  const [ano, setAno] = useState(hoy.getFullYear())
-  const [mes, setMes] = useState(hoy.getMonth())
+  // La ancla ubica el calendario: de ella salen el mes visible y el rango que se
+  // pide. Es independiente de `diaSel`: navegar de mes mueve la ancla y deja el
+  // día seleccionado donde estaba.
+  const [ancla, setAncla] = useState<string>(() => claveDia(hoy))
+  const { ano, mes } = mesDeAncla(ancla)
   const [diaSel, setDiaSel] = useState<string>(() => claveDia(hoy))
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalVisita, setModalVisita] = useState(false)
@@ -47,10 +51,7 @@ export default function Tareas() {
 
   // El rango que se pide es el de la grilla completa, no el del mes: si no, los
   // días de relleno saldrían siempre vacíos aunque tengan eventos.
-  const { desde, hasta } = useMemo(() => {
-    const dias = diasDeLaGrilla(ano, mes)
-    return { desde: claveDia(dias[0]), hasta: claveDia(dias[dias.length - 1]) }
-  }, [ano, mes])
+  const { desde, hasta } = useMemo(() => rangoVisible('MES', ancla), [ancla])
 
   const eventos = useEventosCalendario(desde, hasta)
   const { equipo: equipoCalendario } = useEquipoCalendario()
@@ -85,9 +86,14 @@ export default function Tareas() {
   }
 
   function moverMes(delta: number) {
-    const d = new Date(ano, mes + delta, 1)
-    setAno(d.getFullYear())
-    setMes(d.getMonth())
+    setAncla((actual) => sumarMeses(actual, delta))
+  }
+
+  /** Vuelve al día de hoy y lo selecciona: el panel pasa a mostrar el de hoy. */
+  function irAHoy() {
+    const hoyClave = hoyComoClave()
+    setAncla(hoyClave)
+    setDiaSel(hoyClave)
   }
 
   function alternarCompletada(tarea: Tarea) {
@@ -153,6 +159,13 @@ export default function Tareas() {
             <BotonMes etiqueta="Mes siguiente" onClick={() => moverMes(1)}>
               ›
             </BotonMes>
+            <button
+              type="button"
+              onClick={irAHoy}
+              className="ml-1 h-9 shrink-0 rounded-lg border border-border bg-surface px-3 text-[0.85rem] font-semibold text-ink-2 transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+            >
+              Hoy
+            </button>
           </div>
 
           {/* Solo dueño/agente con Google conectado e importación activa. */}

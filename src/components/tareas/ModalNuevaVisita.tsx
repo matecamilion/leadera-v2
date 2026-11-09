@@ -1,9 +1,12 @@
 import { BotonCerrarModal } from '../comunes/BotonCerrarModal'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ComboboxLead } from '../comunes/ComboboxLead'
 import { ComboboxPropiedad } from '../comunes/ComboboxPropiedad'
 import { useAuth } from '../../contexts/AuthContext'
+import { IconoAlerta } from '../leads/Iconos'
 import { useEquipo } from '../../hooks/useEquipo'
+import { useUid } from '../../hooks/useUid'
 import { useCrearVisita } from '../../hooks/useVisitas'
 import { useOperacionesPorPropiedad } from '../../hooks/useOperacion'
 import { esDiaPasado, hoyComoClave } from '../../lib/calendario'
@@ -12,7 +15,20 @@ import {
   etiquetaEstadoOperacion,
   etiquetaTipoOperacion,
 } from '../../lib/api/operaciones'
-import { MAX_LINK_EXTERNO, MAX_TITULO_EXTERNO } from '../../lib/api/visitas'
+import {
+  listarVisitas,
+  MAX_LINK_EXTERNO,
+  MAX_TITULO_EXTERNO,
+  type CrearVisitaInput,
+  type VisitaConContexto,
+} from '../../lib/api/visitas'
+import { claves } from '../../lib/queryKeys'
+import { asignadoDeAlta } from '../../lib/equipoCalendario'
+import {
+  buscarConflictoVisita,
+  describirVisita,
+  tituloConflictoVisita,
+} from '../../lib/conflictoVisitas'
 import { MENSAJE_URL_INVALIDA, urlInvalida } from '../../lib/validaciones'
 
 /**
@@ -115,7 +131,10 @@ export function ModalNuevaVisita({
   // calendario. Solo el dueño puede darle una visita a otro miembro de la
   // inmobiliaria, que no sea uno de sus propios asistentes.
   const puedeAsignar = rol === 'DUENO'
-  const equipo = useEquipo(puedeAsignar ? rol : undefined, puedeAsignar ? miId : undefined)
+  // El asistente también lo pide, pero solo para poder nombrar a su agente en el
+  // aviso de visitas pegadas: no reparte nada.
+  const necesitaEquipo = puedeAsignar || rol === 'ASISTENTE'
+  const equipo = useEquipo(necesitaEquipo ? rol : undefined, necesitaEquipo ? miId : undefined)
 
   // El dueño se ve a sí mismo en el listado del equipo: se lo saca, y "Yo" va
   // primero en el selector.
@@ -125,6 +144,30 @@ export function ModalNuevaVisita({
   const hayAQuienAsignar = puedeAsignar && otros.length > 0
 
   const crear = useCrearVisita()
+  const queryClient = useQueryClient()
+  const uid = useUid()
+
+  // --- Aviso de visitas pegadas ---------------------------------------------
+  // Avisa, no bloquea. El chequeo corre al enviar y, si hay conflicto, el cartel
+  // queda atado a lo que se chequeó: cambiar fecha, hora o responsable lo
+  // descarta sin un efecto que lo resetee.
+  const [verificando, setVerificando] = useState(false)
+  // El flag de estado llega tarde para un Enter repetido en el mismo instante;
+  // la ref lo corta de inmediato.
+  const verificandoRef = useRef(false)
+  const montadoRef = useRef(true)
+  const horaRef = useRef<HTMLInputElement>(null)
+  const [conflicto, setConflicto] = useState<{
+    clave: string
+    visita: VisitaConContexto
+  } | null>(null)
+
+  useEffect(() => {
+    montadoRef.current = true
+    return () => {
+      montadoRef.current = false
+    }
+  }, [])
 
   // --- Operación vinculada --------------------------------------------------
   // Se infiere sola en vez de pedirla: agendar una visita ya es tedioso, y en
@@ -172,6 +215,22 @@ export function ModalNuevaVisita({
     modo === 'propia' ? !propiedadId : !tituloExterno.trim() || errorLink !== null
   const faltaAlgo = faltaDestino || !fecha || !asignadoA || fechaPasada
 
+  // A quién queda realmente: un asistente carga en el calendario de su agente,
+  // sin importar lo que diga el selector (mismo cálculo que `crearVisita`).
+  const asignadoFinal = profile
+    ? asignadoDeAlta({ id: profile.id, asiste_a: profile.asiste_a, rol: profile.rol }, asignadoA)
+    : asignadoA
+  const claveChequeo = `${fecha}|${hora}|${asignadoFinal}`
+  const conflictoVigente = conflicto?.clave === claveChequeo ? conflicto.visita : null
+
+  const nombreAsignado = (() => {
+    const miembros = equipo.data ?? []
+    const directo = miembros.find((m) => m.id === asignadoFinal)
+    if (directo) return `${directo.nombre} ${directo.apellido}`.trim()
+    // El asistente se ve a sí mismo en el listado: de ahí sale el nombre de su agente.
+    return miembros.find((m) => m.id === miId)?.asisteA?.nombre ?? null
+  })()
+
   /**
    * Cambiar de modo descarta lo cargado en el otro —la propiedad elegida, o el
    * título y el link— para que no viaje nada que no se ve. Lead, fecha, hora,
@@ -187,7 +246,42 @@ export function ModalNuevaVisita({
     setLinkTocado(false)
   }
 
-  function enviar(evento: React.FormEvent) {
+  /** La visita a crear, tal como la cargó el usuario. */
+  function armarInput(): CrearVisitaInput {
+    const comun = {
+      lead_id: leadId,
+      fecha,
+      hora: hora || null,
+      notas: notas || null,
+      asignado_a: asignadoA,
+    }
+    return modo === 'propia' && propiedadId
+      ? { ...comun, propiedad_id: propiedadId, operacion_id: operacionElegida?.id ?? null }
+      : { ...comun, titulo_externo: tituloExterno, link_externo: linkExterno || null }
+  }
+
+  function agendar() {
+    crear.mutate(armarInput(), {
+      onSuccess: () => {
+        onCreada?.()
+        onCerrar()
+      },
+    })
+  }
+
+  /**
+   * Las visitas del día, pedidas de nuevo: el cache puede tener minutos de
+   * antigüedad y el aviso tiene que ver lo último que se agendó.
+   */
+  function visitasDelDia(dia: string) {
+    return queryClient.fetchQuery({
+      queryKey: [...claves.visitas.raiz, 'conflicto', uid ?? '', dia],
+      queryFn: () => listarVisitas(dia, dia),
+      staleTime: 0,
+    })
+  }
+
+  async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
     if (faltaAlgo) {
       // Un Enter desde el campo del link llega acá sin pasar por el blur: sin
@@ -196,28 +290,48 @@ export function ModalNuevaVisita({
       return
     }
     // El botón ya se deshabilita mientras guarda, pero un Enter repetido llega
-    // por el submit del form sin pasar por él y crearía la visita dos veces.
-    if (crear.isPending) return
-
-    const comun = {
-      lead_id: leadId,
-      fecha,
-      hora: hora || null,
-      notas: notas || null,
-      asignado_a: asignadoA,
+    // por el submit del form sin pasar por él y crearía la visita dos veces. Con
+    // el cartel abierto el botón del pie dice "Agendar igual": confirma el alta
+    // sin volver a consultar (el usuario ya vio el aviso).
+    if (crear.isPending || verificandoRef.current) return
+    if (conflictoVigente) {
+      agendar()
+      return
     }
 
-    crear.mutate(
-      modo === 'propia' && propiedadId
-        ? { ...comun, propiedad_id: propiedadId, operacion_id: operacionElegida?.id ?? null }
-        : { ...comun, titulo_externo: tituloExterno, link_externo: linkExterno || null },
-      {
-        onSuccess: () => {
-          onCreada?.()
-          onCerrar()
-        },
-      },
-    )
+    // Sin hora (todo el día) no hay conflicto posible: no se consulta nada.
+    if (!hora) {
+      agendar()
+      return
+    }
+
+    verificandoRef.current = true
+    setVerificando(true)
+    let encontrado: VisitaConContexto | null = null
+    try {
+      const delDia = await visitasDelDia(fecha)
+      encontrado = buscarConflictoVisita({ fecha, hora, asignadoA: asignadoFinal }, delDia)
+    } catch {
+      // Sin red o sin respuesta no se bloquea: avisar es una ayuda, no un requisito.
+      encontrado = null
+    } finally {
+      verificandoRef.current = false
+      if (montadoRef.current) setVerificando(false)
+    }
+
+    // Si el modal se cerró mientras se verificaba, no se agenda nada.
+    if (!montadoRef.current) return
+
+    if (encontrado) {
+      setConflicto({ clave: claveChequeo, visita: encontrado })
+      return
+    }
+    agendar()
+  }
+
+  function cambiarHora() {
+    setConflicto(null)
+    horaRef.current?.focus()
   }
 
   return (
@@ -422,6 +536,7 @@ export function ModalNuevaVisita({
               </label>
               <input
                 id="visita-hora"
+                ref={horaRef}
                 type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
@@ -475,6 +590,37 @@ export function ModalNuevaVisita({
           </p>
         )}
 
+        {conflictoVigente && (
+          // Solo informa: la decisión de agendar igual está en el botón del pie.
+          <div
+            role="status"
+            aria-live="polite"
+            // Ámbar del badge "tibio" a baja opacidad para el tinte y el contorno, y
+            // pleno en el borde izquierdo y el ícono. Ese token cambia solo en el
+            // tema oscuro (#92400e → #f5c46b), así que el contraste sigue al tema.
+            className="mt-4 flex gap-3 rounded-lg border border-l-[3px] border-badge-tibio-ink/30 border-l-badge-tibio-ink bg-badge-tibio-ink/10 px-3.5 py-3"
+          >
+            {/* El SVG ya sale con aria-hidden: es decorativo. */}
+            <IconoAlerta className="size-5 shrink-0 text-badge-tibio-ink" />
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-[0.85rem] font-medium text-ink">
+                {tituloConflictoVisita({
+                  esUnoMismo: asignadoFinal === miId,
+                  nombre: nombreAsignado,
+                })}
+              </p>
+              <p className="mt-0.5 text-[0.8rem] text-ink-3">{describirVisita(conflictoVigente)}</p>
+              <button
+                type="button"
+                onClick={cambiarHora}
+                className="mt-2.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-[0.8rem] font-semibold text-ink-2 transition-colors hover:bg-background motion-reduce:transition-none"
+              >
+                Cambiar hora
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
@@ -485,10 +631,16 @@ export function ModalNuevaVisita({
           </button>
           <button
             type="submit"
-            disabled={faltaAlgo || crear.isPending}
+            disabled={faltaAlgo || crear.isPending || verificando}
             className="rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold text-primary-contrast transition-colors hover:bg-primary-dark disabled:opacity-60 motion-reduce:transition-none"
           >
-            {crear.isPending ? 'Agendando…' : 'Agendar visita'}
+            {crear.isPending
+              ? 'Agendando…'
+              : verificando
+                ? 'Verificando…'
+                : conflictoVigente
+                  ? 'Agendar igual'
+                  : 'Agendar visita'}
           </button>
         </div>
       </form>

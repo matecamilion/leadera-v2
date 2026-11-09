@@ -4,6 +4,7 @@ import {
   finDeSemana,
   inicioDeSemana,
   mesDeAncla,
+  moverAncla,
   rangoVisible,
   sumarDias,
   sumarMeses,
@@ -152,5 +153,32 @@ describe('rangoVisible — MES', () => {
   it('navegar de a meses con sumarMeses da el rango del mes vecino', () => {
     expect(rangoVisible('MES', sumarMeses('2026-08-15', 1))).toEqual(rangoDeLaGrilla(2026, 8))
     expect(rangoVisible('MES', sumarMeses('2026-01-20', -1))).toEqual(rangoDeLaGrilla(2025, 11))
+  })
+})
+
+describe('rangoVisible — DIA', () => {
+  it('es el día de la ancla, de los dos lados', () => {
+    expect(rangoVisible('DIA', '2026-08-05')).toEqual({ desde: '2026-08-05', hasta: '2026-08-05' })
+    expect(rangoVisible('DIA', '2024-02-29')).toEqual({ desde: '2024-02-29', hasta: '2024-02-29' })
+  })
+})
+
+describe('moverAncla', () => {
+  it('en el mes mueve un mes y cae en su día 1', () => {
+    expect(moverAncla('MES', '2026-08-15', 1)).toBe('2026-09-01')
+    expect(moverAncla('MES', '2026-01-20', -1)).toBe('2025-12-01')
+  })
+
+  it('en el día mueve un día', () => {
+    expect(moverAncla('DIA', '2026-08-15', 1)).toBe('2026-08-16')
+    expect(moverAncla('DIA', '2026-08-15', -1)).toBe('2026-08-14')
+  })
+
+  it('en el día cruza el fin de mes, el de año y el 29 de febrero', () => {
+    expect(moverAncla('DIA', '2026-08-31', 1)).toBe('2026-09-01')
+    expect(moverAncla('DIA', '2026-12-31', 1)).toBe('2027-01-01')
+    expect(moverAncla('DIA', '2027-01-01', -1)).toBe('2026-12-31')
+    expect(moverAncla('DIA', '2024-02-28', 1)).toBe('2024-02-29')
+    expect(moverAncla('DIA', '2024-03-01', -1)).toBe('2024-02-29')
   })
 })

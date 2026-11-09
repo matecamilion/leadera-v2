@@ -2,8 +2,8 @@
  * Ancla y rango visible del calendario. Puro: sin React ni Supabase.
  *
  * El calendario se ubica con una fecha ancla (`YYYY-MM-DD`) y una vista. De esas
- * dos cosas salen el rango que se pide y lo que se muestra. Por ahora la única
- * vista es el mes.
+ * dos cosas salen el rango que se pide y lo que se muestra. Hay dos vistas: el
+ * mes y el día.
  *
  * Todo en hora local y con claves de día, como `lib/calendario`: `new Date('2026-08-05')`
  * se interpreta como UTC y en GMT-3 cae el día anterior, así que el parseo va a mano.
@@ -11,7 +11,7 @@
  */
 import { claveDia, desdeClaveDia, diasDeLaGrilla } from './calendario'
 
-export type VistaCalendario = 'MES'
+export type VistaCalendario = 'MES' | 'DIA'
 
 /** El día `n` días después de `clave` (negativo: antes), con el cambio de mes y de año. */
 export function sumarDias(clave: string, n: number): string {
@@ -50,10 +50,24 @@ export function mesDeAncla(ancla: string): { ano: number; mes: number } {
 }
 
 /**
+ * La ancla después de apretar ‹ o › (`delta` = -1 o 1): un mes en el mes, un día
+ * en el día.
+ */
+export function moverAncla(vista: VistaCalendario, ancla: string, delta: number): string {
+  switch (vista) {
+    case 'MES':
+      return sumarMeses(ancla, delta)
+    case 'DIA':
+      return sumarDias(ancla, delta)
+  }
+}
+
+/**
  * El rango de días que hay que pedir para pintar la vista.
  *
  * En el mes es el de la grilla completa, con el relleno de lunes a domingo (no el
  * del mes a secas): si no, los días de relleno saldrían vacíos aunque tengan eventos.
+ * En el día es el día de la ancla, de los dos lados.
  */
 export function rangoVisible(
   vista: VistaCalendario,
@@ -65,5 +79,7 @@ export function rangoVisible(
       const dias = diasDeLaGrilla(ano, mes)
       return { desde: claveDia(dias[0]), hasta: claveDia(dias[dias.length - 1]) }
     }
+    case 'DIA':
+      return { desde: ancla, hasta: ancla }
   }
 }

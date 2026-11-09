@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BannerConectarGoogle } from '../components/tareas/BannerConectarGoogle'
 import { BotonActualizarCalendario } from '../components/tareas/BotonActualizarCalendario'
 import { CalendarioMes } from '../components/tareas/CalendarioMes'
+import { GrillaHoraria } from '../components/tareas/GrillaHoraria'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
 import { PanelDiaTareas } from '../components/tareas/PanelDiaTareas'
@@ -22,8 +23,13 @@ import {
   useEliminarVisita,
   useMarcarRealizada,
 } from '../hooks/useVisitas'
-import { claveDia, hoyComoClave } from '../lib/calendario'
-import { mesDeAncla, rangoVisible, sumarMeses } from '../lib/vistaCalendario'
+import { claveDia, desdeClaveDia, hoyComoClave } from '../lib/calendario'
+import {
+  mesDeAncla,
+  moverAncla,
+  rangoVisible,
+  type VistaCalendario,
+} from '../lib/vistaCalendario'
 import type { VisitaConContexto } from '../lib/api/visitas'
 import type { Tarea } from '../types/database'
 
@@ -31,9 +37,11 @@ export default function Tareas() {
   const { profile } = useAuth()
   const hoy = useMemo(() => new Date(), [])
 
-  // La ancla ubica el calendario: de ella salen el mes visible y el rango que se
-  // pide. Es independiente de `diaSel`: navegar de mes mueve la ancla y deja el
-  // día seleccionado donde estaba.
+  const [vista, setVista] = useState<VistaCalendario>('MES')
+  // La ancla ubica el calendario: de ella y de la vista salen el rango que se pide
+  // y lo que se muestra. En el mes es independiente de `diaSel`: navegar de mes
+  // mueve la ancla y deja el día seleccionado donde estaba. En el día, ancla y
+  // `diaSel` son el mismo día: la grilla muestra el que el panel detalla.
   const [ancla, setAncla] = useState<string>(() => claveDia(hoy))
   const { ano, mes } = mesDeAncla(ancla)
   const [diaSel, setDiaSel] = useState<string>(() => claveDia(hoy))
@@ -51,7 +59,8 @@ export default function Tareas() {
 
   // El rango que se pide es el de la grilla completa, no el del mes: si no, los
   // días de relleno saldrían siempre vacíos aunque tengan eventos.
-  const { desde, hasta } = useMemo(() => rangoVisible('MES', ancla), [ancla])
+  const { desde, hasta } = useMemo(() => rangoVisible(vista, ancla), [vista, ancla])
+  const diasDeLaVista = useMemo(() => [ancla], [ancla])
 
   const eventos = useEventosCalendario(desde, hasta)
   const { equipo: equipoCalendario } = useEquipoCalendario()
@@ -85,8 +94,27 @@ export default function Tareas() {
     setFechaPrellenada(null)
   }
 
-  function moverMes(delta: number) {
-    setAncla((actual) => sumarMeses(actual, delta))
+  /** ‹ y ›: un mes en el mes, un día en el día. */
+  function mover(delta: number) {
+    const nueva = moverAncla(vista, ancla, delta)
+    setAncla(nueva)
+    if (vista === 'DIA') setDiaSel(nueva)
+  }
+
+  /**
+   * Cambia de vista conservando la ancla, así el día que se ve es coherente con el
+   * mes que se veía. Al pasar al día se muestra el día seleccionado si cae en el mes
+   * visible; si no, el de la ancla.
+   */
+  function cambiarVista(nueva: VistaCalendario) {
+    if (nueva === vista) return
+    if (nueva === 'DIA') {
+      const delMes = mesDeAncla(diaSel).ano === ano && mesDeAncla(diaSel).mes === mes
+      const dia = delMes ? diaSel : ancla
+      setAncla(dia)
+      setDiaSel(dia)
+    }
+    setVista(nueva)
   }
 
   /** Vuelve al día de hoy y lo selecciona: el panel pasa a mostrar el de hoy. */
@@ -122,10 +150,25 @@ export default function Tareas() {
     borrarVisita.mutate(visita.id, { onError: (e) => setError(e.message) })
   }
 
-  const nombreMes = new Date(ano, mes, 1).toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  })
+  // En el mes ya es corto; en el día, la versión chica va sin año y abreviada.
+  const tituloCorto =
+    vista === 'MES'
+      ? new Date(ano, mes, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      : desdeClaveDia(ancla).toLocaleDateString('es-AR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        })
+
+  const titulo =
+    vista === 'MES'
+      ? new Date(ano, mes, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      : desdeClaveDia(ancla).toLocaleDateString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -147,29 +190,19 @@ export default function Tareas() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1">
-            <BotonMes etiqueta="Mes anterior" onClick={() => moverMes(-1)}>
-              ‹
-            </BotonMes>
-            <span // `capitalize` pondría "Agosto De 2026": sólo va la primera letra.
-              className="min-w-[10rem] text-center text-[0.95rem] font-bold text-ink first-letter:uppercase">
-              {nombreMes}
-            </span>
-            <BotonMes etiqueta="Mes siguiente" onClick={() => moverMes(1)}>
-              ›
-            </BotonMes>
-            <button
-              type="button"
-              onClick={irAHoy}
-              className="ml-1 h-9 shrink-0 rounded-lg border border-border bg-surface px-3 text-[0.85rem] font-semibold text-ink-2 transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
-            >
-              Hoy
-            </button>
-          </div>
-
-          {/* Solo dueño/agente con Google conectado e importación activa. */}
-          <BotonActualizarCalendario />
+        {/* Las acciones de crear, juntas y a la derecha. "Nueva tarea" es la
+            principal. Si no entran, envuelven alineadas entre sí. */}
+        <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+          {/* Sin restricción de rol: agendar una visita a su nombre es algo que
+              hace cualquiera, incluido un asistente. */}
+          <button
+            type="button"
+            onClick={() => setModalVisita(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
+          >
+            <IconoCasa className="size-5" />
+            Agendar visita
+          </button>
 
           {/* Todos los roles crean tareas: como mínimo para sí mismos, y además
               para quien les toca según el rol (lo resuelve el modal). */}
@@ -180,17 +213,6 @@ export default function Tareas() {
           >
             <IconoMas className="size-5" />
             Nueva tarea
-          </button>
-
-          {/* Sin restricción de rol: agendar una visita a su nombre es algo que
-              hace cualquiera, incluido un asistente. */}
-          <button
-            type="button"
-            onClick={() => setModalVisita(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-ink transition-colors hover:bg-background motion-reduce:transition-none"
-          >
-            <IconoCasa className="size-5" />
-            Agendar visita
           </button>
         </div>
       </header>
@@ -225,6 +247,44 @@ export default function Tareas() {
         </div>
       )}
 
+      {/* Navegación del calendario: vista, Hoy y flechas juntos a la izquierda, el
+          título a continuación. El título es lo único que cambia de largo y va
+          al final, así que no corre nada de lo anterior. */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <SelectorVista vista={vista} onCambiar={cambiarVista} />
+
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={irAHoy}
+            className="mr-1 h-9 shrink-0 rounded-lg border border-border bg-surface px-3 text-[0.85rem] font-semibold text-ink-2 transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+          >
+            Hoy
+          </button>
+          <BotonMes etiqueta={vista === 'MES' ? 'Mes anterior' : 'Día anterior'} onClick={() => mover(-1)}>
+            ‹
+          </BotonMes>
+          <BotonMes etiqueta={vista === 'MES' ? 'Mes siguiente' : 'Día siguiente'} onClick={() => mover(1)}>
+            ›
+          </BotonMes>
+        </div>
+
+        <h2 // `capitalize` pondría "Agosto De 2026": sólo va la primera letra.
+          className="m-0 min-w-0 text-[0.95rem] font-bold text-ink first-letter:uppercase"
+        >
+          {/* En pantallas chicas, la versión corta; el lector de pantalla lee siempre la completa. */}
+          <span aria-hidden className="sm:hidden">
+            {tituloCorto}
+          </span>
+          <span className="sr-only sm:not-sr-only">{titulo}</span>
+        </h2>
+
+        {/* Solo dueño/agente con Google conectado e importación activa. */}
+        <div className="ml-auto">
+          <BotonActualizarCalendario />
+        </div>
+      </div>
+
       {eventos.isError ? (
         <p
           role="alert"
@@ -243,7 +303,7 @@ export default function Tareas() {
                 aria-label="Cargando el calendario"
                 className="h-[520px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
               />
-            ) : (
+            ) : vista === 'MES' ? (
               <CalendarioMes
                 ano={ano}
                 mes={mes}
@@ -251,6 +311,13 @@ export default function Tareas() {
                 diaSeleccionado={diaSel}
                 onSelectDia={setDiaSel}
                 onNuevaTareaEnDia={abrirModal}
+              />
+            ) : (
+              <GrillaHoraria
+                dias={diasDeLaVista}
+                eventos={eventos.data}
+                diaSeleccionado={diaSel}
+                onSelectDia={setDiaSel}
               />
             )}
           </div>
@@ -317,5 +384,47 @@ function BotonMes({
     >
       {children}
     </button>
+  )
+}
+
+const VISTAS: { valor: VistaCalendario; etiqueta: string }[] = [
+  { valor: 'MES', etiqueta: 'Mes' },
+  { valor: 'DIA', etiqueta: 'Día' },
+]
+
+/** Mismo control segmentado que usa `ModalNuevaVisita`: botones con `aria-pressed`. */
+function SelectorVista({
+  vista,
+  onCambiar,
+}: {
+  vista: VistaCalendario
+  onCambiar: (vista: VistaCalendario) => void
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Vista del calendario"
+      className="inline-flex rounded-full border border-border bg-surface p-0.5"
+    >
+      {VISTAS.map((v) => {
+        const activa = v.valor === vista
+        return (
+          <button
+            key={v.valor}
+            type="button"
+            aria-pressed={activa}
+            onClick={() => onCambiar(v.valor)}
+            className={[
+              'rounded-full px-3.5 py-[5px] text-[0.82rem] font-semibold whitespace-nowrap',
+              'transition-colors motion-reduce:transition-none',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+              activa ? 'bg-ink text-surface' : 'text-ink-3 hover:bg-background hover:text-ink',
+            ].join(' ')}
+          >
+            {v.etiqueta}
+          </button>
+        )
+      })}
+    </div>
   )
 }

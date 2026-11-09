@@ -1,12 +1,13 @@
 import {
   etiquetaEstadoOperacion,
   etiquetaTipoOperacion,
-  formatearMonto,
   type OperacionListada,
 } from '../../lib/api/operaciones'
 import { diasSinMovimiento, esOperacionTrabada } from '../../lib/kanbanUtils'
 import { formatearFecha } from '../../lib/formatoFecha'
+import { montoVigenteOperacion } from '../../lib/montoOperacion'
 import { FilaLista, ListaFilas } from '../ui/FilaLista'
+import { MontoOperacion } from './MontoOperacion'
 
 interface Props {
   operaciones: OperacionListada[]
@@ -63,8 +64,10 @@ export function ListaOperacionesCompacta({
           titulo={op.titulo || 'Sin título'}
           subtitulo={`${etiquetaTipoOperacion(op.tipo)} · ${etiquetaEstadoOperacion(op.tipo, op.estado)}`}
           datos={[
-            op.monto != null ? (
-              <span className="font-semibold text-ink">{formatearMonto(op.monto, op.moneda)}</span>
+            montoVigenteOperacion(op).valor != null ? (
+              <span className="font-semibold text-ink">
+                <MontoOperacion operacion={op} />
+              </span>
             ) : (
               <span className="text-meta text-primary">Cargar monto</span>
             ),

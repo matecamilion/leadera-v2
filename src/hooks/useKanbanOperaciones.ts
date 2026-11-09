@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  actualizarEstadoOperacion,
+  aplicarCambioDeEstado,
   listarOperacionesKanban,
+  type CambioDeEstado,
   type EstadoOperacion,
   type TableroKanban,
 } from '../lib/api/operaciones'
@@ -67,9 +68,8 @@ export function useMovimientoOptimista() {
   }
 }
 
-interface MoverInput {
+type MoverInput = CambioDeEstado & {
   id: string
-  estado: EstadoOperacion
   /**
    * El tablero de antes, cuando la card ya se movió con `useMovimientoOptimista`.
    *
@@ -98,7 +98,7 @@ export function useMoverOperacion() {
   const clave = claves.operaciones.kanban(uid)
 
   return useMutation<unknown, Error, MoverInput, ContextoMovimiento>({
-    mutationFn: ({ id, estado }) => actualizarEstadoOperacion(id, estado),
+    mutationFn: (input) => aplicarCambioDeEstado(input.id, input),
 
     onMutate: async ({ id, estado, snapshotPrevio }) => {
       // Si hay un refetch en vuelo podría pisar el cambio optimista con datos

@@ -39,6 +39,8 @@ import {
   seVinculaConBusqueda,
 } from '../lib/api/operaciones'
 import { formatearFecha } from '../lib/formatoFecha'
+import { etiquetaValorDeCierre, montoVigenteOperacion } from '../lib/montoOperacion'
+import { MontoOperacion } from '../components/operaciones/MontoOperacion'
 import { esMomentoPasado, hoyComoMinimoLocal } from '../lib/calendario'
 import { mensajeDeGuardado } from '../lib/mensajesDeError'
 import { useUiStore } from '../stores/ui'
@@ -102,6 +104,7 @@ export default function DetalleOperacion() {
   // la UI para no ofrecer algo que va a rebotar; el control real es el de allá.
   const bloqueada = esBloqueada(operacion.estado)
   const etiquetaDelEstado = etiquetaEstadoOperacion(operacion.tipo, operacion.estado)
+  const montoVigente = montoVigenteOperacion(operacion)
 
   return (
     <div className="mx-auto box-border max-w-[900px]">
@@ -159,9 +162,9 @@ export default function DetalleOperacion() {
               <IconoCalendario className="size-4 shrink-0" />
               {formatearFecha(operacion.created_at)}
             </span>
-            {operacion.monto != null && (
+            {montoVigente.valor != null && (
               <span className="font-bold text-ink">
-                {formatearMonto(operacion.monto, operacion.moneda)}
+                <MontoOperacion operacion={operacion} />
               </span>
             )}
           </div>
@@ -169,7 +172,7 @@ export default function DetalleOperacion() {
 
         <div className="flex shrink-0 flex-col items-start gap-3 lg:items-end">
           <GrupoEstadoOperacion
-            tipo={operacion.tipo}
+            operacion={operacion}
             actual={operacion.estado}
             guardando={cambioEstado.isPending}
             error={
@@ -177,8 +180,8 @@ export default function DetalleOperacion() {
                 ? mensajeDeGuardado(cambioEstado.error, 'No se pudo cambiar el estado.')
                 : null
             }
-            onCambiar={(estado) =>
-              cambioEstado.mutate(estado, {
+            onCambiar={(cambio) =>
+              cambioEstado.mutate(cambio, {
                 // Mensaje neutro y no uno por estado ("Operación cerrada.",
                 // "Operación cancelada.", …): el estado nuevo ya queda pintado
                 // en el propio grupo de chips, así que el aviso sólo tiene que
@@ -229,9 +232,16 @@ export default function DetalleOperacion() {
       {/* ------------------------------ FICHA ------------------------------ */}
       <div className="mb-4 rounded-[14px] border border-border bg-surface px-6 py-5">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Dato label="Monto" destacado>
-            {formatearMonto(operacion.monto, operacion.moneda)}
+          <Dato
+            label={montoVigente.esDeCierre ? etiquetaValorDeCierre(operacion.tipo) : 'Monto'}
+            destacado
+          >
+            <MontoOperacion operacion={operacion} />
           </Dato>
+          {/* Si se cerró por otro valor, el publicado queda de dato secundario. */}
+          {montoVigente.esDeCierre && operacion.monto != null && operacion.monto !== operacion.monto_cierre && (
+            <Dato label="Publicado">{formatearMonto(operacion.monto, operacion.moneda)}</Dato>
+          )}
           <Dato label="Tipo">{etiquetaTipoOperacion(operacion.tipo)}</Dato>
           <Dato label="Estado">
             <BadgeEstadoOperacion tipo={operacion.tipo} estado={operacion.estado} />

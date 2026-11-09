@@ -1,14 +1,19 @@
 import { describe, expect, it, vi } from 'vitest'
 
+const { rpc, from } = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn() }))
+
 // El módulo crea el cliente de Supabase al importarse y sin variables de entorno
 // lanza. Sin sesión, `crearReserva` corta en la primera lectura: alcanza para ver
 // si el monto la frenó antes.
 vi.mock('../supabase', () => ({
-  supabase: { auth: { getUser: async () => ({ data: { user: null }, error: null }) } },
+  supabase: { auth: { getUser: async () => ({ data: { user: null }, error: null }) }, rpc, from },
 }))
 
 import {
+  aplicarCambioDeEstado,
+  cerrarOperacionGanada,
   crearReserva,
+  listarOperaciones,
   limitesDelMes,
   llevaEscritura,
   MENSAJE_MONTO_RESERVA,
@@ -141,5 +146,93 @@ describe('crearReserva: monto obligatorio', () => {
 
   it('con monto 1 pasa la validación y sigue con la sesión', async () => {
     await expect(crearReserva({ ...base, monto: 1 })).rejects.toThrow('Tu sesión expiró')
+  })
+})
+
+describe('cerrarOperacionGanada', () => {
+  const ID = '11111111-1111-4111-8111-111111111111'
+
+  it('llama al RPC con la operación y el valor de cierre, y devuelve la fila', async () => {
+    const fila = { id: ID, estado: 'CERRADA_GANADA', monto: 150, monto_cierre: 140 }
+    rpc.mockResolvedValueOnce({ data: fila, error: null })
+
+    await expect(cerrarOperacionGanada(ID, 140)).resolves.toBe(fila)
+    expect(rpc).toHaveBeenCalledWith('cerrar_operacion_ganada', {
+      p_operacion_id: ID,
+      p_monto_cierre: 140,
+    })
+  })
+
+  it('propaga tal cual el mensaje en español del RPC (P0001)', async () => {
+    const mensaje = 'No se pudo cerrar la operación: no existe, ya está cerrada o no tenés permiso.'
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: mensaje } })
+
+    await expect(cerrarOperacionGanada(ID, 140)).rejects.toThrow(mensaje)
+  })
+
+  it('el rechazo por rango también llega sin traducir', async () => {
+    const mensaje = 'El valor de cierre tiene que estar entre 1 y 10.000.000.'
+    rpc.mockResolvedValueOnce({ data: null, error: { code: 'P0001', message: mensaje } })
+
+    await expect(cerrarOperacionGanada(ID, 0)).rejects.toThrow(mensaje)
+  })
+
+  it('un error que no es nuestro no muestra el volcado del motor', async () => {
+    const crudo = 'permission denied for table operaciones'
+    rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: crudo } })
+
+    await expect(cerrarOperacionGanada(ID, 140)).rejects.not.toThrow(crudo)
+  })
+})
+
+describe('aplicarCambioDeEstado', () => {
+  const ID = '11111111-1111-4111-8111-111111111111'
+
+  it('cerrar como ganada va por el RPC y no toca la tabla', async () => {
+    rpc.mockClear()
+    from.mockClear()
+    rpc.mockResolvedValueOnce({ data: { id: ID }, error: null })
+
+    await aplicarCambioDeEstado(ID, { estado: 'CERRADA_GANADA', montoCierre: 140 })
+
+    expect(rpc).toHaveBeenCalledWith('cerrar_operacion_ganada', { p_operacion_id: ID, p_monto_cierre: 140 })
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('cualquier otro estado es un update simple del estado, sin RPC', async () => {
+    rpc.mockClear()
+    const update = vi.fn().mockReturnValue({
+      eq: () => ({ select: () => ({ maybeSingle: async () => ({ data: { id: ID }, error: null }) }) }),
+    })
+    from.mockReturnValueOnce({ update })
+
+    await aplicarCambioDeEstado(ID, { estado: 'CANCELADA' })
+
+    expect(update).toHaveBeenCalledWith({ estado: 'CANCELADA' })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('listarOperaciones', () => {
+  it('completa monto_cierre de las cerradas desde la tabla, porque la vista no lo expone', async () => {
+    const filas = [
+      { id: 'a', estado: 'CERRADA_GANADA' },
+      { id: 'b', estado: 'PUBLICADA' },
+    ]
+    from.mockReturnValueOnce({
+      select: () => ({
+        order: () => ({ order: () => ({ range: async () => ({ data: filas, error: null, count: 2 }) }) }),
+      }),
+    })
+    const in_ = vi.fn().mockResolvedValue({ data: [{ id: 'a', monto_cierre: 140 }], error: null })
+    from.mockReturnValueOnce({ select: () => ({ in: in_ }) })
+
+    const { data } = await listarOperaciones({ page: 1, pageSize: 10 })
+
+    expect(in_).toHaveBeenCalledWith('id', ['a'])
+    expect(data.map((o) => [o.id, o.monto_cierre])).toEqual([
+      ['a', 140],
+      ['b', null],
+    ])
   })
 })

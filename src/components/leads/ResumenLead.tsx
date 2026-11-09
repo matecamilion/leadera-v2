@@ -39,11 +39,11 @@ import { etiquetaOrigen, MAX_DESCRIPCION_LEAD } from '../../lib/api/leads'
 import { etiquetaTipoInteraccion } from '../../lib/api/interacciones'
 import {
   etiquetaTipoOperacion,
-  formatearMonto,
   type BusquedaResumida,
   type OperacionConVinculos,
 } from '../../lib/api/operaciones'
 import { etiquetaTipo, formatearPrecio } from '../../lib/api/propiedades'
+import { MontoOperacion } from '../operaciones/MontoOperacion'
 import type { Interaccion } from '../../lib/api/interacciones'
 import type { PropiedadConPropietario } from '../../lib/api/propiedades'
 import type { Lead } from '../../lib/api/leads'
@@ -615,7 +615,7 @@ function FilaOperacion({ operacion }: { operacion: OperacionConVinculos }) {
 
         <span className="shrink-0 text-right">
           <span className="block text-[0.82rem] font-semibold whitespace-nowrap text-ink tabular-nums">
-            {formatearMonto(operacion.monto, operacion.moneda)}
+            <MontoOperacion operacion={operacion} />
           </span>
           <span className="mt-1 block">
             <BadgeEstadoOperacion tipo={operacion.tipo} estado={operacion.estado} />

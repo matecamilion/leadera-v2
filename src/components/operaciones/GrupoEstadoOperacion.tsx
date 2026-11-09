@@ -3,11 +3,11 @@ import {
   esBloqueada,
   ESTADOS_OPERACION,
   etiquetaEstadoOperacion,
+  type CambioDeEstado,
   type EstadoOperacion,
   type EstadoTerminal,
-  type TipoOperacion,
 } from '../../lib/api/operaciones'
-import { ModalConfirmarCierre } from './ModalConfirmarCierre'
+import { ModalConfirmarCierre, type DatosDeCierre } from './ModalConfirmarCierre'
 
 /** Mismos pares de color que BadgeEstadoOperacion, en versión botón. */
 const ESTILOS: Record<string, string> = {
@@ -19,11 +19,12 @@ const ESTILOS: Record<string, string> = {
 }
 
 interface GrupoEstadoOperacionProps {
-  tipo: TipoOperacion
+  /** La operación: el tipo rotula los estados y el resto alimenta el diálogo de cierre. */
+  operacion: DatosDeCierre
   actual: EstadoOperacion
   guardando: boolean
   error?: string | null
-  onCambiar: (estado: EstadoOperacion) => void
+  onCambiar: (cambio: CambioDeEstado) => void
 }
 
 /**
@@ -37,7 +38,7 @@ interface GrupoEstadoOperacionProps {
  * atrás cuesta reabrirla. Entre estados abiertos se sigue cambiando de un click.
  */
 export function GrupoEstadoOperacion({
-  tipo,
+  operacion,
   actual,
   guardando,
   error,
@@ -50,7 +51,7 @@ export function GrupoEstadoOperacion({
       setAConfirmar(estado)
       return
     }
-    onCambiar(estado)
+    onCambiar({ estado })
   }
 
   /**
@@ -66,8 +67,12 @@ export function GrupoEstadoOperacion({
    */
   const pendiente = aConfirmar !== actual ? aConfirmar : null
 
-  function confirmar() {
-    if (pendiente) onCambiar(pendiente)
+  function confirmar(montoCierre: number | null) {
+    if (pendiente === 'CERRADA_GANADA') {
+      if (montoCierre !== null) onCambiar({ estado: pendiente, montoCierre })
+    } else if (pendiente) {
+      onCambiar({ estado: pendiente })
+    }
   }
 
   return (
@@ -95,7 +100,7 @@ export function GrupoEstadoOperacion({
                   : 'opacity-55 hover:opacity-100 disabled:opacity-40',
               ].join(' ')}
             >
-              {etiquetaEstadoOperacion(tipo, estado.valor)}
+              {etiquetaEstadoOperacion(operacion.tipo, estado.valor)}
             </button>
           )
         })}
@@ -119,6 +124,7 @@ export function GrupoEstadoOperacion({
 
       <ModalConfirmarCierre
         estado={pendiente}
+        operacion={operacion}
         procesando={guardando}
         // El error del intento se muestra acá adentro y no sólo abajo: quien
         // acaba de confirmar está mirando el diálogo, y el motivo del rechazo

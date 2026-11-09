@@ -10,6 +10,7 @@ import {
   type TotalPorMoneda,
 } from '../../lib/api/operaciones'
 import { formatearTotal } from '../../lib/kanbanUtils'
+import { montoVigenteOperacion } from '../../lib/montoOperacion'
 import { IconoCajas } from '../leads/Iconos'
 import { CardKanban } from './CardKanban'
 
@@ -39,7 +40,8 @@ function totalesPorMoneda(
 
   const porMoneda = new Map<string, number>()
   for (const o of operaciones) {
-    if (o.monto != null) porMoneda.set(o.moneda, (porMoneda.get(o.moneda) ?? 0) + o.monto)
+    const { valor, moneda } = montoVigenteOperacion(o)
+    if (valor != null) porMoneda.set(moneda, (porMoneda.get(moneda) ?? 0) + valor)
   }
   return [...porMoneda]
     .map(([moneda, total]) => ({ moneda, total }))

@@ -37,7 +37,7 @@ const POR_TEXTO: Record<string, string> = {
 }
 
 /**
- * Con esto abre `proteger_operacion_cerrada` cuando falta el monto.
+ * Con esto abre `proteger_operacion_cerrada` cuando falta el valor de cierre.
  *
  * Otro P0001 con el texto ya redactado para leerse. Se busca por el fragmento y
  * no por la frase entera para no depender de cómo termine la oración.

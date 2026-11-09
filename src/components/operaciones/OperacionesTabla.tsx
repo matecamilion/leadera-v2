@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
-import { formatearMonto, type OperacionListada } from '../../lib/api/operaciones'
+import type { OperacionListada } from '../../lib/api/operaciones'
+import { montoVigenteOperacion } from '../../lib/montoOperacion'
+import { MontoOperacion } from './MontoOperacion'
 import { formatearFecha } from '../../lib/formatoFecha'
 import { BadgeEstadoOperacion } from './BadgeEstadoOperacion'
 import { BadgeTipoOperacion } from './BadgeTipoOperacion'
@@ -63,10 +65,10 @@ export function OperacionesTabla({
                 <VinculoOperacion operacion={op} />
               </td>
               <td className="px-4 py-3.5 text-right align-middle tabular-nums text-ink-2">
-                {op.monto == null ? (
+                {montoVigenteOperacion(op).valor == null ? (
                   <span className="text-ink-4">—</span>
                 ) : (
-                  formatearMonto(op.monto, op.moneda)
+                  <MontoOperacion operacion={op} />
                 )}
               </td>
               <td className="px-4 py-3.5 align-middle whitespace-nowrap text-ink-3">

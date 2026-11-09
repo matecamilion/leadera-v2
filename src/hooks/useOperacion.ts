@@ -4,14 +4,14 @@ import {
   type Interaccion,
 } from '../lib/api/interacciones'
 import {
-  actualizarEstadoOperacion,
   actualizarOperacion,
   actualizarSeguimientoOperacion,
+  aplicarCambioDeEstado,
   eliminarOperacion,
   listarOperacionesPorLead,
   listarOperacionesPorPropiedad,
+  type CambioDeEstado,
   type CamposEditablesOperacion,
-  type EstadoOperacion,
   type OperacionDetalle,
 } from '../lib/api/operaciones'
 import { obtenerOperacionPorId } from '../lib/api/operaciones'
@@ -80,7 +80,7 @@ export function useActualizarEstadoOperacion(
   const invalidar = useInvalidarOperacion(id, leadId, propiedadId)
 
   return useMutation({
-    mutationFn: (estado: EstadoOperacion) => actualizarEstadoOperacion(id, estado),
+    mutationFn: (cambio: CambioDeEstado) => aplicarCambioDeEstado(id, cambio),
     onSuccess: (operacion) => {
       // El update ya devolvió la fila: la dejamos en cache para que el stepper
       // se mueva sin esperar al refetch, conservando los joins.

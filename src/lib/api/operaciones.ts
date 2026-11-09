@@ -290,9 +290,32 @@ export async function listarOperaciones({
   }
 
   return {
-    data: (data ?? []) as unknown as OperacionListada[],
+    data: await conMontoDeCierre((data ?? []) as unknown as OperacionListada[]),
     count: count ?? 0,
   }
+}
+
+/**
+ * Completa `monto_cierre` en las filas que salen de la vista.
+ *
+ * `operaciones_ordenadas` es anterior al valor de cierre y no lo expone, así que
+ * se lee aparte, de la tabla, solo para las cerradas de la página: son las
+ * únicas donde se muestra. Si se recrea la vista con la columna, esto se borra.
+ */
+async function conMontoDeCierre(filas: OperacionListada[]): Promise<OperacionListada[]> {
+  const idsCerradas = filas.filter((f) => f.estado === 'CERRADA_GANADA').map((f) => f.id)
+  if (idsCerradas.length === 0) return filas.map((f) => ({ ...f, monto_cierre: null }))
+
+  const { data, error } = await supabase
+    .from('operaciones')
+    .select('id, monto_cierre')
+    .in('id', idsCerradas)
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron cargar las operaciones.'))
+  }
+
+  const cierres = new Map((data ?? []).map((f) => [f.id, f.monto_cierre]))
+  return filas.map((f) => ({ ...f, monto_cierre: cierres.get(f.id) ?? null }))
 }
 
 /**
@@ -774,39 +797,23 @@ export async function obtenerOperacionPorId(
   return data as unknown as OperacionDetalle | null
 }
 
+/** Los estados a los que se pasa con un cambio simple: cerrar como ganada lleva el valor de cierre. */
+export type EstadoSinCierreGanado = Exclude<EstadoOperacion, 'CERRADA_GANADA'>
+
 /**
- * Cambia el estado y, al cerrar ganada, estampa `fecha_cierre` si estaba vacía.
+ * Cambia el estado a cualquiera menos CERRADA_GANADA, que va por
+ * `cerrarOperacionGanada`: la base rechaza ese cierre si no trae el valor.
  *
- * Sólo la estampa la primera vez: si la operación ya tenía fecha, se respeta.
- * Y ningún otro estado la toca — reabrir una operación deja la fecha del cierre
- * anterior en su lugar, que es lo acordado.
+ * Reabrir deja `fecha_cierre` y `monto_cierre` como estaban: el cierre
+ * anterior queda en su lugar, que es lo acordado.
  */
 export async function actualizarEstadoOperacion(
   id: string,
-  estado: EstadoOperacion,
+  estado: EstadoSinCierreGanado,
 ): Promise<Operacion> {
-  const cambios: { estado: EstadoOperacion; fecha_cierre?: string } = { estado }
-
-  if (estado === 'CERRADA_GANADA') {
-    // Hace falta leer antes: no hay forma de decir "seteá sólo si es null"
-    // en un update de PostgREST.
-    const { data: actual, error: errorLectura } = await supabase
-      .from('operaciones')
-      .select('fecha_cierre')
-      .eq('id', id)
-      .maybeSingle()
-
-    if (errorLectura) {
-      throw new Error(interpretarErrorSupabase(errorLectura, 'No se pudo actualizar el estado.'))
-    }
-    if (actual && !actual.fecha_cierre) {
-      cambios.fecha_cierre = new Date().toISOString()
-    }
-  }
-
   const { data, error } = await supabase
     .from('operaciones')
-    .update(cambios)
+    .update({ estado })
     .eq('id', id)
     .select('*')
     .maybeSingle()
@@ -814,6 +821,39 @@ export async function actualizarEstadoOperacion(
   if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo actualizar el estado.'))
   if (!data) throw new Error('No tenés permiso para editar esta operación.')
   return data
+}
+
+/**
+ * Cierra la operación como ganada con su valor de cierre, en una sola
+ * transacción (RPC `cerrar_operacion_ganada`): nunca queda cerrada sin valor.
+ *
+ * Los rechazos del RPC (valor fuera de rango, ya cerrada, sin permiso) llegan
+ * como P0001 con el texto ya redactado en español, y `interpretarErrorSupabase`
+ * los deja pasar tal cual.
+ */
+export async function cerrarOperacionGanada(
+  operacionId: string,
+  montoCierre: number,
+): Promise<Operacion> {
+  const { data, error } = await supabase.rpc('cerrar_operacion_ganada', {
+    p_operacion_id: operacionId,
+    p_monto_cierre: montoCierre,
+  })
+
+  if (error) throw new Error(interpretarErrorSupabase(error, 'No se pudo cerrar la operación.'))
+  return data
+}
+
+/** Un cambio de estado: cerrar como ganada lleva el valor de cierre, el resto no. */
+export type CambioDeEstado =
+  | { estado: EstadoSinCierreGanado }
+  | { estado: 'CERRADA_GANADA'; montoCierre: number }
+
+/** El único punto por el que un cambio de estado llega a la base. */
+export function aplicarCambioDeEstado(id: string, cambio: CambioDeEstado): Promise<Operacion> {
+  return cambio.estado === 'CERRADA_GANADA'
+    ? cerrarOperacionGanada(id, cambio.montoCierre)
+    : actualizarEstadoOperacion(id, cambio.estado)
 }
 
 /** Operaciones de un lead, para la tab de su ficha. */
@@ -874,6 +914,8 @@ export interface OperacionKanban {
   tipo: TipoOperacion
   estado: EstadoOperacion
   monto: number | null
+  /** Solo tiene valor en las cerradas ganadas. */
+  monto_cierre: number | null
   moneda: string
   created_at: string
   /** Lo actualiza un trigger en cada cambio; alimenta el badge de "trabada". */
@@ -903,7 +945,7 @@ const ESTADOS_ACTIVOS_TABLERO: EstadoOperacion[] = [
 ]
 
 const COLUMNAS_KANBAN =
-  'id, titulo, tipo, estado, monto, moneda, created_at, updated_at, lead:leads(id, nombre, apellido, telefono)'
+  'id, titulo, tipo, estado, monto, monto_cierre, moneda, created_at, updated_at, lead:leads(id, nombre, apellido, telefono)'
 
 /** Un monto acumulado, por moneda. No se mezclan entre sí. */
 export interface TotalPorMoneda {

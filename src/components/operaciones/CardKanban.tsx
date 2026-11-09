@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { Link } from 'react-router-dom'
-import { formatearMonto, type OperacionKanban } from '../../lib/api/operaciones'
+import type { OperacionKanban } from '../../lib/api/operaciones'
+import { MontoOperacion } from './MontoOperacion'
 import { diasSinMovimiento, esOperacionTrabada } from '../../lib/kanbanUtils'
 import { linkTelefono, linkWhatsApp } from '../../lib/telefono'
 import { IconoChat, IconoReloj, IconoTelefono } from '../leads/Iconos'
@@ -46,7 +47,7 @@ export function CardKanban({ operacion }: { operacion: OperacionKanban }) {
         className="cursor-grab touch-none p-3 active:cursor-grabbing"
       >
         <p className="text-[1.15rem] leading-tight font-bold text-ink tabular-nums">
-          {formatearMonto(operacion.monto, operacion.moneda)}
+          <MontoOperacion operacion={operacion} />
         </p>
 
         <p className="mt-1 truncate text-[0.85rem] font-semibold text-ink-2">

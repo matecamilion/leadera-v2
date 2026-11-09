@@ -122,12 +122,19 @@ export default function KanbanOperaciones() {
     mover.mutate({ id: operacion.id, estado: destino })
   }
 
-  function confirmarCierre() {
+  function confirmarCierre(montoCierre: number | null) {
     if (!aConfirmar) return
     const { id, destino, snapshot } = aConfirmar
-    setAConfirmar(null)
     // El snapshot viaja con la mutación: sin él, un fallo del server revertiría
     // al tablero que ya tiene la card movida y la dejaría en la columna nueva.
+    if (destino === 'CERRADA_GANADA') {
+      // Cerrar como ganada sin valor no existe: el diálogo no deja confirmar vacío.
+      if (montoCierre === null) return
+      setAConfirmar(null)
+      mover.mutate({ id, estado: destino, montoCierre, snapshotPrevio: snapshot })
+      return
+    }
+    setAConfirmar(null)
     mover.mutate({ id, estado: destino, snapshotPrevio: snapshot })
   }
 
@@ -204,6 +211,7 @@ export default function KanbanOperaciones() {
 
       <ModalConfirmarCierre
         estado={aConfirmar?.destino ?? null}
+        operacion={operaciones.find((o) => o.id === aConfirmar?.id) ?? null}
         procesando={mover.isPending}
         onCancelar={descartarCierre}
         onConfirmar={confirmarCierre}

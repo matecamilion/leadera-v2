@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      avisos_push_enviados: {
+        Row: {
+          actualizado_at: string
+          created_at: string
+          dispositivos: number | null
+          enviado_at: string | null
+          enviados: number | null
+          error: string | null
+          estado: string
+          fecha: string
+          id: string
+          intentos: number
+          ref: string
+          resumen: Json | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          actualizado_at?: string
+          created_at?: string
+          dispositivos?: number | null
+          enviado_at?: string | null
+          enviados?: number | null
+          error?: string | null
+          estado: string
+          fecha: string
+          id?: string
+          intentos?: number
+          ref?: string
+          resumen?: Json | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          actualizado_at?: string
+          created_at?: string
+          dispositivos?: number | null
+          enviado_at?: string | null
+          enviados?: number | null
+          error?: string | null
+          estado?: string
+          fecha?: string
+          id?: string
+          intentos?: number
+          ref?: string
+          resumen?: Json | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_push_enviados_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avisos_vencimiento: {
         Row: {
           actualizado_at: string
@@ -1043,6 +1102,7 @@ export type Database = {
           lead_id: string | null
           moneda: string
           monto: number | null
+          monto_cierre: number | null
           notas: string | null
           propiedad_id: string | null
           tipo: Database["public"]["Enums"]["tipo_operacion"]
@@ -1062,6 +1122,7 @@ export type Database = {
           lead_id?: string | null
           moneda?: string
           monto?: number | null
+          monto_cierre?: number | null
           notas?: string | null
           propiedad_id?: string | null
           tipo: Database["public"]["Enums"]["tipo_operacion"]
@@ -1081,6 +1142,7 @@ export type Database = {
           lead_id?: string | null
           moneda?: string
           monto?: number | null
+          monto_cierre?: number | null
           notas?: string | null
           propiedad_id?: string | null
           tipo?: Database["public"]["Enums"]["tipo_operacion"]
@@ -1940,6 +2002,35 @@ export type Database = {
           puntaje: number
         }[]
       }
+      cerrar_operacion_ganada: {
+        Args: { p_monto_cierre: number; p_operacion_id: string }
+        Returns: {
+          agente_id: string
+          busqueda_id: string | null
+          created_at: string
+          estado: Database["public"]["Enums"]["estado_operacion"]
+          fecha_cierre: string | null
+          fecha_proximo_seguimiento: string | null
+          fecha_reserva: string | null
+          id: string
+          inmobiliaria_id: string
+          lead_id: string | null
+          moneda: string
+          monto: number | null
+          monto_cierre: number | null
+          notas: string | null
+          propiedad_id: string | null
+          tipo: Database["public"]["Enums"]["tipo_operacion"]
+          titulo: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "operaciones"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       consulta_crear_lead: {
         Args: {
           p_consulta_id: string
@@ -2136,6 +2227,14 @@ export type Database = {
           visitas: number
         }[]
       }
+      mi_conexion_google: {
+        Args: never
+        Returns: {
+          conectado: boolean
+          importacion_activa: boolean
+          updated_at: string
+        }[]
+      }
       mi_cupo: {
         Args: never
         Returns: {
@@ -2288,6 +2387,15 @@ export type Database = {
           ultima_fecha: string
           ultimo_detalle: string
           ultimo_tipo: Database["public"]["Enums"]["tipo_interaccion"]
+        }[]
+      }
+      resumen_mi_dia: {
+        Args: { p_hoy: string; p_user_id: string }
+        Returns: {
+          nuevos: number
+          prioritarios: number
+          seguimientos: number
+          visitas_hoy: number
         }[]
       }
       resumen_semana_gestion: {

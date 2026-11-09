@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { formatearMonto, type OperacionListada } from '../../lib/api/operaciones'
+import type { OperacionListada } from '../../lib/api/operaciones'
+import { etiquetaValorDeCierre, montoVigenteOperacion } from '../../lib/montoOperacion'
 import { formatearFecha } from '../../lib/formatoFecha'
 import { BadgeEstadoOperacion } from './BadgeEstadoOperacion'
 import { BadgeTipoOperacion } from './BadgeTipoOperacion'
+import { MontoOperacion } from './MontoOperacion'
 import { VinculoOperacion } from './VinculoOperacion'
 
 /** Mismo contenido que la tabla, en tarjetas. Se usa por debajo de `md`. */
@@ -56,9 +58,11 @@ export function OperacionesCards({
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-ink-3">Monto</dt>
+              <dt className="text-xs text-ink-3">
+                {montoVigenteOperacion(op).esDeCierre ? etiquetaValorDeCierre(op.tipo) : 'Monto'}
+              </dt>
               <dd className="tabular-nums text-ink-2">
-                {formatearMonto(op.monto, op.moneda)}
+                <MontoOperacion operacion={op} />
               </dd>
             </div>
           </dl>

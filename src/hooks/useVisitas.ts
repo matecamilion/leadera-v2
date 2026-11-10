@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   cancelarVisita,
   contarVisitasDeLead,
+  contarVisitasDelPeriodo,
   crearVisita,
   diaSiguiente,
   eliminarVisita,
@@ -12,9 +13,11 @@ import {
   reconfirmarVisita,
   type CrearVisitaInput,
   type EstadisticasVisitasPropiedad,
+  type VisitasDelPeriodo,
   type VisitaConContexto,
   type VisitaPorReconfirmar,
 } from '../lib/api/visitas'
+import { rangoDelMes } from '../lib/calendario'
 import { hoyEnArgentina } from '../lib/ritmoSemanal'
 // El calendario unificado vive en `useTareas`: de ahí sale la forma del evento.
 // La dependencia va en un solo sentido —`useTareas` no importa nada de acá— así
@@ -100,6 +103,27 @@ export function useEstadisticasVisitasPropiedad(propiedadId: string | undefined)
     queryKey: claves.visitas.estadisticasPropiedad(uid, propiedadId ?? ''),
     queryFn: () => obtenerEstadisticasVisitasPropiedad(propiedadId as string),
     enabled: !!uid && Boolean(propiedadId),
+  })
+}
+
+/**
+ * Visitas del mes en curso por estado, del equipo del calendario.
+ *
+ * Cuelga de `claves.visitas.raiz`: marcar una visita como realizada o cancelarla,
+ * crearla o eliminarla ya invalida esa raíz y la cifra se recalcula sola. El mes es
+ * el de Argentina (`visitas.fecha` es un día de allá) y va en la clave, así que al
+ * cambiar el mes la query se vuelve a pedir.
+ */
+export function useVisitasDelPeriodo() {
+  const uid = useUid()
+  const { equipo, listo } = useEquipoCalendario()
+  const { desde, hasta } = rangoDelMes(hoyEnArgentina())
+  return useQuery<VisitasDelPeriodo>({
+    queryKey: claves.visitas.delPeriodo(uid, equipo ? claveDeEquipo(equipo) : '', desde, hasta),
+    queryFn: () => contarVisitasDelPeriodo(desde, hasta, equipo!.equipoIds),
+    // Con el equipo completo: con la lectura de asistentes a medias el conteo
+    // saldría corto y después saltaría.
+    enabled: !!uid && listo && !!equipo,
   })
 }
 

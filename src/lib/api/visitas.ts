@@ -478,3 +478,57 @@ export async function contarVisitasDeLead(leadId: string): Promise<number> {
   }
   return aEntero(data)
 }
+
+/** Visitas de un período por estado. */
+export interface VisitasDelPeriodo {
+  realizadas: number
+  /** Incluye las que ya pasaron y nadie marcó como realizadas ni canceladas. */
+  agendadas: number
+  canceladas: number
+}
+
+/**
+ * Cuántas visitas hay por estado entre `desde` y `hasta` (`YYYY-MM-DD`, los dos
+ * incluidos) asignadas a alguien del equipo.
+ *
+ * Cuenta todas las visitas: las de propiedades propias, las externas y las
+ * importadas de Google Calendar, con o sin lead. Filtra por `asignado_a` dentro de
+ * `equipoIds` —el mismo equipo que el calendario— y no por el usuario: un
+ * asistente carga en el calendario de su agente, así que filtrar por su id le
+ * daría cero. La RLS no alcanza para acotarlo: un dueño vería toda la inmobiliaria.
+ *
+ * Son conteos `head`: no se traen filas.
+ */
+export async function contarVisitasDelPeriodo(
+  desde: string,
+  hasta: string,
+  equipoIds: readonly string[],
+): Promise<VisitasDelPeriodo> {
+  if (equipoIds.length === 0) return { realizadas: 0, agendadas: 0, canceladas: 0 }
+
+  const contar = (estado: EstadoVisita) =>
+    supabase
+      .from('visitas')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado', estado)
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+      .in('asignado_a', [...equipoIds])
+
+  const [realizadas, agendadas, canceladas] = await Promise.all([
+    contar('REALIZADA'),
+    contar('AGENDADA'),
+    contar('CANCELADA'),
+  ])
+
+  const error = realizadas.error ?? agendadas.error ?? canceladas.error
+  if (error) {
+    throw new Error(interpretarErrorSupabase(error, 'No se pudieron contar las visitas del período.'))
+  }
+
+  return {
+    realizadas: realizadas.count ?? 0,
+    agendadas: agendadas.count ?? 0,
+    canceladas: canceladas.count ?? 0,
+  }
+}

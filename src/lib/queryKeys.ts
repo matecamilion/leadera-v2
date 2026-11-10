@@ -382,6 +382,8 @@ export const claves = {
     porLead: (uid: Uid, leadId: string) => ['visitas', 'por-lead', uid, leadId] as const,
     porReconfirmar: (uid: Uid, equipo: string, hoy: string, manana: string) =>
       ['visitas', 'por-reconfirmar', uid, equipo, hoy, manana] as const,
+    delPeriodo: (uid: Uid, equipo: string, desde: string, hasta: string) =>
+      ['visitas', 'del-periodo', uid, equipo, desde, hasta] as const,
   },
 }
 

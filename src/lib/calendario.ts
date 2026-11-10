@@ -113,3 +113,17 @@ export function esMomentoFuturo(valor: string): boolean {
   if (Number.isNaN(fecha.getTime())) return false
   return fecha.getTime() > Date.now()
 }
+
+/**
+ * El mes de `clave` como rango de claves `YYYY-MM-DD`, los dos extremos incluidos:
+ * el primer día y el último. Sirve para comparar contra columnas `date` con
+ * `>=` y `<=`. El último día sale de `Date` y no de una tabla: respeta febrero
+ * bisiesto.
+ */
+export function rangoDelMes(clave: string): { desde: string; hasta: string } {
+  const d = desdeClaveDia(clave)
+  return {
+    desde: claveDia(new Date(d.getFullYear(), d.getMonth(), 1)),
+    hasta: claveDia(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+  }
+}

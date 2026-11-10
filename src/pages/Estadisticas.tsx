@@ -17,6 +17,7 @@ import { PipelineAbierto } from '../components/perfil/PipelineAbierto'
 import { PropiedadesSinMovimiento } from '../components/perfil/PropiedadesSinMovimiento'
 import {
   IconoAlerta,
+  IconoCasa,
   IconoCalendario,
   IconoConversacion,
   IconoFuego,
@@ -27,12 +28,16 @@ import {
 } from '../components/leads/Iconos'
 import { useEmbudo } from '../hooks/useEmbudo'
 import { useMetricasPerfil } from '../hooks/usePerfil'
+import { useVisitasDelPeriodo } from '../hooks/useVisitas'
 
 export default function Estadisticas() {
   const { data, isPending, isError, error } = useMetricasPerfil()
   // Misma clave que usa `<Embudo />` adentro: esto no suma una consulta, sólo
   // lee la misma caché para sacar el aviso arriba de todo.
   const embudo = useEmbudo()
+  // Va por su cuenta y no frena la pantalla: mientras llega o si falla, sus cards
+  // muestran '—' y no un 0 inventado.
+  const visitas = useVisitasDelPeriodo()
 
   const mesActual = new Date().toLocaleString('es-AR', { month: 'long' })
 
@@ -138,6 +143,32 @@ export default function Estadisticas() {
           icono={<IconoReloj className="size-[18px]" />}
           tono="tibio"
         />
+        {/* Las visitas del mes asignadas al equipo del calendario (no son los "verdes"
+            del modelo de gestión: ver `contarVisitasDelPeriodo`). */}
+        <CardKpi
+          label="Visitas realizadas"
+          valor={valorVisitas(visitas, 'realizadas')}
+          contexto={contextoVisitas(visitas, 'Este mes · tuyas y de tu equipo')}
+          icono={<IconoCasa className="size-[18px]" />}
+          tono="tibio"
+        />
+        <CardKpi
+          label="Visitas agendadas"
+          valor={valorVisitas(visitas, 'agendadas')}
+          contexto={contextoVisitas(
+            visitas,
+            'Este mes · tuyas y de tu equipo · incluye las que todavía no se marcaron como realizadas',
+          )}
+          icono={<IconoCasa className="size-[18px]" />}
+          tono="neutro"
+        />
+        <CardKpi
+          label="Visitas canceladas"
+          valor={valorVisitas(visitas, 'canceladas')}
+          contexto={contextoVisitas(visitas, 'Este mes · tuyas y de tu equipo')}
+          icono={<IconoCasa className="size-[18px]" />}
+          tono="neutro"
+        />
       </div>
 
       <div className="mb-6">
@@ -159,6 +190,21 @@ export default function Estadisticas() {
       </div>
     </div>
   )
+}
+
+type EstadoDeVisitas = Pick<ReturnType<typeof useVisitasDelPeriodo>, 'data' | 'isError'>
+
+/** El número de una card de visitas, o '—' mientras llega o si falló. */
+function valorVisitas(
+  visitas: EstadoDeVisitas,
+  estado: 'realizadas' | 'agendadas' | 'canceladas',
+): string {
+  return visitas.data ? String(visitas.data[estado]) : '—'
+}
+
+/** Con error se dice en la card: un '—' solo parecería que todavía carga. */
+function contextoVisitas(visitas: EstadoDeVisitas, normal: string): string {
+  return visitas.isError ? 'No se pudieron cargar' : normal
 }
 
 const ID_EMBUDO = 'embudo'

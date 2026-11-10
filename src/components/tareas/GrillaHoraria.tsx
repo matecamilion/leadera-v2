@@ -158,7 +158,7 @@ export function GrillaHoraria({
         tabIndex={0}
         // Hasta 640px, pero sin pasarse de la pantalla: con ventanas bajas la región entera
         // entra a la vista (header de la app + barra + franja "todo el día" restan ~12rem).
-        className="max-h-[max(20rem,min(640px,calc(100dvh_-_12rem)))] overflow-y-auto overscroll-contain"
+        className="max-h-[max(20rem,min(640px,calc(100dvh_-_12rem)))] overflow-y-auto"
       >
         <div className="grid" style={{ gridTemplateColumns: plantilla, height: ALTO_TOTAL }}>
           <div className="relative" aria-hidden>

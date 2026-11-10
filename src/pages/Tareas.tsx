@@ -12,6 +12,7 @@ import { IconoCasa, IconoMas } from '../components/leads/Iconos'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
 import { useEquipoCalendario } from '../hooks/useEquipoCalendario'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
   useCompletarTarea,
   useDescompletarTarea,
@@ -32,6 +33,7 @@ import {
   sumarDias,
   tituloDeSemana,
   ubicarAlCambiarVista,
+  vistaEfectiva,
   type VistaCalendario,
 } from '../lib/vistaCalendario'
 import type { VisitaConContexto } from '../lib/api/visitas'
@@ -41,14 +43,21 @@ export default function Tareas() {
   const { profile } = useAuth()
   const hoy = useMemo(() => new Date(), [])
 
+  // La vista que eligió el usuario. Lo que se dibuja es `vistaVisible`: en una pantalla
+  // chica la semana se ve como día, sin tocar lo elegido (al agrandar vuelve la semana).
   const [vista, setVista] = useState<VistaCalendario>('MES')
+  const esPantallaChica = useMediaQuery('(max-width: 767.98px)')
+  const vistaVisible = vistaEfectiva(vista, esPantallaChica)
   // La ancla ubica el calendario: de ella y de la vista salen el rango que se pide
   // y lo que se muestra. En el mes es independiente de `diaSel`: navegar de mes
   // mueve la ancla y deja el día seleccionado donde estaba. En la semana y en el día,
   // ancla y `diaSel` se mueven juntos al navegar, así el panel acompaña a la grilla.
   const [ancla, setAncla] = useState<string>(() => claveDia(hoy))
-  const { ano, mes } = mesDeAncla(ancla)
   const [diaSel, setDiaSel] = useState<string>(() => claveDia(hoy))
+  // Semana achicada a día: el día que se muestra es el seleccionado (el que ya sigue el
+  // panel), no la ancla, que puede ser otro día de esa semana.
+  const anclaVisible = vistaVisible === vista ? ancla : diaSel
+  const { ano, mes } = mesDeAncla(anclaVisible)
   const [modalAbierto, setModalAbierto] = useState(false)
   const [modalVisita, setModalVisita] = useState(false)
   // Día que pidió el doble click. Cuando el modal se abre por el botón queda
@@ -63,10 +72,13 @@ export default function Tareas() {
 
   // El rango que se pide es el de la grilla completa, no el del mes: si no, los
   // días de relleno saldrían siempre vacíos aunque tengan eventos.
-  const { desde, hasta } = useMemo(() => rangoVisible(vista, ancla), [vista, ancla])
+  const { desde, hasta } = useMemo(
+    () => rangoVisible(vistaVisible, anclaVisible),
+    [vistaVisible, anclaVisible],
+  )
   const diasDeLaVista = useMemo(
-    () => (vista === 'SEMANA' ? diasDeLaSemana(ancla) : [ancla]),
-    [vista, ancla],
+    () => (vistaVisible === 'SEMANA' ? diasDeLaSemana(anclaVisible) : [anclaVisible]),
+    [vistaVisible, anclaVisible],
   )
 
   const eventos = useEventosCalendario(desde, hasta)
@@ -106,16 +118,16 @@ export default function Tareas() {
    * el día seleccionado se corre lo mismo, así sigue siendo el mismo día de la semana.
    */
   function mover(delta: number) {
-    const nueva = moverAncla(vista, ancla, delta)
+    const nueva = moverAncla(vistaVisible, anclaVisible, delta)
     setAncla(nueva)
-    if (vista === 'DIA') setDiaSel(nueva)
-    else if (vista === 'SEMANA') setDiaSel(sumarDias(diaSel, 7 * delta))
+    if (vistaVisible === 'DIA') setDiaSel(nueva)
+    else if (vistaVisible === 'SEMANA') setDiaSel(sumarDias(diaSel, 7 * delta))
   }
 
   /** Cambia de vista conservando un día coherente (ver `ubicarAlCambiarVista`). */
   function cambiarVista(nueva: VistaCalendario) {
     if (nueva === vista) return
-    const ubicacion = ubicarAlCambiarVista(vista, ancla, diaSel)
+    const ubicacion = ubicarAlCambiarVista(vistaVisible, anclaVisible, diaSel)
     setAncla(ubicacion.ancla)
     setDiaSel(ubicacion.diaSel)
     setVista(nueva)
@@ -156,8 +168,8 @@ export default function Tareas() {
 
   // En pantallas chicas va la versión corta; el lector de pantalla lee siempre la
   // completa. En el mes ya es corto; en la semana omite el año; en el día, abreviado.
-  const { tituloCorto, titulo } = tituloDeLaVista(vista, ancla)
-  const nombreDeLaVista = NOMBRE_DE_LA_VISTA[vista]
+  const { tituloCorto, titulo } = tituloDeLaVista(vistaVisible, anclaVisible)
+  const nombreDeLaVista = NOMBRE_DE_LA_VISTA[vistaVisible]
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -240,7 +252,11 @@ export default function Tareas() {
           título a continuación. El título es lo único que cambia de largo y va
           al final, así que no corre nada de lo anterior. */}
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <SelectorVista vista={vista} onCambiar={cambiarVista} />
+        <SelectorVista
+          vista={vistaVisible}
+          ofrecerSemana={!esPantallaChica}
+          onCambiar={cambiarVista}
+        />
 
         <div className="flex items-center gap-1">
           <button
@@ -292,7 +308,7 @@ export default function Tareas() {
                 aria-label="Cargando el calendario"
                 className="h-[520px] animate-pulse rounded-2xl bg-surface-2 motion-reduce:animate-none"
               />
-            ) : vista === 'MES' ? (
+            ) : vistaVisible === 'MES' ? (
               <CalendarioMes
                 ano={ano}
                 mes={mes}
@@ -424,9 +440,12 @@ function tituloDeLaVista(
 /** Mismo control segmentado que usa `ModalNuevaVisita`: botones con `aria-pressed`. */
 function SelectorVista({
   vista,
+  ofrecerSemana,
   onCambiar,
 }: {
   vista: VistaCalendario
+  /** En pantallas chicas la semana se ve como día: no se ofrece. */
+  ofrecerSemana: boolean
   onCambiar: (vista: VistaCalendario) => void
 }) {
   return (
@@ -435,7 +454,7 @@ function SelectorVista({
       aria-label="Vista del calendario"
       className="inline-flex rounded-full border border-border bg-surface p-0.5"
     >
-      {VISTAS.map((v) => {
+      {VISTAS.filter((v) => ofrecerSemana || v.valor !== 'SEMANA').map((v) => {
         const activa = v.valor === vista
         return (
           <button

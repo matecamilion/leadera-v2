@@ -11,6 +11,7 @@ import {
   sumarMeses,
   tituloDeSemana,
   ubicarAlCambiarVista,
+  vistaEfectiva,
 } from './vistaCalendario'
 
 describe('sumarDias', () => {
@@ -301,5 +302,19 @@ describe('ubicarAlCambiarVista', () => {
     const aSemana = ubicarAlCambiarVista('MES', '2026-11-01', '2026-11-20')
     expect(diasDeLaSemana(aSemana.ancla)).toContain('2026-11-20')
     expect(ubicarAlCambiarVista('SEMANA', aSemana.ancla, aSemana.diaSel).diaSel).toBe('2026-11-20')
+  })
+})
+
+describe('vistaEfectiva', () => {
+  it('la semana en una pantalla chica se ve como día', () => {
+    expect(vistaEfectiva('SEMANA', true)).toBe('DIA')
+  })
+
+  it('en cualquier otro caso devuelve la elegida', () => {
+    for (const v of ['MES', 'SEMANA', 'DIA'] as const) {
+      expect(vistaEfectiva(v, false)).toBe(v)
+    }
+    expect(vistaEfectiva('MES', true)).toBe('MES')
+    expect(vistaEfectiva('DIA', true)).toBe('DIA')
   })
 })

@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventoCalendario } from '../../hooks/useTareas'
+import { CalendarioMes } from './CalendarioMes'
 import { GrillaHoraria } from './GrillaHoraria'
 
 const DIA = '2026-11-12'
@@ -8,6 +10,18 @@ const DIA = '2026-11-12'
 function evento(extra: Partial<EventoCalendario> & Pick<EventoCalendario, 'id' | 'tipo' | 'titulo'>): EventoCalendario {
   return { fecha: DIA, hora: null, raw: {} as never, ...extra }
 }
+
+/** Fija la hora de "ahora" (solo el reloj: los intervalos siguen reales salvo que el test pida más). */
+function fijarAhora(y: number, mes: number, d: number, h: number, min: number) {
+  vi.setSystemTime(new Date(y, mes - 1, d, h, min, 0))
+}
+
+// Por defecto "hoy" cae lejos de los días de estos tests: la hora real no cambia el scroll.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  fijarAhora(2026, 12, 20, 10, 0)
+})
+afterEach(() => vi.useRealTimers())
 
 function montar(eventos: EventoCalendario[], dias: string[] = [DIA]) {
   const onSelectDia = vi.fn()
@@ -263,3 +277,139 @@ describe('GrillaHoraria — semana', () => {
   })
 })
 
+describe('GrillaHoraria — línea de la hora actual', () => {
+  const linea = () => screen.queryAllByTestId('linea-hora-actual')
+
+  it('en la semana va solo en la columna de hoy', () => {
+    fijarAhora(2026, 11, 11, 15, 20)
+    montar([], SEMANA)
+    expect(linea()).toHaveLength(1)
+    // 15:20 = 920 min → 859,33px → 859 − 1.
+    expect((linea()[0] as HTMLElement).style.top).toBe('858px')
+    // Es la columna del miércoles: la tercera de las siete (después del eje).
+    const columnas = (linea()[0].parentElement as HTMLElement).parentElement as HTMLElement
+    expect(columnas.children[3]).toBe(linea()[0].parentElement)
+  })
+
+  it('en el día va si es hoy, y no si es otro día', () => {
+    fijarAhora(2026, 11, 12, 9, 0)
+    montar([], [DIA])
+    expect(linea()).toHaveLength(1)
+  })
+
+  it('no aparece si hoy no es una de las columnas', () => {
+    fijarAhora(2026, 11, 20, 9, 0)
+    montar([], SEMANA)
+    expect(linea()).toHaveLength(0)
+  })
+
+  it('no recibe clicks, no se anuncia y no tapa los eventos de la columna', () => {
+    fijarAhora(2026, 11, 12, 9, 0)
+    montar([evento({ id: 'v', tipo: 'VISITA', titulo: 'V', hora: '09:00' })])
+    const l = linea()[0]
+    expect(l.getAttribute('aria-hidden')).toBe('true')
+    expect(l.className).toContain('pointer-events-none')
+    // El bloque sigue siendo accesible y clickeable por debajo de la línea.
+    expect(screen.getByRole('button', { name: '09:00 V' })).toBeTruthy()
+  })
+
+  it('pasa a la columna de hoy cuando cambia el día, sin tocar la selección', () => {
+    vi.useRealTimers()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 11, 23, 59, 30))
+    const { onSelectDia } = montar([], SEMANA)
+    const columnaDeLaLinea = () =>
+      Array.from(
+        ((linea()[0].parentElement as HTMLElement).parentElement as HTMLElement).children,
+      ).indexOf(linea()[0].parentElement as Element)
+    expect(columnaDeLaLinea()).toBe(3)
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(columnaDeLaLinea()).toBe(4)
+    expect(onSelectDia).not.toHaveBeenCalled()
+  })
+
+  it('el mes no dibuja la línea', () => {
+    fijarAhora(2026, 11, 12, 9, 0)
+    render(
+      <CalendarioMes
+        ano={2026}
+        mes={10}
+        eventos={[]}
+        diaSeleccionado={DIA}
+        onSelectDia={vi.fn()}
+        onNuevaTareaEnDia={vi.fn()}
+      />,
+    )
+    expect(linea()).toHaveLength(0)
+  })
+})
+
+describe('GrillaHoraria — scroll inicial con la hora actual', () => {
+  const region = () => screen.getByRole('region', { name: 'Agenda por hora' })
+
+  it('hoy visible y después de las 7:00: una hora antes de la hora actual', () => {
+    fijarAhora(2026, 11, 12, 15, 20)
+    montar([], SEMANA)
+    // 14:20 = 860 min → 802,67px.
+    expect(region().scrollTop).toBeCloseTo(802.67, 1)
+  })
+
+  it('hoy visible pero antes de las 7:00: la lógica de siempre', () => {
+    fijarAhora(2026, 11, 12, 6, 10)
+    montar([], SEMANA)
+    expect(region().scrollTop).toBe(364)
+  })
+
+  it('hoy visible, después de las 7:00 y con un evento más temprano: manda la hora actual', () => {
+    fijarAhora(2026, 11, 12, 15, 0)
+    montar([evento({ id: 'a', tipo: 'TAREA', titulo: 'T', hora: '05:00' })], SEMANA)
+    expect(region().scrollTop).toBe(14 * 56)
+  })
+
+  it('hoy no visible: sin eventos 6:30, con uno temprano 30 min antes', () => {
+    fijarAhora(2026, 11, 25, 15, 0)
+    montar([], SEMANA)
+    expect(region().scrollTop).toBe(364)
+  })
+
+  it('no recalcula con el reloj ni pisa un scroll del usuario', () => {
+    vi.useRealTimers()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 12, 15, 0, 0))
+    montar([], [DIA])
+    const r = region()
+    expect(r.scrollTop).toBe(14 * 56)
+    r.scrollTop = 100
+    fireEvent.scroll(r)
+    act(() => {
+      vi.advanceTimersByTime(5 * 60_000)
+    })
+    expect(r.scrollTop).toBe(100)
+  })
+
+  it('si llegan eventos más tempranos y el usuario no tocó nada, se corrige', () => {
+    fijarAhora(2026, 11, 20, 10, 0)
+    const props = { dias: [DIA], diaSeleccionado: DIA, onSelectDia: vi.fn() }
+    const { rerender } = render(<GrillaHoraria {...props} eventos={[]} />)
+    expect(region().scrollTop).toBe(364)
+    rerender(
+      <GrillaHoraria {...props} eventos={[evento({ id: 'a', tipo: 'TAREA', titulo: 'T', hora: '05:00' })]} />,
+    )
+    expect(region().scrollTop).toBe(252)
+  })
+
+  it('si llegan eventos más tempranos pero el usuario ya scrolleó, no se pisa', () => {
+    fijarAhora(2026, 11, 20, 10, 0)
+    const props = { dias: [DIA], diaSeleccionado: DIA, onSelectDia: vi.fn() }
+    const { rerender } = render(<GrillaHoraria {...props} eventos={[]} />)
+    const r = region()
+    r.scrollTop = 600
+    fireEvent.scroll(r)
+    rerender(
+      <GrillaHoraria {...props} eventos={[evento({ id: 'a', tipo: 'TAREA', titulo: 'T', hora: '05:00' })]} />,
+    )
+    expect(r.scrollTop).toBe(600)
+  })
+})

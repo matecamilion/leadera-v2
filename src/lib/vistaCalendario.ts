@@ -13,6 +13,15 @@ import { claveDia, desdeClaveDia, diasDeLaGrilla } from './calendario'
 
 export type VistaCalendario = 'MES' | 'SEMANA' | 'DIA'
 
+/**
+ * La vista que se dibuja: la elegida, salvo que sea la semana en una pantalla chica,
+ * donde siete columnas no entran y se ve el día. La elegida no se toca: al
+ * agrandar la ventana vuelve la semana.
+ */
+export function vistaEfectiva(elegida: VistaCalendario, esPantallaChica: boolean): VistaCalendario {
+  return elegida === 'SEMANA' && esPantallaChica ? 'DIA' : elegida
+}
+
 /** El día `n` días después de `clave` (negativo: antes), con el cambio de mes y de año. */
 export function sumarDias(clave: string, n: number): string {
   const d = desdeClaveDia(clave)

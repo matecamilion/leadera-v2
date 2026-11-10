@@ -1,23 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { desdeClaveDia, hoyComoClave } from '../../lib/calendario'
-import { MINUTOS_DEL_DIA } from '../../lib/columnasSuperpuestas'
+import { useAhora } from '../../hooks/useAhora'
+import { claveDia, desdeClaveDia } from '../../lib/calendario'
+import { ALTO_TOTAL, PX_POR_HORA, posicionLineaAhora, pxDeMinutos } from '../../lib/escalaGrilla'
+import { scrollInicialPx } from '../../lib/scrollInicialGrilla'
 import { bloquesDelDia, type BloqueDia } from '../../lib/bloquesDia'
 import type { EventoCalendario } from '../../hooks/useTareas'
 import { CHIP } from './coloresEvento'
 
-/** Alto de una hora en pantalla. El eje completo son 24 de estas. */
-const PX_POR_HORA = 56
-const ALTO_TOTAL = (MINUTOS_DEL_DIA / 60) * PX_POR_HORA
 /** Un bloque de 30 minutos mide 28px: este piso es para el que se recorta contra las 24:00. */
 const ALTO_MINIMO_BLOQUE = 22
-/** A qué hora arranca el scroll si no hay nada antes. */
-const HORA_INICIAL_SCROLL = 7
 /** Ancho de la columna de las horas. */
 const ANCHO_EJE_REM = 3.25
 /** Ancho mínimo de cada columna de día: por debajo, la grilla scrollea en horizontal. */
 const ANCHO_MIN_COLUMNA_REM = 6.5
-/** Media hora de aire arriba del primer evento (o de las 7:00): se ve la etiqueta de la hora y el bloque no queda pegado al borde. */
-const AIRE_ARRIBA_MIN = 30
 const HORAS = Array.from({ length: 24 }, (_, h) => h)
 
 interface GrillaHorariaProps {
@@ -43,9 +38,9 @@ function claseDeEvento(e: EventoCalendario): string {
 }
 
 function geometria(b: BloqueDia<EventoCalendario>) {
-  const alto = Math.max(((b.fin - b.inicio) / 60) * PX_POR_HORA, ALTO_MINIMO_BLOQUE)
+  const alto = Math.max(pxDeMinutos(b.fin - b.inicio), ALTO_MINIMO_BLOQUE)
   // Con el piso, uno pegado a las 24:00 se correría hacia abajo y se saldría: se sube.
-  const arriba = Math.min((b.inicio / 60) * PX_POR_HORA, ALTO_TOTAL - alto)
+  const arriba = Math.min(pxDeMinutos(b.inicio), ALTO_TOTAL - alto)
   const ancho = 100 / b.columnas
   return {
     top: arriba,
@@ -61,9 +56,13 @@ function geometria(b: BloqueDia<EventoCalendario>) {
  *
  * La duración de los bloques es cosmética (las visitas y tareas no tienen hora de
  * fin; ver `lib/bloquesDia`). Los que se superponen van lado a lado, día por día.
- * El eje scrollea por dentro: arranca a las 7:00, o en el primer evento (de todos
- * los días que se ven) si empieza antes, así ninguno queda fuera de la vista. Click
- * en un bloque selecciona su día.
+ * El eje scrollea por dentro. Arranca una hora antes de la hora actual si hoy se ve
+ * y ya pasaron las 7:00; si no, a las 6:30 o en el primer evento (de todos los días
+ * que se ven) si empieza antes (ver `lib/scrollInicialGrilla`). Click en un bloque
+ * selecciona su día.
+ *
+ * Si hoy es una de las columnas, una línea marca la hora actual: va por encima de los
+ * bloques (se lee mejor que escondida detrás), no recibe clicks y se mueve cada minuto.
  *
  * Recibe una lista de días: uno en la vista Día, siete en la Semana. Con varias
  * columnas suma un encabezado por día (click selecciona ese día) y, en pantallas
@@ -84,25 +83,49 @@ export function GrillaHoraria({
 
   const hayTodoElDia = columnasDeDias.some((c) => c.todoElDia.length > 0)
   const variasColumnas = dias.length > 1
-  const hoy = hoyComoClave()
+  const ahora = useAhora()
+  const hoy = claveDia(ahora)
+  const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes()
+  const hoyVisible = dias.includes(hoy)
   const plantilla = `${ANCHO_EJE_REM}rem repeat(${dias.length}, minmax(0, 1fr))`
 
-  // Dónde arranca el scroll: las 7:00, o antes si hay un evento más temprano.
-  const primerInicio = columnasDeDias.reduce(
-    (menor, c) => c.bloques.reduce((m, b) => Math.min(m, b.inicio), menor),
-    HORA_INICIAL_SCROLL * 60,
+  // El primer evento de todos los días que se ven, para el scroll inicial.
+  const primerEventoMin = columnasDeDias.reduce<number | null>(
+    (menor, c) => c.bloques.reduce((m, b) => (m === null ? b.inicio : Math.min(m, b.inicio)), menor),
+    null,
   )
   const clavesDeDias = dias.join(',')
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // El scroll se calcula al montar y al cambiar de días, no en cada tick del reloj
+  // (por eso `ahora` entra por una ref) y no pisa un scroll que el usuario ya hizo.
+  const ahoraMinRef = useRef<number | null>(null)
   useEffect(() => {
-    // Al cambiar de día o de primer evento; mover el scroll a mano no lo dispara.
-    // Los encabezados ocupan lugar al principio del contenido y quedan fijos, así que
-    // este scrollTop deja la hora pedida justo debajo de ellos.
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = (Math.max(0, primerInicio - AIRE_ARRIBA_MIN) / 60) * PX_POR_HORA
+    ahoraMinRef.current = hoyVisible ? minutosAhora : null
+  })
+  const aplicado = useRef<{ claves: string; px: number } | null>(null)
+  const scrolleoElUsuario = useRef(false)
+
+  useEffect(() => {
+    const region = scrollRef.current
+    if (!region) return
+    const otrosDias = aplicado.current?.claves !== clavesDeDias
+    if (otrosDias) scrolleoElUsuario.current = false
+    // Llegaron eventos más tempranos en los mismos días: se corrige solo si no tocó nada.
+    if (!otrosDias && scrolleoElUsuario.current) return
+    const px = scrollInicialPx({ primerEventoMin, ahoraMin: ahoraMinRef.current })
+    region.scrollTop = px
+    // Lo que quedó de verdad (el navegador lo recorta al máximo posible): con eso se compara.
+    aplicado.current = { claves: clavesDeDias, px: region.scrollTop }
+  }, [clavesDeDias, primerEventoMin])
+
+  function alScrollear() {
+    const region = scrollRef.current
+    // Distinto de lo que se aplicó por código: lo movió el usuario.
+    if (region && aplicado.current && Math.abs(region.scrollTop - aplicado.current.px) > 2) {
+      scrolleoElUsuario.current = true
     }
-  }, [clavesDeDias, primerInicio])
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
@@ -112,6 +135,7 @@ export function GrillaHoraria({
         aria-label="Agenda por hora"
         // Es una región con scroll: con foco por teclado se puede recorrer con las flechas.
         tabIndex={0}
+        onScroll={alScrollear}
         // Hasta 640px, pero sin pasarse de la pantalla: con ventanas bajas la región entera
         // entra a la vista (header de la app + barra + encabezados restan ~12rem).
         className="max-h-[max(20rem,min(640px,calc(100dvh_-_12rem)))] overflow-auto"
@@ -228,6 +252,18 @@ export function GrillaHoraria({
                     style={{ top: h * PX_POR_HORA }}
                   />
                 ))}
+
+                {c.dia === hoy && (
+                  // Debajo del eje fijo (z-10) al scrollear en horizontal, encima de los bloques.
+                  <div
+                    aria-hidden
+                    data-testid="linea-hora-actual"
+                    className="pointer-events-none absolute inset-x-0 z-[5] h-0.5 bg-primary"
+                    style={{ top: posicionLineaAhora(minutosAhora) }}
+                  >
+                    <span className="absolute top-1/2 -left-1 size-2 -translate-y-1/2 rounded-full bg-primary" />
+                  </div>
+                )}
 
                 {c.bloques.map((b) => (
                   <button

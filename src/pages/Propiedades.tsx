@@ -14,6 +14,7 @@ import {
   type TipoPropiedad,
 } from '../lib/api/propiedades'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
+import { EncabezadoPagina } from '../components/comunes/EncabezadoPagina'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { leerNumeroPositivo, leerPagina } from '../lib/parametrosDeUrl'
 
@@ -150,25 +151,20 @@ export default function Propiedades() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px]">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
-            Propiedades
-          </p>
-          <h1 className="m-0 text-[1.6rem] font-bold text-ink">Propiedades</h1>
-          <p className="mt-1 text-[0.92rem] text-ink-3">
-            {total === 1 ? '1 propiedad' : `${total} propiedades`} en tu cartera.
-          </p>
-        </div>
-
-        <Link
-          to="/propiedades/nueva"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
-        >
-          + Nueva Propiedad
-        </Link>
-      </header>
+    <div>
+      <EncabezadoPagina
+        eyebrow="Propiedades"
+        titulo="Propiedades"
+        descripcion={`${total === 1 ? '1 propiedad' : `${total} propiedades`} en tu cartera.`}
+        acciones={
+          <Link
+            to="/propiedades/nueva"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
+          >
+            + Nueva Propiedad
+          </Link>
+        }
+      />
 
       <div className="mb-5">
         <FiltrosPropiedades

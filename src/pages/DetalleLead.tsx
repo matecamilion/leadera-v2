@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AvatarLead } from '../components/leads/AvatarLead'
-import { BadgeEstado } from '../components/leads/BadgeEstado'
-import { BadgeRol } from '../components/leads/BadgeRol'
+import { ESTILOS } from '../components/leads/estilosEstado'
 import { BadgeEncuesta } from '../components/leads/ConsultaDelLead'
-import { IconoCerrar, IconoLapiz, IconoTacho } from '../components/leads/Iconos'
+import { IconoCerrar, IconoChevronAbajo } from '../components/leads/Iconos'
+import { LineaMetricasLead } from '../components/leads/LineaMetricasLead'
+import { CLASES_ACCION_SECUNDARIA } from '../components/leads/clasesAccion'
 import { ModalCambiarEstado } from '../components/leads/ModalCambiarEstado'
 import { ModalEditarContacto } from '../components/leads/ModalEditarContacto'
 import { ModalEliminarLead } from '../components/leads/ModalEliminarLead'
 import { ModalNuevaInteraccion } from '../components/leads/ModalNuevaInteraccion'
 import { ModalNuevaTarea } from '../components/tareas/ModalNuevaTarea'
 import { ModalNuevaVisita } from '../components/tareas/ModalNuevaVisita'
+import { MenuDesplegable, type ItemMenu } from '../components/comunes/MenuDesplegable'
 import { TooltipAyuda } from '../components/comunes/TooltipAyuda'
+import { useAuth } from '../contexts/AuthContext'
 import { useRolesPorLead } from '../hooks/useOperacionesPorLead'
 import { TabsDetalleLead } from '../components/leads/TabsDetalleLead'
 import {
@@ -19,8 +21,11 @@ import {
   useActualizarEstado,
   useEliminarLead,
   useLead,
+  useNombreAgente,
 } from '../hooks/useLead'
 import { hoyComoClave } from '../lib/calendario'
+import { etiquetaEstado, type EstadoLead } from '../lib/etiquetasLead'
+import { etiquetaRol } from '../lib/api/rolLead'
 import { useUiStore } from '../stores/ui'
 
 type ModalAbierto =
@@ -45,6 +50,8 @@ export default function DetalleLead() {
   // tempranos: es un hook.
   const rolDe = useRolesPorLead(id ? [id] : [])
   const rolLead = rolDe(id)
+  const { profile } = useAuth()
+  const asignado = useNombreAgente(lead?.asignado_a)
 
   const cambioEstado = useActualizarEstado(id)
   const cambioContacto = useActualizarContacto(id)
@@ -74,6 +81,16 @@ export default function DetalleLead() {
 
   const nombreCompleto = `${lead.nombre} ${lead.apellido ?? ''}`.trim()
 
+  const itemsMas: ItemMenu[] = [
+    { label: '+ Tarea', onSelect: () => setModal('tarea') },
+    { label: '+ Propiedad', to: `/propiedades/nueva?propietario=${lead.id}` },
+    { label: '+ Operación', to: `/operaciones/nueva?lead=${lead.id}` },
+    { label: 'Cambiar estado', onSelect: () => setModal('estado') },
+    ...(profile?.rol === 'ASISTENTE'
+      ? []
+      : [{ label: 'Eliminar lead', onSelect: () => setModal('eliminar'), peligro: true }]),
+  ]
+
   return (
     <div className="mx-auto box-border max-w-[900px]">
       {errorGeneral && (
@@ -93,96 +110,71 @@ export default function DetalleLead() {
         </div>
       )}
 
-      {/* ---------------------------- HEADER BAND ---------------------------- */}
-      <div className="mb-7 flex flex-col items-start gap-4.5 rounded-[16px] border border-border bg-surface p-6 lg:flex-row">
-        <AvatarLead nombre={lead.nombre} apellido={lead.apellido} estado={lead.estado} />
+      {/* ---------------------------- ENCABEZADO ---------------------------- */}
+      <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="m-0 text-pagina font-semibold text-balance break-words text-ink">
+            {nombreCompleto}
+          </h1>
 
-        <div className="min-w-0 flex-1">
-          <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
-            Ficha de lead
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="m-0 text-[1.35rem] leading-tight font-bold text-ink">
-              {nombreCompleto}
-            </h1>
-            <button
-              type="button"
-              onClick={() => setModal('estado')}
-              aria-label="Cambiar el estado del lead"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
-            >
-              <BadgeEstado estado={lead.estado} />
-              <IconoLapiz className="size-3.5 text-ink-3" />
-            </button>
-
-            {/* Hermano del botón y no hijo: un <button> adentro de otro es HTML
-                inválido y el click del tooltip abriría además el modal. */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <BotonEstadoLead estado={lead.estado} onClick={() => setModal('estado')} />
             <TooltipAyuda etiqueta="los estados del lead">
               Caliente, Tibio y Frío marcan qué tan cerca está de cerrar. Ganado
               ya cerró, Inactivo dejó de responder, y Nuevo es el que todavía
               nadie clasificó. Lo actualizás vos a mano: no se recalcula solo.
             </TooltipAyuda>
-
-            {/* Solo si vino de (o volvió por) el link de consultas. */}
             <BadgeEncuesta leadId={lead.id} />
-
-            {rolLead && (
-              <>
-                <BadgeRol rol={rolLead} />
-                <TooltipAyuda etiqueta="el rol del lead">
-                  Se calcula solo, no hace falta cargarlo. Es vendedor si es
-                  propietario de alguna propiedad o si alquila una. Es comprador
-                  si tiene una búsqueda cargada o si compra en una venta de otro
-                  propietario.
-                </TooltipAyuda>
-              </>
-            )}
           </div>
+
+          {(asignado.data || rolLead) && (
+            <p className="m-0 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-ink-3">
+              {asignado.data && <span>Asignado a {asignado.data}</span>}
+              {asignado.data && rolLead && <span aria-hidden>·</span>}
+              {rolLead && (
+                <span className="inline-flex items-center gap-1.5">
+                  {etiquetaRol(rolLead)}
+                  <TooltipAyuda etiqueta="el rol del lead">
+                    Se calcula solo, no hace falta cargarlo. Es vendedor si es
+                    propietario de alguna propiedad o si alquila una. Es comprador
+                    si tiene una búsqueda cargada o si compra en una venta de otro
+                    propietario.
+                  </TooltipAyuda>
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
-        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 pt-0.5 lg:w-auto">
-          {/* Los tres llevan al alta correspondiente con el lead ya cargado:
-              `?propietario` y `?lead` los lee el formulario de destino. */}
-          <Link
-            to={`/propiedades/nueva?propietario=${lead.id}`}
-            className={CLASES_ACCION}
-          >
-            + Propiedad
-          </Link>
-          {/* Interacción es el único de los tres que no navega: se carga en un
-              modal para no perder el lugar. Los otros dos siguen yendo a su
-              alta, que pide bastante más que tres campos. */}
+        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
           <button
             type="button"
             onClick={() => setModal('interaccion')}
-            className={CLASES_ACCION}
+            className={CLASES_ACCION_PRINCIPAL}
           >
-            + Interacción
+            Registrar interacción
           </button>
-          <Link to={`/operaciones/nueva?lead=${lead.id}`} className={CLASES_ACCION}>
-            + Operación
-          </Link>
-          {/* Como Interacción, no navega: la tarea se carga en un modal con
-              este lead ya fijo. */}
-          <button
-            type="button"
-            onClick={() => setModal('tarea')}
-            className={CLASES_ACCION}
-          >
-            + Tarea
-          </button>
-          {/* Igual que Tarea: modal con el lead ya fijo. La visita puede ser a
-              una propiedad cargada o a una externa. */}
-          <button
-            type="button"
-            onClick={() => setModal('visita')}
-            className={CLASES_ACCION}
-          >
+          <button type="button" onClick={() => setModal('visita')} className={CLASES_ACCION}>
             Coordinar visita
           </button>
+          <div className="min-w-0 flex-1 sm:flex-none">
+            <MenuDesplegable
+              etiqueta="Más acciones"
+              alinear="derecha"
+              claseBoton={`${CLASES_ACCION} w-full`}
+              boton={
+                <>
+                  Más
+                  <IconoChevronAbajo className="size-3.5" />
+                </>
+              }
+              items={itemsMas}
+            />
+          </div>
         </div>
-      </div>
+      </header>
+
+      <LineaMetricasLead lead={lead} />
 
       {/* Los dos modales que se abren desde adentro de las tabs se siguen
           montando acá: uno solo por pantalla. Las tabs sólo llevan el
@@ -194,18 +186,6 @@ export default function DetalleLead() {
         onEditarContacto={() => setModal('contacto')}
         onNuevaTarea={() => setModal('tarea')}
       />
-
-      {/* ---------------------------- ELIMINAR ---------------------------- */}
-      <div className="mt-10 flex justify-end border-t border-border pt-6">
-        <button
-          type="button"
-          onClick={() => setModal('eliminar')}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-peligro-borde bg-transparent px-3.5 py-[7px] text-[0.8rem] font-medium text-peligro-ink opacity-65 transition hover:bg-peligro-soft hover:opacity-100 motion-reduce:transition-none"
-        >
-          <IconoTacho className="size-4" />
-          Eliminar lead
-        </button>
-      </div>
 
       {/* ---------------------------- MODALES ---------------------------- */}
       <ModalCambiarEstado
@@ -300,13 +280,40 @@ export default function DetalleLead() {
   )
 }
 
-/** Los tres botones de acción del encabezado comparten el mismo look. */
-const CLASES_ACCION = [
-  'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg',
-  'border border-border bg-surface px-3.5 py-2',
-  'text-[0.82rem] font-semibold whitespace-nowrap text-ink',
-  'transition-colors hover:bg-background lg:flex-none motion-reduce:transition-none',
+/** Acciones secundarias del encabezado: en mobile se reparten la fila bajo "Registrar interacción". */
+const CLASES_ACCION = `${CLASES_ACCION_SECUNDARIA} flex-1 sm:flex-none`
+
+const CLASES_ACCION_PRINCIPAL = [
+  'inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg',
+  'bg-primary px-4 py-2.5 text-[0.9rem] font-semibold whitespace-nowrap text-primary-contrast',
+  'transition-colors hover:bg-primary-dark sm:min-h-10 sm:w-auto motion-reduce:transition-none',
 ].join(' ')
+
+/** El estado del lead: punto con el color de la temperatura, texto neutro; abre el cambio de estado. */
+function BotonEstadoLead({
+  estado,
+  onClick,
+}: {
+  estado: EstadoLead | null
+  onClick: () => void
+}) {
+  const nombre = etiquetaEstado(estado)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Estado: ${nombre}. Cambiar el estado del lead`}
+      className="group inline-flex cursor-pointer items-center gap-2 rounded-md text-cuerpo font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <span
+        aria-hidden
+        className={`size-2 shrink-0 rounded-full bg-current ${ESTILOS[estado ?? 'NUEVO']}`}
+      />
+      <span className="decoration-ink-4 underline-offset-4 group-hover:underline">{nombre}</span>
+      <IconoChevronAbajo className="size-3.5 text-ink-3" />
+    </button>
+  )
+}
 
 /**
  * Placeholder inerte, para las secciones que todavía no tienen pantalla.
@@ -349,7 +356,7 @@ function Aviso({ titulo, detalle }: { titulo: string; detalle: string }) {
 function Skeleton() {
   return (
     <div aria-busy="true" aria-label="Cargando el lead" className="mx-auto max-w-[900px]">
-      <div className="mb-7 h-32 animate-pulse rounded-[16px] bg-surface-2 motion-reduce:animate-none" />
+      <div className="mb-6 h-24 animate-pulse rounded-lg bg-surface-2 motion-reduce:animate-none" />
       <div className="mb-5 h-10 animate-pulse rounded-md bg-surface-2 motion-reduce:animate-none" />
       <div className="h-48 animate-pulse rounded-[16px] bg-surface-2 motion-reduce:animate-none" />
     </div>

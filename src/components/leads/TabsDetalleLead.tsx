@@ -19,6 +19,7 @@ import { ModalConfirmarEliminar } from '../comunes/ModalConfirmarEliminar'
 import { ItemTarea } from '../tareas/ItemTarea'
 import { ListaOperacionesCompacta } from '../operaciones/ListaOperacionesCompacta'
 import { PropiedadesCards } from '../propiedades/PropiedadesCards'
+import { CLASES_ACCION_SECUNDARIA, CLASES_ENLACE_ACCION } from './clasesAccion'
 import { IconoCalendario, IconoCasa } from './Iconos'
 import { ModalEditarInteraccion } from './ModalEditarInteraccion'
 import { ResumenLead } from './ResumenLead'
@@ -87,13 +88,17 @@ export function TabsDetalleLead({
 
   return (
     <section>
-      {/* La barra es la misma que usa Perfil: vive en `comunes/BarraTabs`. */}
-      <BarraTabs
-        etiqueta="Secciones del lead"
-        tabs={tabs}
-        activa={activa}
-        onCambiar={setActiva}
-      />
+      {/* `BarraTabs` es compartida con Consultas: su look se ajusta desde acá, sin tocarla.
+          Activa en tinta fuerte (el subrayado sigue en primary), tamaño de la escala y
+          altura táctil de 44px en mobile. */}
+      <div className="[&_[role=tab]]:text-cuerpo [&_[role=tab][aria-selected=true]]:text-ink max-sm:[&_[role=tab]]:min-h-11">
+        <BarraTabs
+          etiqueta="Secciones del lead"
+          tabs={tabs}
+          activa={activa}
+          onCambiar={setActiva}
+        />
+      </div>
 
       <div className="min-h-[200px]">
         {activa === 'resumen' && (
@@ -113,7 +118,7 @@ export function TabsDetalleLead({
               <button
                 type="button"
                 onClick={onNuevaInteraccion}
-                className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
+                className={CLASES_ACCION_SECUNDARIA}
               >
                 + Nueva interacción
               </button>
@@ -272,7 +277,7 @@ function PanelTareas({
         <button
           type="button"
           onClick={onNuevaTarea}
-          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
+          className={CLASES_ACCION_SECUNDARIA}
         >
           + Nueva tarea
         </button>
@@ -369,7 +374,7 @@ function PanelPropiedades({
         accion={
           <Link
             to={`/propiedades/nueva?propietario=${leadId}`}
-            className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
+            className={CLASES_ENLACE_ACCION}
           >
             + Nueva propiedad
           </Link>
@@ -383,7 +388,7 @@ function PanelPropiedades({
       <div className="mb-4 flex justify-end">
         <Link
           to={`/propiedades/nueva?propietario=${leadId}`}
-          className="inline-flex items-center gap-1.5 rounded-md border-2 border-primary bg-brand-softer px-4.5 py-2.5 text-[0.85rem] font-extrabold tracking-[0.04em] text-primary uppercase transition-colors hover:bg-primary-dark hover:text-primary-contrast motion-reduce:transition-none"
+          className={CLASES_ENLACE_ACCION}
         >
           + Nueva propiedad
         </Link>

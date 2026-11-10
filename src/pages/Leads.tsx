@@ -30,6 +30,7 @@ import {
 } from '../lib/api/leads'
 import { FILTROS_ROL, etiquetaFiltroRol, type FiltroRol } from '../lib/api/rolLead'
 import { EstadoError, BotonError } from '../components/comunes/EstadoError'
+import { EncabezadoPagina } from '../components/comunes/EncabezadoPagina'
 import { esPaginaFueraDeRango, mensajeDeListado } from '../lib/mensajesDeError'
 import { useAuth } from '../contexts/AuthContext'
 import { useEquipo } from '../hooks/useEquipo'
@@ -334,26 +335,22 @@ export default function Leads() {
   return (
     // `@container`: el header y los filtros se acomodan según el ancho de la
     // página (que cambia con el sidebar) y no según el de la ventana.
-    <div className="@container mx-auto max-w-[1200px] text-ink">
-      <header className="mb-4 flex flex-col gap-4 md:mb-8 @[64rem]:flex-row @[64rem]:items-center @[64rem]:justify-between">
-        <div>
-          <p className="mb-1 text-xs leading-tight font-bold tracking-[0.05em] text-primary uppercase">
-            Gestión de leads
-          </p>
-          <h1 className="m-0 text-[2rem] leading-tight font-bold text-ink">
-            Todos los leads
-          </h1>
-          <span className="block min-w-0 text-ink">
+    <div className="@container text-ink">
+      <EncabezadoPagina
+        eyebrow="Gestión de leads"
+        titulo="Todos los leads"
+        contador={
+          <>
             {cantidad} {cantidad === 1 ? 'lead encontrado' : 'leads encontrados'}
             {sufijoDelFiltro(filtroEstado) && ` · ${sufijoDelFiltro(filtroEstado)}`}
             {filtroDelDia && ` · ${ETIQUETA_DEL_DIA[filtroDelDia]}`}
             {filtroRol && ` · ${etiquetaFiltroRol(filtroRol)}`}
             {mios && ' · Míos'}
-          </span>
-        </div>
-
-        {/* En mobile buscador y "+" comparten fila y Exportar se oculta: el menú
-            Crear del header ya ofrece "Nuevo lead" y exportar es de escritorio. */}
+          </>
+        }
+        acciones={
+          // En mobile buscador y "+" comparten fila y Exportar se oculta: el menú
+          // Crear del header ya ofrece "Nuevo lead" y exportar es de escritorio.
         <div className="flex w-full min-w-0 flex-row items-center gap-3 @[64rem]:w-auto @[64rem]:flex-1 @[64rem]:justify-end">
           <BuscadorLeads valor={busqueda} onCambiar={cambiarBusqueda} />
 
@@ -385,7 +382,8 @@ export default function Leads() {
             {exportando ? 'Exportando…' : 'Exportar Excel'}
           </button>
         </div>
-      </header>
+        }
+      />
 
       {avisoExport && (
         <p

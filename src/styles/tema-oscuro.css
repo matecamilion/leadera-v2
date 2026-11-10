@@ -11,10 +11,9 @@
    (/login, /signup, /c/:slug, ...) y en /admin nunca se pone: se ven
    siempre en claro.
 
-   Sin tocar: los tokens sidebar-* (el sidebar usa bg-surface desde el
-   rediseño, así que sigue al tema con las superficies de abajo),
-   --color-white, sombras y los colores de temperatura
-   (caliente/tibio/frío/inactivo, que son fondos con texto blanco).
+   Sin tocar: --color-white, sombras y los colores de temperatura
+   (caliente/tibio/frío/inactivo, que son fondos con texto blanco). El sidebar
+   tiene sus propios valores más abajo.
 --------------------------------------------------------------------------- */
 
 html.dark {
@@ -48,6 +47,18 @@ html.dark {
   --color-primary-soft: #143a32;
   /* Texto sobre fondo de marca: oscuro, porque el verde ahora es claro. */
   --color-primary-contrast: #06201a;
+
+  /* Sidebar: verde oscuro de marca, distinto del fondo (#0f1115) y de las
+     cards (#171a20) sin llegar a ser un bloque claro. Parte de brand-soft
+     (#143a32); hover y activo mezclan ese verde con --color-primary al 12 % y
+     al 22 %. Texto: --color-sidebar-ink 7,9:1 sobre el fondo, 6,5:1 sobre el
+     hover; blanco 8,5:1 sobre el activo. */
+  --color-sidebar: #143a32;
+  --color-sidebar-hover: #19493f;
+  --color-sidebar-active: #1d564a;
+  --color-sidebar-ink: #b8d4cc;
+  --color-sidebar-ink-strong: #ffffff;
+  --color-sidebar-border: #194c42;
 
   /* Fondos suaves: el mismo tono, oscuro */
   --color-brand-soft: #143a32;

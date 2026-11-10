@@ -12,7 +12,6 @@ import {
   IconoTelefono,
 } from './Iconos'
 import { AsignadoA } from './AsignadoA'
-import { TarjetasMetricasLead } from './TarjetasMetricasLead'
 import { SeccionConsultaLead } from './ConsultaDelLead'
 import { ICONOS } from './iconosInteraccion'
 import { EmailLink, TelefonoConAcciones } from '../comunes/AccionesContacto'
@@ -97,25 +96,20 @@ export function ResumenLead({
     // `min-w-0` en las dos zonas: hijas de un grid, su `min-width` es `auto`
     // y en un teléfono se plantaban en el ancho de su contenido en vez de
     // ajustarse a la columna.
-    <>
-      {/* Cómo viene el lead, de un vistazo: a ancho completo, sobre la grilla. */}
-      <TarjetasMetricasLead lead={lead} />
+    <div className="grid gap-4 lg:grid-cols-3 lg:items-start [&>*]:min-w-0">
+      <ColumnaIdentidad
+        lead={lead}
+        leadId={leadId}
+        onEditarContacto={onEditarContacto}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-start [&>*]:min-w-0">
-        <ColumnaIdentidad
-          lead={lead}
-          leadId={leadId}
-          onEditarContacto={onEditarContacto}
-        />
-
-        <div className="space-y-4 lg:col-span-2">
-          <PanelInteracciones leadId={leadId} onIrATab={onIrATab} />
-          <PanelTareas leadId={leadId} onIrATab={onIrATab} />
-          <PanelPropiedades leadId={leadId} onIrATab={onIrATab} />
-          <PanelOperaciones leadId={leadId} onIrATab={onIrATab} />
-        </div>
+      <div className="space-y-4 lg:col-span-2">
+        <PanelInteracciones leadId={leadId} onIrATab={onIrATab} />
+        <PanelTareas leadId={leadId} onIrATab={onIrATab} />
+        <PanelPropiedades leadId={leadId} onIrATab={onIrATab} />
+        <PanelOperaciones leadId={leadId} onIrATab={onIrATab} />
       </div>
-    </>
+    </div>
   )
 }
 
@@ -316,13 +310,32 @@ function ColumnaIdentidad({
 function Panel({
   titulo,
   verTodas,
+  vacio,
   children,
 }: {
   titulo: string
   /** El "Ver todas". Se omite donde no hay a dónde ir. */
   verTodas?: () => void
+  /**
+   * Con datos cargados y ninguno que mostrar, el panel se colapsa a una fila: el
+   * título y este texto, sin card ni "Ver todas". Los colapsados que quedan
+   * seguidos se pegan entre sí (ver el `has-[...]`) y se leen como una lista.
+   */
+  vacio?: string
   children: ReactNode
 }) {
+  if (vacio) {
+    return (
+      <section
+        data-vacio
+        className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-border py-2.5 has-[+[data-vacio]]:mb-0"
+      >
+        <Titulo sinMargen>{titulo}</Titulo>
+        <span className="text-[0.85rem] text-ink-3">{vacio}</span>
+      </section>
+    )
+  }
+
   return (
     <section className="overflow-hidden rounded-[16px] border border-border bg-surface p-5">
       <header className="mb-3 flex items-center justify-between gap-3">
@@ -358,7 +371,11 @@ function PanelInteracciones({
   const filas = (data ?? []).slice(0, MAX_INTERACCIONES)
 
   return (
-    <Panel titulo="Últimas interacciones" verTodas={() => onIrATab('interacciones')}>
+    <Panel
+      titulo="Últimas interacciones"
+      verTodas={() => onIrATab('interacciones')}
+      vacio={!isPending && !isError && filas.length === 0 ? 'Sin interacciones todavía' : undefined}
+    >
       {isPending ? (
         <Cargando etiqueta="Cargando interacciones" />
       ) : isError ? (
@@ -367,8 +384,6 @@ function PanelInteracciones({
             ? error.message
             : 'No pudimos cargar las interacciones.'}
         </Error>
-      ) : filas.length === 0 ? (
-        <Vacio>Sin interacciones registradas todavía</Vacio>
       ) : (
         <ul className="divide-y divide-border">
           {filas.map((interaccion) => (
@@ -447,15 +462,17 @@ function PanelTareas({
       : null
 
   return (
-    <Panel titulo="Tareas del lead" verTodas={() => onIrATab('tareas')}>
+    <Panel
+      titulo="Tareas del lead"
+      verTodas={() => onIrATab('tareas')}
+      vacio={!isPending && !isError && (data ?? []).length === 0 ? 'Sin tareas todavía' : undefined}
+    >
       {isPending ? (
         <Cargando etiqueta="Cargando tareas" />
       ) : isError ? (
         <Error>
           {error instanceof Error ? error.message : 'No pudimos cargar las tareas.'}
         </Error>
-      ) : (data ?? []).length === 0 ? (
-        <Vacio>Sin tareas pendientes para este lead</Vacio>
       ) : (
         <ul className="space-y-2">
           {(data ?? []).map((tarea) => (
@@ -486,7 +503,11 @@ function PanelPropiedades({
   const filas = (data ?? []).slice(0, MAX_PROPIEDADES)
 
   return (
-    <Panel titulo="Propiedades relacionadas" verTodas={() => onIrATab('propiedades')}>
+    <Panel
+      titulo="Propiedades relacionadas"
+      verTodas={() => onIrATab('propiedades')}
+      vacio={!isPending && !isError && filas.length === 0 ? 'Sin propiedades todavía' : undefined}
+    >
       {isPending ? (
         <Cargando etiqueta="Cargando propiedades" />
       ) : isError ? (
@@ -495,8 +516,6 @@ function PanelPropiedades({
             ? error.message
             : 'No pudimos cargar las propiedades.'}
         </Error>
-      ) : filas.length === 0 ? (
-        <Vacio>Este lead todavía no figura como propietario de ninguna</Vacio>
       ) : (
         <ul className="divide-y divide-border">
           {filas.map((propiedad) => (
@@ -566,7 +585,11 @@ function PanelOperaciones({
   const filas = (data ?? []).slice(0, MAX_OPERACIONES)
 
   return (
-    <Panel titulo="Operaciones" verTodas={() => onIrATab('operaciones')}>
+    <Panel
+      titulo="Operaciones"
+      verTodas={() => onIrATab('operaciones')}
+      vacio={!isPending && !isError && filas.length === 0 ? 'Sin operaciones todavía' : undefined}
+    >
       {isPending ? (
         <Cargando etiqueta="Cargando operaciones" />
       ) : isError ? (
@@ -575,8 +598,6 @@ function PanelOperaciones({
             ? error.message
             : 'No pudimos cargar las operaciones.'}
         </Error>
-      ) : filas.length === 0 ? (
-        <Vacio>Este lead todavía no tiene operaciones</Vacio>
       ) : (
         <ul className="divide-y divide-border">
           {filas.map((operacion) => (
@@ -791,11 +812,6 @@ function Error({ children }: { children: ReactNode }) {
       {children}
     </p>
   )
-}
-
-/** El vacío de un panel: una línea de texto, sin ilustración ni marco. */
-function Vacio({ children }: { children: ReactNode }) {
-  return <p className="m-0 text-[0.85rem] text-ink-3">{children}</p>
 }
 
 /** Una búsqueda activa: qué tipo, dónde, de qué tamaño y a qué precio. */

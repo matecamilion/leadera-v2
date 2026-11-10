@@ -60,6 +60,12 @@ const trazo = {
   'aria-hidden': true,
 }
 
+/**
+ * Pantallas que usan más de 1200px y por eso quedan fuera del tope de ancho de
+ * `<main>`: cada una trae su propio `max-w` (1400px).
+ */
+const RUTAS_ANCHO_COMPLETO = ['/operaciones/tablero', '/coincidencias']
+
 const NAV: GrupoNav[] = [
   {
     titulo: 'Día a día',
@@ -330,25 +336,30 @@ export function AppLayout() {
 
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-surface',
+          'fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-sidebar-border bg-sidebar',
           'transition-transform duration-200 ease-out motion-reduce:transition-none',
           sidebarAbierto ? 'translate-x-0' : '-translate-x-full',
           'lg:translate-x-0',
         ].join(' ')}
       >
-        <div className="flex h-16 shrink-0 flex-col justify-center border-b border-border px-5">
-          <Marca className="text-primary" />
+        <div className="flex h-16 shrink-0 flex-col justify-center border-b border-sidebar-border px-5">
+          <Marca className="text-sidebar-ink-strong" />
           {inmobiliaria && (
-            <span className="mt-0.5 truncate pl-[34px] text-[0.78rem] text-ink-3">
+            <span className="mt-0.5 truncate pl-[34px] text-[0.78rem] text-sidebar-ink">
               {inmobiliaria}
             </span>
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Secciones">
+        {/* Scrollbar fina y translúcida, sólo de este aside: con `scrollbar-color` el
+            navegador usa la barra estándar y no la global de `index.css`. */}
+        <nav
+          className="flex-1 overflow-y-auto px-3 py-4 [scrollbar-color:color-mix(in_oklab,var(--color-sidebar-ink-strong)_25%,transparent)_transparent] [scrollbar-width:thin]"
+          aria-label="Secciones"
+        >
           {gruposVisibles.map((grupo) => (
             <div key={grupo.titulo} className="mb-5 last:mb-0">
-              <p className="mb-1.5 px-3 text-[0.68rem] font-bold tracking-[0.08em] text-ink-3 uppercase">
+              <p className="mb-1.5 px-3 text-[0.68rem] font-bold tracking-[0.08em] text-sidebar-ink uppercase">
                 {grupo.titulo}
               </p>
               <ul className="m-0 list-none space-y-0.5 p-0">
@@ -367,17 +378,20 @@ export function AppLayout() {
                           [
                             'flex h-9 items-center gap-3 rounded-lg px-3 text-[0.88rem]',
                             'transition-colors motion-reduce:transition-none',
-                            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+                            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sidebar-ink-strong',
+                            // El activo suma una barra recta de 3×20px a la izquierda, con
+                            // margen: es un pseudo-elemento y no depende del radio del ítem.
+                            'relative',
                             isActive && !excluido
-                              ? 'bg-brand-soft font-semibold text-primary'
-                              : 'font-medium text-ink-2 hover:bg-surface-muted hover:text-ink',
+                              ? "bg-sidebar-active font-semibold text-sidebar-ink-strong before:absolute before:top-1/2 before:left-1 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-sidebar-ink-strong before:content-['']"
+                              : 'font-medium text-sidebar-ink hover:bg-sidebar-hover hover:text-sidebar-ink-strong',
                           ].join(' ')
                         }
                       >
                         {item.icono}
                         {item.label}
                         {item.nuevo && !flyerVisto && (
-                          <span className="ml-auto rounded-full bg-primary px-1.5 py-px text-[0.62rem] leading-tight font-bold text-primary-contrast uppercase">
+                          <span className="ml-auto rounded-full bg-sidebar-ink-strong px-1.5 py-px text-[0.62rem] leading-tight font-bold text-sidebar uppercase">
                             Nuevo
                           </span>
                         )}
@@ -386,7 +400,7 @@ export function AppLayout() {
                             aria-label={
                               item.badge === 'consultas' ? `${n} pendientes` : `${n} nuevos`
                             }
-                            className="ml-auto min-w-[1.4rem] rounded-full bg-primary px-1.5 py-0.5 text-center text-[0.7rem] leading-none font-bold text-primary-contrast tabular-nums"
+                            className="ml-auto min-w-[1.4rem] rounded-full bg-sidebar-ink-strong px-1.5 py-0.5 text-center text-[0.7rem] leading-none font-bold text-sidebar tabular-nums"
                           >
                             {textoBadge(n)}
                           </span>
@@ -401,7 +415,7 @@ export function AppLayout() {
         </nav>
 
         {pie && (
-          <p className="m-0 shrink-0 border-t border-border px-5 py-3.5 text-[0.78rem] text-ink-3">
+          <p className="m-0 shrink-0 border-t border-sidebar-border px-5 py-3.5 text-[0.78rem] text-sidebar-ink">
             {pie}
           </p>
         )}
@@ -491,15 +505,19 @@ export function AppLayout() {
           {/* Las páginas se cargan por chunk (React.lazy en App.tsx). El
               boundary va acá y no más arriba para que, mientras baja el chunk,
               el sidebar y el header queden en su lugar en vez de desmontarse. */}
-          <Suspense
-            fallback={
-              <div className="flex justify-center py-16">
-                <Spinner label="Cargando la sección" />
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+          {/* Tope común de 1200px, centrado. Las pantallas de RUTAS_ANCHO_COMPLETO
+              se saltean el tope y mandan con su propio ancho. */}
+          <div className={RUTAS_ANCHO_COMPLETO.includes(location.pathname) ? '' : 'mx-auto max-w-[1200px]'}>
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-16">
+                  <Spinner label="Cargando la sección" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
+          </div>
         </main>
       </div>
 

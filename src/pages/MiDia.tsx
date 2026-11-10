@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CardKpi } from '../components/comunes/CardKpi'
 import { BotonError, EstadoError } from '../components/comunes/EstadoError'
+import { EncabezadoPagina } from '../components/comunes/EncabezadoPagina'
 import { ActividadReciente } from '../components/dashboard/ActividadReciente'
 import { ListaLeads } from '../components/dashboard/ListaLeads'
 import { ListaOperacionesEnCurso } from '../components/dashboard/ListaOperacionesEnCurso'
@@ -108,7 +109,7 @@ export default function MiDia() {
   // mostraría nunca.
   if (isError) {
     return (
-      <div className="mx-auto max-w-[1120px]">
+      <div>
         <EstadoError
           titulo="No pudimos cargar tu jornada"
           mensaje={mensajeDeListado(error)}
@@ -132,63 +133,61 @@ export default function MiDia() {
   const listaCoincidencias = coincidencias.data ?? []
 
   return (
-    <div className="mx-auto max-w-[1120px]">
+    <div>
       {/* El título va en texto plano sobre el fondo de la página: la banda con
           gradiente y las cards montadas encima competían con las secciones de
-          abajo, que son lo que se viene a leer. */}
-      {/* Título y link en un renglón: el link a la derecha, alineado a la base
-          del subtítulo. En mobile, sin lugar al costado, cae abajo. */}
-      <header className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-1">
-        <div className="min-w-0">
-          <h1 className="m-0 text-[1.4rem] leading-tight font-bold text-balance text-ink">
-            {sinLeads ? (
-              <>Empecemos{profile ? `, ${profile.nombre}` : ''}</>
-            ) : sinAsignados ? (
-              <>Hola{profile ? `, ${profile.nombre}` : ''}</>
-            ) : alDia ? (
-              <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
-            ) : (
-              <>
-                Hoy te quedan <span className="text-primary">{totalPendientes}</span>{' '}
-                {totalPendientes === 1 ? 'tarea' : 'tareas'}
-              </>
-            )}
-          </h1>
-          <p className="mt-0.5 text-[0.85rem] text-ink-3">
-            {sinLeads
-              ? 'Cargá tu primer lead y acá vas a ver tus seguimientos del día'
-              : sinAsignados
-                ? 'Cuando te asignen leads, acá vas a ver tus seguimientos del día'
-                : alDia
+          abajo, que son lo que se viene a leer. Título y link en un renglón: el
+          link a la derecha, alineado a la base; en mobile, sin lugar al
+          costado, cae abajo. */}
+      <EncabezadoPagina
+        titulo={
+          sinLeads ? (
+            <>Empecemos{profile ? `, ${profile.nombre}` : ''}</>
+          ) : sinAsignados ? (
+            <>Hola{profile ? `, ${profile.nombre}` : ''}</>
+          ) : alDia ? (
+            <>Estás al día{profile ? `, ${profile.nombre}` : ''}</>
+          ) : (
+            <>
+              Hoy te quedan <span className="text-primary">{totalPendientes}</span>{' '}
+              {totalPendientes === 1 ? 'tarea' : 'tareas'}
+            </>
+          )
+        }
+        descripcion={
+          sinLeads
+            ? 'Cargá tu primer lead y acá vas a ver tus seguimientos del día'
+            : sinAsignados
+              ? 'Cuando te asignen leads, acá vas a ver tus seguimientos del día'
+              : alDia
                 ? 'No tenés pendientes urgentes. Buen momento para sumar leads a la cartera.'
-                : 'Gestioná tus contactos y hacé crecer tu cartera'}
-          </p>
-        </div>
-
-        {/* Link y no botón: los contactados de hoy son para mirar hacia atrás
-            cuando hace falta, no la acción con la que se arranca la jornada.
-            Compitiendo en peso con el título desviaría de lo que queda por
-            hacer, que es de lo que habla el resto de la pantalla. Sin leads no
-            hay a quién haber contactado. */}
-        {/* La reserva no necesita leads: el botón queda fuera del `sinLeads`. */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:ml-auto">
-          {!sinLeads && (
-            <Link
-              to="/mi-dia/contactados"
-              className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
+                : 'Gestioná tus contactos y hacé crecer tu cartera'
+        }
+        acciones={
+          // Link y no botón: los contactados de hoy son para mirar hacia atrás
+          // cuando hace falta, no la acción con la que se arranca la jornada.
+          // Compitiendo en peso con el título desviaría de lo que queda por
+          // hacer. Sin leads no hay a quién haber contactado. La reserva no
+          // necesita leads: el botón queda fuera del `sinLeads`.
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:ml-auto">
+            {!sinLeads && (
+              <Link
+                to="/mi-dia/contactados"
+                className="text-[0.82rem] font-semibold whitespace-nowrap text-primary hover:underline"
+              >
+                Ver contactados hoy →
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setCargandoReserva(true)}
+              className="min-h-10 rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
             >
-              Ver contactados hoy →
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => setCargandoReserva(true)}
-            className="min-h-10 rounded-lg bg-primary px-4 py-2 text-[0.85rem] font-semibold whitespace-nowrap text-primary-contrast transition-colors hover:bg-primary-dark motion-reduce:transition-none"
-          >
-            Cargar reserva
-          </button>
-        </div>
-      </header>
+              Cargar reserva
+            </button>
+          </div>
+        }
+      />
 
       {/* Sin leads la invitación va pegada al título, a la vista sin scrollear:
           es lo único que la cuenta tiene que hacer. */}
@@ -368,7 +367,7 @@ export default function MiDia() {
 
 function Skeleton() {
   return (
-    <div aria-busy="true" aria-label="Cargando tu jornada" className="mx-auto max-w-[1120px]">
+    <div aria-busy="true" aria-label="Cargando tu jornada">
       <div className="mb-2 h-9 w-72 max-w-full animate-pulse rounded-lg bg-surface-2 motion-reduce:animate-none" />
       <div className="mb-6 h-5 w-96 max-w-full animate-pulse rounded bg-surface-2 motion-reduce:animate-none" />
 

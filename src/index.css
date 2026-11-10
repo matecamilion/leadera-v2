@@ -129,12 +129,20 @@
   --text-display: 1.75rem;
   --text-display--line-height: 2rem;
   --text-display--letter-spacing: -0.02em;
+  /* Título de página en pantallas chicas (`EncabezadoPagina`): 24px; desde `md`
+     pasa a `display`. */
+  --text-pagina: 1.5rem;
+  --text-pagina--line-height: 1.75rem;
+  --text-pagina--letter-spacing: -0.015em;
 
   /* Radios — escala del original (--r-sm / --r-md / --r-lg) */
   --radius-card: 0.75rem;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  /* Escala: sm 6 / md 10 / lg 14 / xl 16 / 2xl 16 (el default de Tailwind, 1rem).
+     `xl` era 12px, el default, y quedaba por debajo de `lg`. */
+  --radius-xl: 16px;
 
   /* Sombras — dos capas: un borde óptico al ras y una difusa para elevar.
      `shadow-card` es la única elevación de la app; no hay una escala completa
@@ -142,8 +150,8 @@
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -8px rgba(16, 24, 40, 0.1);
 
   /* Escala de sombras del original */
-  --shadow-sm: 0 1px 0 rgba(22, 33, 59, 0.04), 0 1px 2px rgba(22, 33, 59, 0.04);
-  --shadow-md: 0 1px 0 rgba(22, 33, 59, 0.04), 0 6px 24px -8px rgba(22, 33, 59, 0.08);
+  --shadow-sm: 0 1px 2px rgba(22, 33, 59, 0.03), 0 2px 6px -2px rgba(22, 33, 59, 0.03);
+  --shadow-md: 0 2px 4px rgba(22, 33, 59, 0.02), 0 6px 16px -8px rgba(22, 33, 59, 0.06);
   --shadow-modal: 0 8px 40px -8px rgba(22, 33, 59, 0.18);
   --shadow-focus: 0 0 0 3px rgba(15, 110, 92, 0.12);
 }

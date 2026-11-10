@@ -25,9 +25,13 @@ import {
 } from '../hooks/useVisitas'
 import { claveDia, desdeClaveDia, hoyComoClave } from '../lib/calendario'
 import {
+  diasDeLaSemana,
   mesDeAncla,
   moverAncla,
   rangoVisible,
+  sumarDias,
+  tituloDeSemana,
+  ubicarAlCambiarVista,
   type VistaCalendario,
 } from '../lib/vistaCalendario'
 import type { VisitaConContexto } from '../lib/api/visitas'
@@ -40,8 +44,8 @@ export default function Tareas() {
   const [vista, setVista] = useState<VistaCalendario>('MES')
   // La ancla ubica el calendario: de ella y de la vista salen el rango que se pide
   // y lo que se muestra. En el mes es independiente de `diaSel`: navegar de mes
-  // mueve la ancla y deja el día seleccionado donde estaba. En el día, ancla y
-  // `diaSel` son el mismo día: la grilla muestra el que el panel detalla.
+  // mueve la ancla y deja el día seleccionado donde estaba. En la semana y en el día,
+  // ancla y `diaSel` se mueven juntos al navegar, así el panel acompaña a la grilla.
   const [ancla, setAncla] = useState<string>(() => claveDia(hoy))
   const { ano, mes } = mesDeAncla(ancla)
   const [diaSel, setDiaSel] = useState<string>(() => claveDia(hoy))
@@ -60,7 +64,10 @@ export default function Tareas() {
   // El rango que se pide es el de la grilla completa, no el del mes: si no, los
   // días de relleno saldrían siempre vacíos aunque tengan eventos.
   const { desde, hasta } = useMemo(() => rangoVisible(vista, ancla), [vista, ancla])
-  const diasDeLaVista = useMemo(() => [ancla], [ancla])
+  const diasDeLaVista = useMemo(
+    () => (vista === 'SEMANA' ? diasDeLaSemana(ancla) : [ancla]),
+    [vista, ancla],
+  )
 
   const eventos = useEventosCalendario(desde, hasta)
   const { equipo: equipoCalendario } = useEquipoCalendario()
@@ -94,26 +101,23 @@ export default function Tareas() {
     setFechaPrellenada(null)
   }
 
-  /** ‹ y ›: un mes en el mes, un día en el día. */
+  /**
+   * ‹ y ›: un mes en el mes, siete días en la semana, un día en el día. En la semana
+   * el día seleccionado se corre lo mismo, así sigue siendo el mismo día de la semana.
+   */
   function mover(delta: number) {
     const nueva = moverAncla(vista, ancla, delta)
     setAncla(nueva)
     if (vista === 'DIA') setDiaSel(nueva)
+    else if (vista === 'SEMANA') setDiaSel(sumarDias(diaSel, 7 * delta))
   }
 
-  /**
-   * Cambia de vista conservando la ancla, así el día que se ve es coherente con el
-   * mes que se veía. Al pasar al día se muestra el día seleccionado si cae en el mes
-   * visible; si no, el de la ancla.
-   */
+  /** Cambia de vista conservando un día coherente (ver `ubicarAlCambiarVista`). */
   function cambiarVista(nueva: VistaCalendario) {
     if (nueva === vista) return
-    if (nueva === 'DIA') {
-      const delMes = mesDeAncla(diaSel).ano === ano && mesDeAncla(diaSel).mes === mes
-      const dia = delMes ? diaSel : ancla
-      setAncla(dia)
-      setDiaSel(dia)
-    }
+    const ubicacion = ubicarAlCambiarVista(vista, ancla, diaSel)
+    setAncla(ubicacion.ancla)
+    setDiaSel(ubicacion.diaSel)
     setVista(nueva)
   }
 
@@ -150,25 +154,10 @@ export default function Tareas() {
     borrarVisita.mutate(visita.id, { onError: (e) => setError(e.message) })
   }
 
-  // En el mes ya es corto; en el día, la versión chica va sin año y abreviada.
-  const tituloCorto =
-    vista === 'MES'
-      ? new Date(ano, mes, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-      : desdeClaveDia(ancla).toLocaleDateString('es-AR', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-        })
-
-  const titulo =
-    vista === 'MES'
-      ? new Date(ano, mes, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
-      : desdeClaveDia(ancla).toLocaleDateString('es-AR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
+  // En pantallas chicas va la versión corta; el lector de pantalla lee siempre la
+  // completa. En el mes ya es corto; en la semana omite el año; en el día, abreviado.
+  const { tituloCorto, titulo } = tituloDeLaVista(vista, ancla)
+  const nombreDeLaVista = NOMBRE_DE_LA_VISTA[vista]
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -261,10 +250,10 @@ export default function Tareas() {
           >
             Hoy
           </button>
-          <BotonMes etiqueta={vista === 'MES' ? 'Mes anterior' : 'Día anterior'} onClick={() => mover(-1)}>
+          <BotonMes etiqueta={`${nombreDeLaVista} anterior`} onClick={() => mover(-1)}>
             ‹
           </BotonMes>
-          <BotonMes etiqueta={vista === 'MES' ? 'Mes siguiente' : 'Día siguiente'} onClick={() => mover(1)}>
+          <BotonMes etiqueta={`${nombreDeLaVista} siguiente`} onClick={() => mover(1)}>
             ›
           </BotonMes>
         </div>
@@ -387,10 +376,50 @@ function BotonMes({
   )
 }
 
+const NOMBRE_DE_LA_VISTA: Record<VistaCalendario, string> = {
+  MES: 'Mes',
+  SEMANA: 'Semana',
+  DIA: 'Día',
+}
+
 const VISTAS: { valor: VistaCalendario; etiqueta: string }[] = [
-  { valor: 'MES', etiqueta: 'Mes' },
-  { valor: 'DIA', etiqueta: 'Día' },
+  { valor: 'MES', etiqueta: NOMBRE_DE_LA_VISTA.MES },
+  { valor: 'SEMANA', etiqueta: NOMBRE_DE_LA_VISTA.SEMANA },
+  { valor: 'DIA', etiqueta: NOMBRE_DE_LA_VISTA.DIA },
 ]
+
+/** El título de la barra de navegación: el corto para pantallas chicas y el completo. */
+function tituloDeLaVista(
+  vista: VistaCalendario,
+  ancla: string,
+): { tituloCorto: string; titulo: string } {
+  const fecha = desdeClaveDia(ancla)
+  switch (vista) {
+    case 'MES': {
+      // En el mes ya es corto: los dos son iguales.
+      const mes = fecha.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      return { tituloCorto: mes, titulo: mes }
+    }
+    case 'SEMANA': {
+      const { corto, completo } = tituloDeSemana(ancla)
+      return { tituloCorto: corto, titulo: completo }
+    }
+    case 'DIA':
+      return {
+        tituloCorto: fecha.toLocaleDateString('es-AR', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }),
+        titulo: fecha.toLocaleDateString('es-AR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+      }
+  }
+}
 
 /** Mismo control segmentado que usa `ModalNuevaVisita`: botones con `aria-pressed`. */
 function SelectorVista({

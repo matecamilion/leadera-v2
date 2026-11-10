@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { claveDia, diasDeLaGrilla } from './calendario'
 import {
+  diasDeLaSemana,
   finDeSemana,
   inicioDeSemana,
   mesDeAncla,
@@ -8,6 +9,8 @@ import {
   rangoVisible,
   sumarDias,
   sumarMeses,
+  tituloDeSemana,
+  ubicarAlCambiarVista,
 } from './vistaCalendario'
 
 describe('sumarDias', () => {
@@ -180,5 +183,123 @@ describe('moverAncla', () => {
     expect(moverAncla('DIA', '2027-01-01', -1)).toBe('2026-12-31')
     expect(moverAncla('DIA', '2024-02-28', 1)).toBe('2024-02-29')
     expect(moverAncla('DIA', '2024-03-01', -1)).toBe('2024-02-29')
+  })
+})
+
+describe('rangoVisible — SEMANA', () => {
+  it('es de lunes a domingo de la semana de la ancla', () => {
+    // 2026-11-11 es miércoles.
+    expect(rangoVisible('SEMANA', '2026-11-11')).toEqual({ desde: '2026-11-09', hasta: '2026-11-15' })
+  })
+
+  it('cualquier día de la semana da el mismo rango, el domingo incluido', () => {
+    for (const d of ['2026-11-09', '2026-11-13', '2026-11-15']) {
+      expect(rangoVisible('SEMANA', d)).toEqual({ desde: '2026-11-09', hasta: '2026-11-15' })
+    }
+  })
+
+  it('cruza el mes, el año y el 29 de febrero', () => {
+    expect(rangoVisible('SEMANA', '2026-12-02')).toEqual({ desde: '2026-11-30', hasta: '2026-12-06' })
+    expect(rangoVisible('SEMANA', '2026-12-31')).toEqual({ desde: '2026-12-28', hasta: '2027-01-03' })
+    expect(rangoVisible('SEMANA', '2024-02-29')).toEqual({ desde: '2024-02-26', hasta: '2024-03-03' })
+  })
+})
+
+describe('diasDeLaSemana', () => {
+  it('siete días corridos de lunes a domingo', () => {
+    expect(diasDeLaSemana('2026-11-11')).toEqual([
+      '2026-11-09',
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-12',
+      '2026-11-13',
+      '2026-11-14',
+      '2026-11-15',
+    ])
+  })
+
+  it('cruza el mes y el 29 de febrero', () => {
+    expect(diasDeLaSemana('2026-12-02')[0]).toBe('2026-11-30')
+    expect(diasDeLaSemana('2026-12-02')[6]).toBe('2026-12-06')
+    expect(diasDeLaSemana('2024-02-29')).toContain('2024-02-29')
+    expect(diasDeLaSemana('2024-02-29')[3]).toBe('2024-02-29')
+  })
+})
+
+describe('moverAncla — SEMANA', () => {
+  it('mueve siete días', () => {
+    expect(moverAncla('SEMANA', '2026-11-11', 1)).toBe('2026-11-18')
+    expect(moverAncla('SEMANA', '2026-11-11', -1)).toBe('2026-11-04')
+  })
+
+  it('cruza el fin de mes, el de año y el 29 de febrero', () => {
+    expect(moverAncla('SEMANA', '2026-11-27', 1)).toBe('2026-12-04')
+    expect(moverAncla('SEMANA', '2026-12-30', 1)).toBe('2027-01-06')
+    expect(moverAncla('SEMANA', '2024-02-26', 1)).toBe('2024-03-04')
+    expect(moverAncla('SEMANA', '2024-03-04', -1)).toBe('2024-02-26')
+  })
+})
+
+describe('tituloDeSemana', () => {
+  it('dentro de un mes: rango con el mes una vez', () => {
+    expect(tituloDeSemana('2026-11-11')).toEqual({ corto: '9 – 15 nov', completo: '9 – 15 nov 2026' })
+  })
+
+  it('cruza de mes: los dos meses', () => {
+    expect(tituloDeSemana('2026-12-02')).toEqual({
+      corto: '30 nov – 6 dic',
+      completo: '30 nov – 6 dic 2026',
+    })
+  })
+
+  it('cruza de año: los dos años, también en el corto', () => {
+    const t = tituloDeSemana('2026-12-31')
+    expect(t.completo).toBe('28 dic 2026 – 3 ene 2027')
+    expect(t.corto).toBe('28 dic 2026 – 3 ene 2027')
+  })
+
+  it('semana con 29 de febrero', () => {
+    expect(tituloDeSemana('2024-02-29').completo).toBe('26 feb – 3 mar 2024')
+  })
+
+  it('es el mismo para cualquier día de la semana', () => {
+    expect(tituloDeSemana('2026-11-15')).toEqual(tituloDeSemana('2026-11-09'))
+  })
+})
+
+describe('ubicarAlCambiarVista', () => {
+  it('desde el mes: el día seleccionado si cae en el mes que se veía', () => {
+    expect(ubicarAlCambiarVista('MES', '2026-11-01', '2026-11-20')).toEqual({
+      ancla: '2026-11-20',
+      diaSel: '2026-11-20',
+    })
+  })
+
+  it('desde el mes: si el día seleccionado quedó en otro mes, el de la ancla', () => {
+    // Navegó a diciembre sin seleccionar nada; el seleccionado sigue en noviembre.
+    expect(ubicarAlCambiarVista('MES', '2026-12-01', '2026-11-20')).toEqual({
+      ancla: '2026-12-01',
+      diaSel: '2026-12-01',
+    })
+    // Mismo mes de otro año no cuenta como el mes visible.
+    expect(ubicarAlCambiarVista('MES', '2027-11-01', '2026-11-20').ancla).toBe('2027-11-01')
+  })
+
+  it('desde la semana o el día: conserva el día seleccionado, también para volver al mes', () => {
+    // En la semana se pudo elegir una columna distinta de la ancla.
+    expect(ubicarAlCambiarVista('SEMANA', '2026-11-11', '2026-11-14')).toEqual({
+      ancla: '2026-11-14',
+      diaSel: '2026-11-14',
+    })
+    expect(ubicarAlCambiarVista('DIA', '2026-11-30', '2026-11-30')).toEqual({
+      ancla: '2026-11-30',
+      diaSel: '2026-11-30',
+    })
+  })
+
+  it('Mes → Semana → Mes termina en el mismo día, y su semana lo contiene', () => {
+    const aSemana = ubicarAlCambiarVista('MES', '2026-11-01', '2026-11-20')
+    expect(diasDeLaSemana(aSemana.ancla)).toContain('2026-11-20')
+    expect(ubicarAlCambiarVista('SEMANA', aSemana.ancla, aSemana.diaSel).diaSel).toBe('2026-11-20')
   })
 })

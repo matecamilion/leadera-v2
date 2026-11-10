@@ -125,12 +125,141 @@ describe('GrillaHoraria', () => {
     expect(screen.queryByRole('button', { name: '09:00 De otro día' })).toBeNull()
   })
 
-  it('con varios días, una columna por día con su encabezado', () => {
-    montar(
-      [evento({ id: 'b', tipo: 'TAREA', titulo: 'Viernes', hora: '09:00', fecha: '2026-11-13' })],
-      ['2026-11-12', '2026-11-13'],
-    )
-    expect(screen.getByText('13')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '09:00 Viernes' })).toBeTruthy()
+  it('en un solo día no hay encabezado de día', () => {
+    montar([])
+    expect(screen.queryByRole('button', { name: /jueves/ })).toBeNull()
   })
 })
+
+const SEMANA = [
+  '2026-11-09',
+  '2026-11-10',
+  '2026-11-11',
+  '2026-11-12',
+  '2026-11-13',
+  '2026-11-14',
+  '2026-11-15',
+]
+
+describe('GrillaHoraria — semana', () => {
+  it('siete encabezados, de lunes a domingo, con día de la semana y número', () => {
+    montar([], SEMANA)
+    const encabezados = SEMANA.map((_, i) =>
+      screen.getByRole('button', {
+        name: ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'][i] + ', ' + (9 + i) + ' de noviembre',
+      }),
+    )
+    expect(encabezados).toHaveLength(7)
+    expect(encabezados[0].textContent).toMatch(/lun\s*9/i)
+    expect(encabezados[6].textContent).toMatch(/dom\s*15/i)
+  })
+
+  it('click en un encabezado selecciona ese día', () => {
+    const { onSelectDia } = montar([], SEMANA)
+    fireEvent.click(screen.getByRole('button', { name: /sábado, 14/ }))
+    expect(onSelectDia).toHaveBeenCalledWith('2026-11-14')
+  })
+
+  it('marca el día seleccionado y solo ese', () => {
+    montar([], SEMANA)
+    const marcados = screen
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+    expect(marcados).toHaveLength(1)
+    expect(marcados[0].getAttribute('aria-label')).toMatch(/jueves, 12/)
+  })
+
+  it('marca la columna de hoy con aria-current', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 11, 10, 0, 0))
+    try {
+      montar([], SEMANA)
+      const hoy = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-current') === 'date')
+      expect(hoy).toHaveLength(1)
+      expect(hoy[0].getAttribute('aria-label')).toMatch(/miércoles, 11/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cada bloque cae en la columna de su día', () => {
+    montar(
+      [
+        evento({ id: 'a', tipo: 'TAREA', titulo: 'Lunes', hora: '09:00', fecha: '2026-11-09' }),
+        evento({ id: 'b', tipo: 'TAREA', titulo: 'Domingo', hora: '09:00', fecha: '2026-11-15' }),
+      ],
+      SEMANA,
+    )
+    const lunes = screen.getByRole('button', { name: '09:00 Lunes' })
+    const domingo = screen.getByRole('button', { name: '09:00 Domingo' })
+    expect(lunes.parentElement).not.toBe(domingo.parentElement)
+    // Cada uno ocupa su columna entera: la superposición es por día, no entre días.
+    expect(lunes.style.width).toBe('calc(100% - 4px)')
+    expect(domingo.style.width).toBe('calc(100% - 4px)')
+  })
+
+  it('la superposición se calcula por día: lo que choca va lado a lado, lo de otro día no', () => {
+    montar(
+      [
+        evento({ id: 'a', tipo: 'VISITA', titulo: 'A', hora: '10:00', fecha: '2026-11-10' }),
+        evento({ id: 'b', tipo: 'TAREA', titulo: 'B', hora: '10:15', fecha: '2026-11-10' }),
+        evento({ id: 'c', tipo: 'TAREA', titulo: 'C', hora: '10:15', fecha: '2026-11-11' }),
+      ],
+      SEMANA,
+    )
+    expect(screen.getByRole('button', { name: '10:00 A' }).style.width).toBe('calc(50% - 4px)')
+    expect(screen.getByRole('button', { name: '10:15 B' }).style.width).toBe('calc(50% - 4px)')
+    expect(screen.getByRole('button', { name: '10:15 C' }).style.width).toBe('calc(100% - 4px)')
+  })
+
+  it('"todo el día" de distintos días queda en la misma fila, una celda por columna', () => {
+    montar(
+      [
+        evento({ id: 'a', tipo: 'TAREA', titulo: 'Del martes', fecha: '2026-11-10' }),
+        evento({ id: 'b', tipo: 'TAREA', titulo: 'Del viernes', fecha: '2026-11-13' }),
+      ],
+      SEMANA,
+    )
+    const fila = screen.getByText('Todo el día').parentElement as HTMLElement
+    // El eje y las siete columnas: una sola fila de la grilla.
+    expect(fila.children).toHaveLength(8)
+    const celdaMartes = screen.getByRole('button', { name: 'Del martes' }).parentElement
+    const celdaViernes = screen.getByRole('button', { name: 'Del viernes' }).parentElement
+    expect(celdaMartes?.parentElement).toBe(fila)
+    expect(celdaViernes?.parentElement).toBe(fila)
+    expect(celdaMartes).not.toBe(celdaViernes)
+  })
+
+  it('cada columna tiene un ancho mínimo: en pantallas angostas scrollea en horizontal', () => {
+    montar([], SEMANA)
+    const region = screen.getByRole('region', { name: 'Agenda por hora' })
+    expect((region.firstElementChild as HTMLElement).style.minWidth).toBe('48.75rem')
+    expect(region.className).toContain('overflow-auto')
+  })
+
+  it('el scroll inicial mira toda la semana: arranca antes del primer evento de cualquier día', () => {
+    montar(
+      [
+        evento({ id: 'a', tipo: 'TAREA', titulo: 'Temprano', hora: '05:00', fecha: '2026-11-14' }),
+        evento({ id: 'b', tipo: 'TAREA', titulo: 'Tarde', hora: '15:00', fecha: '2026-11-10' }),
+      ],
+      SEMANA,
+    )
+    // 30 min antes de las 5:00 = 4:30 → 4,5 h × 56px.
+    expect(screen.getByRole('region', { name: 'Agenda por hora' }).scrollTop).toBe(252)
+  })
+
+  it('sin nada antes de las 7:00, arranca a las 6:30', () => {
+    montar([evento({ id: 'a', tipo: 'TAREA', titulo: 'T', hora: '15:00', fecha: '2026-11-10' })], SEMANA)
+    expect(screen.getByRole('region', { name: 'Agenda por hora' }).scrollTop).toBe(364)
+  })
+
+  it('atenúa las visitas realizadas y canceladas en cualquier columna', () => {
+    montar(
+      [evento({ id: 'r', tipo: 'VISITA', titulo: 'R', hora: '11:00', fecha: '2026-11-13', estadoVisita: 'REALIZADA' })],
+      SEMANA,
+    )
+    expect(screen.getByRole('button', { name: '11:00 R' }).className).toContain('opacity-55')
+  })
+})
+

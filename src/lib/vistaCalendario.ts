@@ -11,7 +11,7 @@
  */
 import { claveDia, desdeClaveDia, diasDeLaGrilla } from './calendario'
 
-export type VistaCalendario = 'MES' | 'DIA'
+export type VistaCalendario = 'MES' | 'SEMANA' | 'DIA'
 
 /** El día `n` días después de `clave` (negativo: antes), con el cambio de mes y de año. */
 export function sumarDias(clave: string, n: number): string {
@@ -43,6 +43,59 @@ export function finDeSemana(clave: string): string {
   return sumarDias(inicioDeSemana(clave), 6)
 }
 
+/** Los 7 días de la semana de `clave`, de lunes a domingo. */
+export function diasDeLaSemana(clave: string): string[] {
+  const lunes = inicioDeSemana(clave)
+  return Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i))
+}
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/**
+ * El título de la semana de `clave` como rango abreviado. `completo` lleva el año
+ * ("9 – 15 nov 2026", "30 nov – 6 dic 2026"); `corto` lo omite para pantallas
+ * chicas. Si la semana cruza de año, los dos años van siempre ("28 dic 2026 – 3 ene
+ * 2027"), porque sin ellos el rango sería ambiguo.
+ */
+export function tituloDeSemana(clave: string): { corto: string; completo: string } {
+  const lunes = desdeClaveDia(inicioDeSemana(clave))
+  const domingo = desdeClaveDia(finDeSemana(clave))
+  const mesLunes = MESES_CORTOS[lunes.getMonth()]
+  const mesDomingo = MESES_CORTOS[domingo.getMonth()]
+
+  if (lunes.getFullYear() !== domingo.getFullYear()) {
+    const cruzaAno = `${lunes.getDate()} ${mesLunes} ${lunes.getFullYear()} – ${domingo.getDate()} ${mesDomingo} ${domingo.getFullYear()}`
+    return { corto: cruzaAno, completo: cruzaAno }
+  }
+  const corto =
+    lunes.getMonth() === domingo.getMonth()
+      ? `${lunes.getDate()} – ${domingo.getDate()} ${mesDomingo}`
+      : `${lunes.getDate()} ${mesLunes} – ${domingo.getDate()} ${mesDomingo}`
+  return { corto, completo: `${corto} ${domingo.getFullYear()}` }
+}
+
+/**
+ * Dónde queda el calendario al cambiar de vista, conservando un día coherente.
+ *
+ * Desde el mes (donde la ancla y el día seleccionado son independientes) se pasa
+ * al día seleccionado si cae en el mes que se veía; si no, al de la ancla. Desde
+ * la semana o el día se conserva el día seleccionado. En todos los casos la ancla
+ * queda en ese día, así el mes, la semana y el día que se muestran lo contienen.
+ */
+export function ubicarAlCambiarVista(
+  de: VistaCalendario,
+  ancla: string,
+  diaSel: string,
+): { ancla: string; diaSel: string } {
+  let dia = diaSel
+  if (de === 'MES') {
+    const mesAncla = mesDeAncla(ancla)
+    const mesSel = mesDeAncla(diaSel)
+    if (mesSel.ano !== mesAncla.ano || mesSel.mes !== mesAncla.mes) dia = ancla
+  }
+  return { ancla: dia, diaSel: dia }
+}
+
 /** El mes de la ancla: `mes` va de 0 a 11, como `Date.getMonth()`. */
 export function mesDeAncla(ancla: string): { ano: number; mes: number } {
   const d = desdeClaveDia(ancla)
@@ -50,13 +103,15 @@ export function mesDeAncla(ancla: string): { ano: number; mes: number } {
 }
 
 /**
- * La ancla después de apretar ‹ o › (`delta` = -1 o 1): un mes en el mes, un día
- * en el día.
+ * La ancla después de apretar ‹ o › (`delta` = -1 o 1): un mes en el mes, siete
+ * días en la semana y un día en el día.
  */
 export function moverAncla(vista: VistaCalendario, ancla: string, delta: number): string {
   switch (vista) {
     case 'MES':
       return sumarMeses(ancla, delta)
+    case 'SEMANA':
+      return sumarDias(ancla, 7 * delta)
     case 'DIA':
       return sumarDias(ancla, delta)
   }
@@ -67,7 +122,7 @@ export function moverAncla(vista: VistaCalendario, ancla: string, delta: number)
  *
  * En el mes es el de la grilla completa, con el relleno de lunes a domingo (no el
  * del mes a secas): si no, los días de relleno saldrían vacíos aunque tengan eventos.
- * En el día es el día de la ancla, de los dos lados.
+ * En la semana es de lunes a domingo. En el día es el día de la ancla, de los dos lados.
  */
 export function rangoVisible(
   vista: VistaCalendario,
@@ -79,6 +134,8 @@ export function rangoVisible(
       const dias = diasDeLaGrilla(ano, mes)
       return { desde: claveDia(dias[0]), hasta: claveDia(dias[dias.length - 1]) }
     }
+    case 'SEMANA':
+      return { desde: inicioDeSemana(ancla), hasta: finDeSemana(ancla) }
     case 'DIA':
       return { desde: ancla, hasta: ancla }
   }
